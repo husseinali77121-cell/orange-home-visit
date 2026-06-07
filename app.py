@@ -12,7 +12,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ─── Inject CSS via components (avoids raw CSS showing as text) ────────────────
+# ─── Inject CSS ────────────────────────────────────────────────────────────────
 def inject_css():
     css = """
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -20,7 +20,6 @@ def inject_css():
       html, body, [class*="css"] { font-family: 'Cairo', sans-serif !important; direction: rtl; }
       .main { background: #fff8f0; }
       .block-container { padding-top: 0.5rem !important; max-width: 680px; }
-
       .ohv-header {
         background: linear-gradient(90deg, #FF6B00, #FF9A3C);
         border-radius: 16px; padding: 16px 22px;
@@ -29,82 +28,34 @@ def inject_css():
       }
       .ohv-header h1 { color:#fff; margin:0; font-size:20px; font-weight:800; }
       .ohv-header span { color:rgba(255,255,255,0.85); font-size:12px; }
-
       .stat-grid { display:flex; gap:10px; margin-bottom:18px; }
-      .stat-box {
-        flex:1; background:#fff; border-radius:14px; padding:12px;
-        text-align:center; border:1px solid #ffe8d1;
-        box-shadow:0 2px 10px rgba(0,0,0,0.05);
-      }
+      .stat-box { flex:1; background:#fff; border-radius:14px; padding:12px; text-align:center; border:1px solid #ffe8d1; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
       .stat-num { font-size:24px; font-weight:800; color:#FF6B00; }
       .stat-label { font-size:10px; color:#aaa; margin-top:2px; }
-
-      .visit-card {
-        background:#fff; border-radius:14px; padding:14px; margin-bottom:10px;
-        border:1px solid #ffe8d1; box-shadow:0 2px 10px rgba(0,0,0,0.05);
-      }
+      .visit-card { background:#fff; border-radius:14px; padding:14px; margin-bottom:10px; border:1px solid #ffe8d1; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
       .visit-name { font-size:15px; font-weight:700; color:#222; }
       .visit-meta { font-size:12px; color:#888; margin-top:4px; }
-      .visit-badge {
-        background:#fff3e6; color:#FF6B00; border-radius:8px;
-        padding:3px 10px; font-size:12px; font-weight:700; float:left;
-      }
-
-      .price-box {
-        background: linear-gradient(135deg, #FF6B00, #FF9A3C);
-        border-radius:16px; padding:16px 20px; color:#fff; margin-bottom:14px;
-      }
+      .visit-badge { background:#fff3e6; color:#FF6B00; border-radius:8px; padding:3px 10px; font-size:12px; font-weight:700; float:left; }
+      .price-box { background: linear-gradient(135deg, #FF6B00, #FF9A3C); border-radius:16px; padding:16px 20px; color:#fff; margin-bottom:14px; }
       .price-row { display:flex; justify-content:space-between; font-size:14px; margin-bottom:7px; }
-      .price-total {
-        display:flex; justify-content:space-between; font-size:19px; font-weight:800;
-        border-top:2px solid rgba(255,255,255,0.3); padding-top:9px; margin-top:5px;
-      }
-
-      .wa-btn {
-        display:block; padding:11px 16px; border-radius:12px; color:#fff !important;
-        font-weight:700; font-size:13px; text-decoration:none; text-align:center;
-        font-family:'Cairo',sans-serif;
-      }
+      .price-total { display:flex; justify-content:space-between; font-size:19px; font-weight:800; border-top:2px solid rgba(255,255,255,0.3); padding-top:9px; margin-top:5px; }
+      .wa-btn { display:block; padding:11px 16px; border-radius:12px; color:#fff !important; font-weight:700; font-size:13px; text-decoration:none; text-align:center; font-family:'Cairo',sans-serif; }
       .wa-client { background:#25D366; }
       .wa-share  { background:#128C7E; }
-
-      .detail-row {
-        display:flex; justify-content:space-between;
-        padding:8px 0; border-bottom:1px solid #f5f5f5; font-size:13px;
-      }
+      .detail-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f5f5f5; font-size:13px; }
       .detail-label { color:#888; }
       .detail-value { font-weight:600; color:#222; max-width:58%; text-align:left; }
-
-      .lab-badge {
-        display:inline-block; margin:3px; background:#fff3e6; color:#FF6B00;
-        border-radius:8px; padding:3px 9px; font-size:11px; font-weight:600;
-        border:1px solid #ffd4a8;
+      .lab-chip { display:inline-flex; align-items:center; gap:6px; margin:3px; background:#fff3e6; color:#FF6B00; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; border:1px solid #ffd4a8; }
+      .lab-chip .price-tag { background:#FF6B00; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; }
+      .repeat-banner { background:#fff8f0; border:2px dashed #FF9A3C; border-radius:14px; padding:12px; text-align:center; margin-top:12px; color:#FF6B00; font-weight:700; font-size:14px; }
+      .section-title { font-size:14px; font-weight:700; color:#FF6B00; border-right:4px solid #FF6B00; padding-right:10px; margin-bottom:10px; }
+      .cat-header { background:#fff3e6; border-radius:10px; padding:8px 14px; font-weight:700; color:#FF6B00; font-size:13px; margin-bottom:6px; margin-top:10px; }
+      div[data-testid="stButton"] button { font-family:'Cairo',sans-serif !important; font-weight:700 !important; border-radius:12px !important; }
+      div[data-testid="stTextInput"] label, div[data-testid="stNumberInput"] label,
+      div[data-testid="stDateInput"] label, div[data-testid="stTextArea"] label,
+      div[data-testid="stMultiSelect"] label, div[data-testid="stSelectbox"] label {
+        font-family:'Cairo',sans-serif !important; font-weight:600 !important; color:#555 !important;
       }
-
-      .repeat-banner {
-        background:#fff8f0; border:2px dashed #FF9A3C;
-        border-radius:14px; padding:12px; text-align:center;
-        margin-top:12px; color:#FF6B00; font-weight:700; font-size:14px;
-      }
-
-      .section-title {
-        font-size:14px; font-weight:700; color:#FF6B00;
-        border-right:4px solid #FF6B00; padding-right:10px; margin-bottom:10px;
-      }
-
-      div[data-testid="stButton"] button {
-        font-family:'Cairo',sans-serif !important;
-        font-weight:700 !important; border-radius:12px !important;
-      }
-      div[data-testid="stTextInput"] label,
-      div[data-testid="stNumberInput"] label,
-      div[data-testid="stDateInput"] label,
-      div[data-testid="stTextArea"] label,
-      div[data-testid="stMultiSelect"] label {
-        font-family:'Cairo',sans-serif !important;
-        font-weight:600 !important; color:#555 !important;
-      }
-      /* Hide streamlit branding */
       #MainMenu { visibility: hidden; }
       footer { visibility: hidden; }
       header { visibility: hidden; }
@@ -114,28 +65,927 @@ def inject_css():
 
 inject_css()
 
-# ─── Constants ─────────────────────────────────────────────────────────────────
+# ─── Orange Lab Price List 2026 ────────────────────────────────────────────────
+LABS_DB = {
+    "Allergy Screen": [
+        {"name": "IgE Food allergy test panel", "price": 2500},
+        {"name": "IgE for milk allergy Rast", "price": 1300},
+        {"name": "IgE Inhalant allergy panel", "price": 2000},
+        {"name": "IgE Specific Rast Gluten", "price": 1000},
+        {"name": "Mixed Allergy Panel (Food &", "price": 3700},
+        {"name": "Pediatric Panel (Food &", "price": 2500},
+        {"name": "Rast for drugs", "price": 2500},
+        {"name": "Tuberculin Skin Test", "price": 200},
+    ],
+    "Antiphospholipid antibody syndrome": [
+        {"name": "Anti Cardiolipin  IgG (ACL IgG)", "price": 650},
+        {"name": "Anti Cardiolipin  IgM (ACL IgM)", "price": 650},
+        {"name": "Anti-Phospholipid IgG (APL IgG)", "price": 650},
+        {"name": "Anti-Phospholipid IgM (APL IgM)", "price": 650},
+        {"name": "Lupus Anticoagulant", "price": 600},
+        {"name": "Albumin (Ascitic Fluid)", "price": 100},
+        {"name": "Ascitic Fluid Examination", "price": 550},
+        {"name": "Glucose (Ascitic Fluid)", "price": 80},
+        {"name": "LDH (Ascitic Fluid)", "price": 250},
+        {"name": "Total Protein (Ascitic Fluid)", "price": 120},
+    ],
+    "Autoimmune diseases": [
+        {"name": "Acetylcholine receptor Ab", "price": 2500},
+        {"name": "AChE (Acetylcholinesterase)", "price": 1200},
+        {"name": "Actin Antibodies", "price": 1700},
+        {"name": "Activated protein C resistance", "price": 2000},
+        {"name": "ANA (Antinuclear Ab)", "price": 350},
+        {"name": "ANA (Antinuclear Ab) titre by IF", "price": 600},
+        {"name": "ANA (Immunoblot technique)", "price": 1600},
+        {"name": "ANCA - C", "price": 850},
+        {"name": "ANCA - P", "price": 850},
+        {"name": "ANCA (Anti neutrophil", "price": 1000},
+        {"name": "Anti CCP", "price": 1400},
+        {"name": "Anti Centromere Ab", "price": 500},
+        {"name": "Anti Endomysial IgA (EMA IgA)", "price": 2000},
+        {"name": "Anti Endomysial IgG (EMA IgG)", "price": 2000},
+        {"name": "Anti Endomysial IgM (EMA IgM)", "price": 2000},
+        {"name": "Anti Gad Abs", "price": 2600},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Insulin Abs.", "price": 2500},
+        {"name": "Anti intrinsic factor Abs.", "price": 3000},
+        {"name": "Anti Jo1 Ab", "price": 400},
+        {"name": "Anti Keratin Ab", "price": 1000},
+        {"name": "Anti LKM (Liver Kidney", "price": 600},
+        {"name": "Anti MAG Antibodies IgG", "price": 2000},
+        {"name": "Anti MCV Abs.", "price": 1800},
+        {"name": "Anti Musk Abs (Muscle Specific", "price": 3600},
+        {"name": "Anti Ovarian antibodies IgG", "price": 1900},
+        {"name": "Anti Proteinase-3", "price": 550},
+        {"name": "Anti striated muscle Abs", "price": 780},
+        {"name": "Anti-Deamidated gliadin peptide", "price": 600},
+        {"name": "Anti-Gliadin IgA", "price": 1200},
+        {"name": "Anti-Gliadin IgG", "price": 1200},
+        {"name": "Anti-Gliadin IgM", "price": 1200},
+        {"name": "Anti-Histone Ab", "price": 550},
+        {"name": "Anti-Mitochondrial Abs (AMA)", "price": 550},
+        {"name": "Anti-Parietal Cell Abs  (APCA)", "price": 750},
+        {"name": "Anti-phospholipase A2 Abs", "price": 7000},
+        {"name": "Anti-PLA2R (Anti phospholipase", "price": 3900},
+        {"name": "Anti-Reticulin Abs", "price": 350},
+        {"name": "Anti-Ribosomal RNA", "price": 1000},
+        {"name": "Anti-RNP Abs", "price": 650},
+        {"name": "Anti-Scl 70 Abs", "price": 900},
+        {"name": "Anti-Smith Abs", "price": 900},
+        {"name": "Anti-Smooth muscle Abs (ASMA)", "price": 600},
+        {"name": "Anti-Sperm Abs (IgG)", "price": 650},
+        {"name": "Anti-SSA (Ro) Abs", "price": 850},
+        {"name": "Anti-SSB (La) Abs", "price": 850},
+        {"name": "Aquoporin 4 (neuromyelitis optic", "price": 3960},
+        {"name": "Aquoporin 4 (neuromyelitis optic", "price": 5940},
+        {"name": "ASCA (IgA)", "price": 900},
+        {"name": "ASCA (IgG)", "price": 900},
+        {"name": "ASOT(Anti-Streptolysin-O)(Quanti", "price": 350},
+        {"name": "B2-Glycoprotein Abs(IgG)", "price": 1000},
+        {"name": "B2-Glycoprotein Abs(IgM)", "price": 1000},
+        {"name": "Cow Milk (class)", "price": 1200},
+        {"name": "ds-DNA (Anti ds-DNA Abs)", "price": 300},
+        {"name": "Islet cell Ab", "price": 1800},
+        {"name": "NK Cells (natural Killer cells", "price": 1700},
+        {"name": "Platelet Antibodies (Direct)", "price": 1000},
+        {"name": "Platelet Antibodies (Indirect)", "price": 1000},
+        {"name": "Soluble Liver Antigen (SLA-Ab)", "price": 2500},
+        {"name": "Tissue transglutaminase Ab (IgA)", "price": 1000},
+        {"name": "Tissue transglutaminase Ab (IgG)", "price": 1000},
+        {"name": "Von Willebrand Factor (VWF)", "price": 2500},
+    ],
+    "BLOOD GASES": [
+        {"name": "Amino Acids in blood", "price": 3300},
+        {"name": "Blood Gases", "price": 1000},
+        {"name": "Blood pH", "price": 100},
+        {"name": "Osmotic fragility test", "price": 250},
+    ],
+    "Blood Glucose": [
+        {"name": "FBG", "price": 120},
+        {"name": "GLP-1 (Glucagon like peptide)", "price": 2700},
+        {"name": "Glucose 1 hr (100 gm Glucose)", "price": 80},
+        {"name": "Glucose 1 hr (50 gm Glucose)", "price": 80},
+        {"name": "Glucose 1 hr (75 gm Glucose)", "price": 80},
+        {"name": "Glucose 2 hr (100 gm Glucose)", "price": 80},
+        {"name": "Glucose 2 hr (50 gm Glucose)", "price": 80},
+        {"name": "Glucose 2 hr (75 gm Glucose)", "price": 80},
+        {"name": "Glucose Tolerance  1 hr", "price": 80},
+        {"name": "Glucose Tolerance  2 hrs", "price": 80},
+        {"name": "Glucose Tolerance 1.5 hr", "price": 80},
+        {"name": "Glucose Tolerance Curve", "price": 400},
+        {"name": "HbA1C", "price": 400},
+        {"name": "HOMA1-IR", "price": 550},
+        {"name": "PPBG", "price": 100},
+        {"name": "RBG", "price": 120},
+    ],
+    "Blood Group": [
+        {"name": "ABO", "price": 70},
+        {"name": "Blood Rh", "price": 90},
+        {"name": "Direct Coombs", "price": 250},
+        {"name": "Indirect Coombs", "price": 250},
+        {"name": "Rh Antibody Titre (In direct", "price": 300},
+    ],
+    "Blood Picture": [
+        {"name": "Hb (hemoglobin)", "price": 130},
+        {"name": "Hct", "price": 130},
+        {"name": "Hgb And Indices", "price": 70},
+        {"name": "Platelets", "price": 200},
+        {"name": "RBCs", "price": 150},
+        {"name": "WBCs", "price": 100},
+        {"name": "WBCs (Diff.)", "price": 150},
+        {"name": "Albumin (Body Fluid)", "price": 100},
+        {"name": "Beta Trace Protein", "price": 3000},
+        {"name": "Chloride (Body Fluid)", "price": 250},
+        {"name": "Creatinine (Body Fluid)", "price": 100},
+        {"name": "Gene Xpert - MTB/RIF", "price": 3000},
+        {"name": "Glucose (Body Fluid)", "price": 80},
+        {"name": "LDH (Body Fluid)", "price": 250},
+        {"name": "Total Protein (Body Fluid)", "price": 120},
+    ],
+    "Cardiac Profile": [
+        {"name": "Brain Natriuretic Peptide (BNP)", "price": 1200},
+        {"name": "CK (MB)", "price": 350},
+        {"name": "CK(MM)", "price": 700},
+        {"name": "CPK (Total)", "price": 350},
+        {"name": "CPK Isoenzymes", "price": 2500},
+        {"name": "Homocysteine", "price": 1200},
+        {"name": "LDH", "price": 250},
+        {"name": "Myoglobin in serum", "price": 350},
+        {"name": "Pro-Brain Natriuretic Peptide", "price": 1200},
+        {"name": "Troponin (I)", "price": 450},
+        {"name": "Troponin (T) high sensitive", "price": 600},
+    ],
+    "Coagulation Profile": [
+        {"name": "Anti-thrombin III Abs", "price": 650},
+        {"name": "Bleeding Time", "price": 70},
+        {"name": "C5 (Complement. C5)", "price": 1500},
+        {"name": "Clotting Time", "price": 70},
+        {"name": "Complement. (50%) CH50", "price": 1100},
+        {"name": "D-dimer", "price": 750},
+        {"name": "Factor II (F, 2)", "price": 1200},
+        {"name": "Factor IX  (F. 9)", "price": 1300},
+        {"name": "Factor V  (F. 5)", "price": 1300},
+        {"name": "Factor VII  (F. 7)", "price": 1350},
+        {"name": "Factor VIII  (F. 8)", "price": 1750},
+        {"name": "Factor VIII Inhibitor", "price": 1750},
+        {"name": "Factor X  (F. 10)", "price": 1450},
+        {"name": "Factor XI  (F. 11)", "price": 1300},
+        {"name": "Factor XII  (F. 12)", "price": 700},
+        {"name": "Factor XIII (F,13)", "price": 1450},
+        {"name": "Fibrinogen Level", "price": 300},
+        {"name": "Platelet aggregation to ADP", "price": 1500},
+        {"name": "Platelet aggregation to", "price": 1500},
+        {"name": "PTT", "price": 200},
+        {"name": "PTT after mixing studies", "price": 200},
+        {"name": "Thrombin Time (TT)", "price": 250},
+        {"name": "Von Willebrand Factor (VWF) Conc", "price": 2500},
+    ],
+    "CSF Chemistry Profile": [
+        {"name": "AFP (CSF)", "price": 600},
+        {"name": "Albumin (CSF)", "price": 100},
+        {"name": "Chloride (CL) in CSF", "price": 250},
+        {"name": "CSF examination (Pleural,", "price": 750},
+        {"name": "CSF Oligoclonal band", "price": 2500},
+        {"name": "Glucose (CSF)", "price": 100},
+        {"name": "LDH (CSF)", "price": 250},
+        {"name": "Magnesium (Mg) CSF", "price": 260},
+        {"name": "Total Protein (CSF)", "price": 120},
+    ],
+    "Culture and Sensitivity": [
+        {"name": "Anal Swab Examination", "price": 100},
+        {"name": "Ascitic Fluid Culture", "price": 900},
+        {"name": "Ascitic Fluid Culture for Fungi", "price": 450},
+        {"name": "Blood Culture", "price": 600},
+        {"name": "Body Fluid Culture", "price": 700},
+        {"name": "Bone marrow examination", "price": 1000},
+        {"name": "Breast Discharge Culture", "price": 450},
+        {"name": "Conjuntival Swab Culture", "price": 450},
+        {"name": "CSF Culture and Sensitivity", "price": 370},
+        {"name": "Fungus C/S", "price": 450},
+        {"name": "Gum Discharge Culture", "price": 450},
+        {"name": "Left Ear Discharge Culture", "price": 350},
+        {"name": "Left Eye discharge Culture", "price": 350},
+        {"name": "Nail Culture", "price": 450},
+        {"name": "Nasal Swab Culture", "price": 450},
+        {"name": "Nasal Swab for MRSA", "price": 450},
+        {"name": "POST-COITAL", "price": 450},
+        {"name": "Prostatic Discharge Examination", "price": 350},
+        {"name": "Prostatic Secreation Culture", "price": 450},
+        {"name": "Pus Culture and Sensitivity", "price": 450},
+        {"name": "Pus From Wound Culture", "price": 450},
+        {"name": "Right Ear Discharge Culture", "price": 450},
+        {"name": "Right Eye discharge Culture", "price": 450},
+        {"name": "Semen Culture", "price": 350},
+        {"name": "Sputum Culture", "price": 450},
+        {"name": "Sputum Culture for AFB", "price": 1000},
+        {"name": "Stool Culture", "price": 500},
+        {"name": "Swab C&S", "price": 450},
+        {"name": "Synovial Fluid Culture", "price": 450},
+        {"name": "Synovial Fluid Examination", "price": 800},
+        {"name": "TB Culture and Sensitivity", "price": 1000},
+        {"name": "Throat Swab Culture", "price": 450},
+        {"name": "Ulcer Swab C&S", "price": 450},
+        {"name": "Urethral Discharge Culture", "price": 450},
+        {"name": "Urine Culture", "price": 450},
+        {"name": "Vaginal Swab Culture", "price": 450},
+        {"name": "Vulval Swab Exam. C&S", "price": 450},
+        {"name": "Ziehl Nielsen Stain (one slide)", "price": 150},
+    ],
+    "Drugs monitoring": [
+        {"name": "Cyclosporine (Peak)", "price": 850},
+        {"name": "Cyclosporine (Random)", "price": 850},
+        {"name": "Cyclosporine (Trough)", "price": 850},
+        {"name": "Depakine (Valporic) Random", "price": 450},
+        {"name": "Depakine (Valporic) Trough", "price": 450},
+        {"name": "Depakine (Valproic) peak", "price": 450},
+        {"name": "Digoxin (Lanoxin)", "price": 400},
+        {"name": "Everolimus(Certican)", "price": 1900},
+        {"name": "Lithium", "price": 400},
+        {"name": "Methotrexate", "price": 500},
+        {"name": "Phenobarbitone", "price": 200},
+        {"name": "Phenytoin (Epanutin, Dilantin)", "price": 500},
+        {"name": "Tacrolimus (FK506), Peak", "price": 1500},
+        {"name": "Tacrolimus (FK506), Random", "price": 1500},
+        {"name": "Tacrolimus (FK506), Trough", "price": 1500},
+        {"name": "Tegretol (Carbamazepine) Peak", "price": 400},
+        {"name": "Tegretol (Carbamazepine) Random", "price": 400},
+        {"name": "Tegretol (Carbamazepine) Trough", "price": 400},
+        {"name": "Theophylline", "price": 1200},
+        {"name": "Vancomycin", "price": 500},
+    ],
+    "Drugs Of Abuse": [
+        {"name": "Alcohol (In blood)", "price": 900},
+        {"name": "Alcohol (In Urine)", "price": 900},
+        {"name": "Amphetamine", "price": 250},
+        {"name": "Bango (Cannabinoids)", "price": 250},
+        {"name": "Barbtiurates", "price": 250},
+        {"name": "Benzodiazeipines (Valium)", "price": 250},
+        {"name": "Cannabinoids (Hashish, Banjo)", "price": 250},
+        {"name": "Cocaine", "price": 250},
+        {"name": "Codiene (Opiates)", "price": 250},
+        {"name": "Cotonine(Nictoine metabolite)", "price": 1450},
+        {"name": "Cotonine(Nictoine metabolite) in", "price": 1450},
+        {"name": "Ecstasy", "price": 250},
+        {"name": "Hashish (Cannabinoids)", "price": 250},
+        {"name": "Heroine (Opiates)", "price": 250},
+        {"name": "Marijuana (Cannabinoids)", "price": 250},
+        {"name": "Methadone", "price": 250},
+        {"name": "Morphin (Opiates)", "price": 250},
+        {"name": "Nicotine (tobacco - smoking)", "price": 500},
+        {"name": "Opiates (Heroine,codiene)", "price": 250},
+        {"name": "Phencyclidine(P.C.P)", "price": 300},
+        {"name": "Propoxyphene (PPX)", "price": 250},
+        {"name": "Toxicology panel", "price": 1500},
+        {"name": "Tramadol In urine", "price": 300},
+        {"name": "Tramadol in urine (Quantit)", "price": 650},
+    ],
+    "Erythrocyte Sedimentation Rate": [
+        {"name": "ESR", "price": 120},
+    ],
+    "Fertility Hormones": [
+        {"name": "17-Keto steroids", "price": 1200},
+        {"name": "AMH (Anti Mullerian Hormone)", "price": 1300},
+        {"name": "Androstenedione", "price": 1350},
+        {"name": "Basal FSH (LH-RH Stimulation)", "price": 250},
+        {"name": "Basal LH (LH-RH Stimulation)", "price": 250},
+        {"name": "Chromosome  Y microdeletions", "price": 7900},
+        {"name": "DHEA", "price": 450},
+        {"name": "DHEA-S", "price": 450},
+        {"name": "DHT (Dihydrotestosterone)", "price": 2500},
+        {"name": "E1 (Estrone)", "price": 1700},
+        {"name": "E2 (Estradiol)", "price": 300},
+        {"name": "E3 (Estriol)", "price": 650},
+        {"name": "Erythropoitin (EPO) Ab", "price": 1500},
+        {"name": "Free testosterone index", "price": 450},
+        {"name": "FSH", "price": 350},
+        {"name": "Inhibin A", "price": 2500},
+        {"name": "Inhibin B", "price": 2500},
+        {"name": "Peak E2 (LH-RH Stimulation)", "price": 300},
+        {"name": "Peak FSH (LH-RH Stimulation)", "price": 300},
+        {"name": "Peak LH (LH-RH Stimulation)", "price": 300},
+        {"name": "Progesterone", "price": 330},
+        {"name": "Prolactin (PRL)", "price": 330},
+        {"name": "SHBG", "price": 1400},
+        {"name": "Testosterone Free", "price": 500},
+        {"name": "Testosterone Total", "price": 400},
+    ],
+    "GENETICS UNIT": [
+        {"name": "(MTHFR) gene mutation", "price": 3500},
+        {"name": "Babymap (Newborn Screening)", "price": 30000},
+        {"name": "Calreticulin Mutation CALR", "price": 5100},
+        {"name": "Chromosomal Micrarray Analysis", "price": 25000},
+        {"name": "Cystic fibrosis (CFTR gene", "price": 12000},
+        {"name": "Double markers", "price": 2300},
+        {"name": "Extended metabolic screening", "price": 2750},
+        {"name": "Factor V  (Leiden gene study)", "price": 1850},
+        {"name": "FISH Choromosome", "price": 2600},
+        {"name": "FISH del 11 q", "price": 4000},
+        {"name": "FISH del 13 q", "price": 4000},
+        {"name": "FISH del 17 p", "price": 5000},
+        {"name": "FISH for (11,14) q", "price": 4500},
+        {"name": "FISH for 5 q", "price": 4500},
+        {"name": "FISH for 7 q", "price": 4500},
+        {"name": "Flu Respiratory Panel", "price": 2500},
+        {"name": "Huntington chorea PCR", "price": 35000},
+        {"name": "Islet Antigen 2 Ab (IA2)", "price": 2800},
+        {"name": "Match my genome", "price": 60000},
+        {"name": "MYELOPROLIFERATIVE MPL", "price": 4800},
+        {"name": "Non Invasive prenatal screening", "price": 23000},
+        {"name": "Philadelphia Chromosome PCR", "price": 3500},
+        {"name": "Prothrombin Mutation (factor II", "price": 1800},
+        {"name": "Quadruple markers", "price": 7000},
+        {"name": "Respiratory Panel (bacterial", "price": 3000},
+        {"name": "Respiratory Panel (Viral only)", "price": 5000},
+        {"name": "Respiratory Panel by PCR", "price": 6500},
+        {"name": "Thrombophilia gene Profile", "price": 6500},
+        {"name": "Triple markers", "price": 1500},
+        {"name": "Whole exome sequencing (WES)", "price": 30000},
+    ],
+    "GH stimulation test": [
+        {"name": "Growth hormone after 0.5 hr", "price": 450},
+        {"name": "Growth hormone after 1 hr", "price": 450},
+        {"name": "Growth hormone after 1.5 hrs", "price": 450},
+        {"name": "Growth hormone after 2 hrs", "price": 450},
+    ],
+    "Heavy Metals": [
+        {"name": "Iodines in serum", "price": 400},
+        {"name": "Manganese", "price": 3500},
+        {"name": "Mercury (blood)", "price": 1500},
+    ],
+    "HEMATOLOGY": [
+        {"name": "Acidified glycerol lysis test", "price": 250},
+        {"name": "CBC", "price": 400},
+        {"name": "Cross matching (including viral", "price": 360},
+        {"name": "Eosin -5- maleimide binding test", "price": 1500},
+        {"name": "Fecal Immunochemical Test (FIT)", "price": 1000},
+        {"name": "Fibro test/Acti test", "price": 4000},
+        {"name": "Folic acid (RBCs)", "price": 1100},
+        {"name": "G6PD (Qualitative)", "price": 400},
+        {"name": "G6PD (Quantitative)", "price": 400},
+        {"name": "LE cell", "price": 400},
+        {"name": "Natural killer cells Funcation", "price": 1500},
+        {"name": "Occult Blood In Stool (FOB)", "price": 250},
+        {"name": "Procalcitonin (PCT)", "price": 2500},
+        {"name": "PRP", "price": 350},
+        {"name": "PRP 1", "price": 350},
+        {"name": "Retics", "price": 150},
+    ],
+    "Hemoglobin Electrophoresis": [
+        {"name": "HB-A1(Hemoglobin A1", "price": 940},
+        {"name": "Hemoglobin electrophoresis by", "price": 600},
+        {"name": "Hemoglobin electrophoresis by", "price": 4000},
+    ],
+    "Hepatitis Markers": [
+        {"name": "HAV IgG Ab", "price": 400},
+        {"name": "HAV IgM Ab", "price": 400},
+        {"name": "HBc IgG", "price": 350},
+        {"name": "HBc IgM Ab (Hepatitis B core )", "price": 350},
+        {"name": "HBe Ab", "price": 300},
+        {"name": "HBe Ag", "price": 300},
+        {"name": "HBs Ab", "price": 300},
+        {"name": "HBs Ab (Quanti)", "price": 300},
+        {"name": "HBs Ag", "price": 300},
+        {"name": "HCV IgG", "price": 300},
+        {"name": "HCV lgM", "price": 750},
+        {"name": "HDV Abs  (total)", "price": 1200},
+        {"name": "HDV IgG", "price": 1200},
+        {"name": "HDV IgM", "price": 1200},
+        {"name": "HEV Ab IgG", "price": 1500},
+        {"name": "HEV Ab IgM", "price": 1500},
+    ],
+    "Immunoglobulins": [
+        {"name": "Asperagillus fumigatus abs", "price": 1600},
+        {"name": "C2 (Complement 2)", "price": 1650},
+        {"name": "C3 (Complement. C3)", "price": 500},
+        {"name": "C4 (Complement. C4)", "price": 500},
+        {"name": "Complement Level C1q", "price": 1500},
+        {"name": "Complement Level CH100", "price": 1100},
+        {"name": "ENA Profile", "price": 1800},
+        {"name": "Food print IgE (20 test)", "price": 3300},
+        {"name": "Food print IgE (30 test)", "price": 5500},
+        {"name": "Food print IgG (220 test)", "price": 12500},
+        {"name": "Food print IgG (60 test)", "price": 8500},
+        {"name": "Haptoglobin", "price": 500},
+        {"name": "IgA (Immunoglobulin A)", "price": 400},
+        {"name": "IgD (Immunoglobulin D)", "price": 1200},
+        {"name": "IgE (Total)", "price": 400},
+        {"name": "IgG (Immunoglobulin G)", "price": 350},
+        {"name": "IgG Index CSF", "price": 2000},
+        {"name": "IgG4", "price": 1500},
+        {"name": "IgM (Immunoglobulin M)", "price": 350},
+        {"name": "Immunofixation Electrophoresis", "price": 3000},
+        {"name": "Immunofixation Electrophoresis", "price": 3000},
+    ],
+    "IMMUNOLOGY": [
+        {"name": "C1 Esterase inhibitor", "price": 1350},
+        {"name": "Cholinesterase", "price": 750},
+        {"name": "Filaria Abs", "price": 1200},
+        {"name": "Interleukin-6", "price": 2500},
+        {"name": "Liver Cytosol Antigen Abs.", "price": 800},
+        {"name": "TB Gold Quantiferon", "price": 3500},
+        {"name": "Thiopurine methyl transferase", "price": 5000},
+        {"name": "Tissue Polypeptide Anigen (TPA)", "price": 1200},
+        {"name": "Tissue Polypeptide Specific", "price": 1200},
+    ],
+    "Immunophenotyping": [
+        {"name": "Anti Kappa", "price": 700},
+        {"name": "Anti Lambda", "price": 700},
+        {"name": "CD 10", "price": 1000},
+        {"name": "CD 103", "price": 1000},
+        {"name": "CD 11c", "price": 1000},
+        {"name": "CD 13", "price": 1000},
+        {"name": "CD 14", "price": 1000},
+        {"name": "CD 16", "price": 1000},
+        {"name": "CD 19", "price": 1000},
+        {"name": "CD 20", "price": 1000},
+        {"name": "CD 200", "price": 1000},
+        {"name": "CD 22", "price": 1000},
+        {"name": "CD 23", "price": 1000},
+        {"name": "CD 25", "price": 1000},
+        {"name": "CD 3", "price": 1000},
+        {"name": "CD 33", "price": 1000},
+        {"name": "CD 34", "price": 1000},
+        {"name": "CD 4", "price": 1000},
+        {"name": "CD 41", "price": 1000},
+        {"name": "CD 5", "price": 1000},
+        {"name": "CD 55", "price": 1000},
+        {"name": "CD 56", "price": 1000},
+        {"name": "CD 59", "price": 1700},
+        {"name": "CD 7", "price": 1000},
+        {"name": "CD 79a", "price": 1000},
+        {"name": "CD 79b", "price": 1000},
+        {"name": "CD 8", "price": 1000},
+        {"name": "CD38", "price": 1000},
+        {"name": "CD4/CD8 Ratio", "price": 1500},
+        {"name": "CD56", "price": 1000},
+        {"name": "FMC-7", "price": 600},
+        {"name": "MPO", "price": 650},
+    ],
+    "Iron Profile": [
+        {"name": "Ferritin", "price": 400},
+        {"name": "Iron (Serum)", "price": 320},
+        {"name": "Serum Transferrin", "price": 1400},
+        {"name": "TIBC", "price": 440},
+        {"name": "Transferrin Saturation", "price": 500},
+    ],
+    "Kidney Profile": [
+        {"name": "Albumin / creatinine ratio", "price": 200},
+        {"name": "BUN", "price": 120},
+        {"name": "Ca++", "price": 220},
+        {"name": "Calcium (Total)", "price": 200},
+        {"name": "Creatinine (Serum)", "price": 150},
+        {"name": "Cystatin C", "price": 1250},
+        {"name": "Cystatin C in urine", "price": 2200},
+        {"name": "eGFR (Glomerular filtration", "price": 200},
+        {"name": "K (Potassium)", "price": 150},
+        {"name": "Magnesium (Mg) serum", "price": 260},
+        {"name": "Microalbuminuria", "price": 300},
+        {"name": "Na (Sodium)", "price": 160},
+        {"name": "PO4 (Phosphorus)", "price": 150},
+        {"name": "Urea", "price": 120},
+        {"name": "Uric Acid", "price": 180},
+    ],
+    "Lipid Profile": [
+        {"name": "Cholesterol", "price": 200},
+        {"name": "HDL", "price": 200},
+        {"name": "LDL", "price": 200},
+        {"name": "Triglycerides", "price": 200},
+        {"name": "VLDL", "price": 150},
+    ],
+    "Liver Profile": [
+        {"name": "5- Nucleotidase", "price": 1000},
+        {"name": "A/G Ratio", "price": 250},
+        {"name": "Albumin (ALB)", "price": 100},
+        {"name": "Alkaline Phosphatase (ALP)", "price": 150},
+        {"name": "ALT (SGPT)", "price": 150},
+        {"name": "AST (SGOT)", "price": 150},
+        {"name": "Bilirubin Direct", "price": 100},
+        {"name": "Bilirubin Total", "price": 200},
+        {"name": "GGT (Gamma-glutamyl transferase)", "price": 200},
+        {"name": "Globulin", "price": 200},
+        {"name": "Total Protein", "price": 120},
+    ],
+    "Molecular Biology": [
+        {"name": "HLA-B51 by PCR", "price": 2000},
+        {"name": "CMV DNA by PCR (Qualit)", "price": 1600},
+        {"name": "CMV DNA by PCR (Quanti)", "price": 1600},
+        {"name": "Diarrhea Panel (bacterial panel)", "price": 3500},
+        {"name": "Diarrhea Panel (Parasitic panel)", "price": 2500},
+        {"name": "Diarrhea Panel (Viral panel)", "price": 2500},
+        {"name": "Duchenne muscle dystrophy", "price": 2800},
+        {"name": "Epstein Barr virus (EBV) by pcr", "price": 1500},
+        {"name": "FMF (MEFV Gene Mutation) by PCR", "price": 4000},
+        {"name": "FMF by PCR", "price": 4000},
+        {"name": "FMF Gene Mutation", "price": 4000},
+        {"name": "Fragile X chromosome by PCR", "price": 6000},
+        {"name": "HBV - DNA (Qualitative) by PCR", "price": 2000},
+        {"name": "HBV - DNA (Quantitative) by PCR", "price": 2000},
+        {"name": "HCV - RNA (Qualitative) by PCR", "price": 1500},
+        {"name": "HCV - RNA (Quantitative) by PCR", "price": 1500},
+        {"name": "HCV genotyping", "price": 2800},
+        {"name": "HCV in liver biopsy by (ISH)", "price": 1000},
+        {"name": "Herpes family Panel by PCR", "price": 2800},
+        {"name": "HGV-RNA by PCR", "price": 1400},
+        {"name": "HIV  DNA  by PCR (Qualit)", "price": 5000},
+        {"name": "HIV by PCR (Qualit) spain", "price": 6000},
+        {"name": "HIV by PCR (Quantit) spain", "price": 6000},
+        {"name": "HIV by Western Blott", "price": 4000},
+        {"name": "HIV-1 DNA by PCR (Quantit)", "price": 6000},
+        {"name": "HLA B27 by PCR", "price": 2000},
+        {"name": "HLA B5", "price": 2000},
+        {"name": "HLA Class l (ABC) by PCR", "price": 10000},
+        {"name": "HLA Class ll (DQ) by PCR", "price": 3500},
+        {"name": "HLA Class ll (DR) by PCR", "price": 3500},
+        {"name": "HLA-B51/B52 genotype", "price": 3500},
+        {"name": "HLA-DQ2/HLA-DQ8", "price": 5000},
+        {"name": "HLA-Typing class I (A) by PCR", "price": 3500},
+        {"name": "HLA-Typing class I (B) by PCR", "price": 3500},
+        {"name": "HLA-Typing class I (C) by PCR", "price": 3500},
+        {"name": "HSV (I) DNA by PCR", "price": 1200},
+        {"name": "HSV (II) DNA by PCR", "price": 1200},
+        {"name": "Human Papilloma Virus (HPV)(28", "price": 3500},
+        {"name": "Human Papilloma Virus 16 & 18", "price": 4000},
+        {"name": "karyotyping for amniocentesis", "price": 5000},
+        {"name": "Karyotyping of Products of", "price": 2200},
+        {"name": "Karyotyping study", "price": 1700},
+        {"name": "Karyotyping with high resolution", "price": 2300},
+        {"name": "Lactose intolerance by PCR", "price": 1600},
+        {"name": "Respiratory Syncytial Virus", "price": 2500},
+        {"name": "Salmonella typhi  IgG", "price": 700},
+        {"name": "Salmonella typhi IgM", "price": 700},
+        {"name": "STD Panel by PCR", "price": 5000},
+        {"name": "TB - DNA by PCR", "price": 1800},
+        {"name": "Triple test for HCV-RNA", "price": 2500},
+        {"name": "Vaginal Panel by PCR", "price": 3000},
+    ],
+    "Pancreas Hormones": [
+        {"name": "Aldolase", "price": 950},
+        {"name": "Amylase (Urine)", "price": 400},
+        {"name": "Amylase in (serum)", "price": 400},
+        {"name": "C-Peptide (Fasting)", "price": 850},
+        {"name": "C-Peptide (Postprandial)", "price": 850},
+        {"name": "C-Peptide (Random)", "price": 850},
+        {"name": "C-Peptide (Urine)", "price": 850},
+        {"name": "Fecal Pancreatic Elastase 1", "price": 3500},
+        {"name": "Gastrin", "price": 2400},
+        {"name": "Glucagon", "price": 2700},
+        {"name": "Insulin (120 Min.)", "price": 400},
+        {"name": "Insulin (180 Min.)", "price": 400},
+        {"name": "Insulin (30 Min.)", "price": 400},
+        {"name": "Insulin (60 Min.)", "price": 400},
+        {"name": "Insulin (Fasting)", "price": 400},
+        {"name": "Insulin level (p.p)", "price": 400},
+        {"name": "Lipase in serum", "price": 370},
+    ],
+    "Parathyroid Hormones": [
+        {"name": "Parathormone (PTH)", "price": 430},
+    ],
+    "Pregnancy Tests": [
+        {"name": "BHCG (Quantitative)", "price": 400},
+        {"name": "Pregnancy in serum Qualit.", "price": 170},
+        {"name": "Pregnancy in urine  Qualit.", "price": 150},
+    ],
+    "Protein Electrophoresis": [
+        {"name": "Protein electrophoresis", "price": 750},
+        {"name": "Protein Electrophoresis in Urine", "price": 1800},
+    ],
+    "Semen Examination": [
+        {"name": "Alpha Glucosidase in semen", "price": 800},
+        {"name": "Beta Galactosidase in semen", "price": 1650},
+        {"name": "Fructose in semen", "price": 400},
+        {"name": "Semen Examination", "price": 300},
+        {"name": "Semen peroxidase", "price": 400},
+        {"name": "Sperm DNA fragmentation", "price": 4660},
+    ],
+    "Separate": [
+        {"name": "Acid Phosphatase (Prostatic)", "price": 350},
+        {"name": "Acid Phosphatase (Total)", "price": 350},
+        {"name": "ACID-FAST STAIN (ZN Film) 3", "price": 300},
+        {"name": "Acrosin Activity", "price": 400},
+        {"name": "Adenosine Deaminase (ADA) in", "price": 500},
+        {"name": "Adenosine Deaminase (ADA) in", "price": 500},
+        {"name": "Albumin (Urine)", "price": 100},
+        {"name": "Alpha-1 antitrypsin in blood", "price": 750},
+        {"name": "Alpha-1 antitrypsin in stool", "price": 950},
+        {"name": "Alpha-2 macroglobulin", "price": 950},
+        {"name": "Ammonia", "price": 600},
+        {"name": "Amyloid A protein", "price": 2300},
+        {"name": "Anal adhesive strip", "price": 300},
+        {"name": "Angiotensin Converting Enz.", "price": 1200},
+        {"name": "Anti Adrenal Ab", "price": 1400},
+        {"name": "Anti Diuretic hormone (ADH)", "price": 2000},
+        {"name": "Anti Rabies Abs", "price": 2700},
+        {"name": "Apolipoprotein  A1", "price": 600},
+        {"name": "Apolipoprotein  B", "price": 600},
+        {"name": "Aspergillus Galactomannan", "price": 1700},
+        {"name": "Bartonnella Henselae", "price": 1060},
+        {"name": "Bile Acids, serum", "price": 1600},
+        {"name": "Bilharziasis Ag (urine)", "price": 400},
+        {"name": "Bilharziasis Antigen (serum)", "price": 400},
+        {"name": "Biotinidase Activity", "price": 1400},
+        {"name": "Body fluid Examination", "price": 800},
+        {"name": "Bone marrow Biobsy", "price": 2000},
+        {"name": "Bone marrow Film: Consultation", "price": 700},
+        {"name": "Borrelia Burgdorferi IgG Abs", "price": 1300},
+        {"name": "Borrelia Burgdorferi IgM Abs", "price": 1300},
+        {"name": "Bronchial Lavage Examination C/S", "price": 450},
+        {"name": "Bronchial Lavage Film For AFB", "price": 200},
+        {"name": "Brucella IgG", "price": 700},
+        {"name": "Brucella IgM", "price": 700},
+        {"name": "BUN/Creatinine ratio", "price": 220},
+        {"name": "Calcium/creatinine ratio", "price": 350},
+        {"name": "Calprotectin in stool (Qual)", "price": 1200},
+        {"name": "Calprotectin in stool (Quant)", "price": 1750},
+        {"name": "Catecholamines Plasma", "price": 2600},
+        {"name": "Ceruloplasmin", "price": 550},
+        {"name": "Chlamydia lgM", "price": 1000},
+        {"name": "Chlamydia pneumonia IgG", "price": 1500},
+        {"name": "Chlamydia pneumonia IgM", "price": 1500},
+        {"name": "Chlamydia Trachomatis IgG", "price": 1500},
+        {"name": "Chlamydia Trachomatis IgM", "price": 1500},
+        {"name": "Clostridium difficile", "price": 1700},
+        {"name": "Creatinine Clearance", "price": 300},
+        {"name": "CRP", "price": 350},
+        {"name": "Cryoglobulins", "price": 230},
+        {"name": "CSF -Cells", "price": 230},
+        {"name": "Cytology Examination", "price": 1100},
+        {"name": "DNA by sequencer", "price": 9000},
+        {"name": "Dopamine Beta hydroxylase", "price": 1600},
+        {"name": "Estrogen Receptors", "price": 1900},
+        {"name": "FFAs (Free fatty acid)", "price": 6500},
+        {"name": "Filaria Film", "price": 400},
+        {"name": "Free light Kappa/Lambda ratio", "price": 2300},
+        {"name": "Fructosamine", "price": 400},
+        {"name": "Fungus examination by KOH", "price": 250},
+        {"name": "Galactose", "price": 1450},
+        {"name": "Glycine level", "price": 2700},
+        {"name": "Growth Hormone (basal)", "price": 450},
+        {"name": "H.pylori Ag in Stool (Quanti)", "price": 650},
+        {"name": "H.pylori Line IgG", "price": 1750},
+        {"name": "hs-CRP", "price": 300},
+        {"name": "IGF-1", "price": 2500},
+        {"name": "IGFBP-3", "price": 2500},
+        {"name": "Ketone Bodies in Blood", "price": 300},
+        {"name": "Kidney profile", "price": 850},
+        {"name": "Lactate in blood", "price": 350},
+        {"name": "Lamotrigine", "price": 1570},
+        {"name": "Leptin", "price": 2500},
+        {"name": "Levetiracetam (kepra)", "price": 2020},
+        {"name": "Link index parameter", "price": 1700},
+        {"name": "Lipid Electrophoresis", "price": 1200},
+        {"name": "Lipid profile", "price": 700},
+        {"name": "Lipoprotein  a", "price": 1300},
+        {"name": "Liver profile", "price": 850},
+        {"name": "Malaria Antigen (film)", "price": 350},
+        {"name": "Malaria IgG Ab", "price": 1500},
+        {"name": "Mumps Abs(IgG)", "price": 1200},
+        {"name": "Noradrenaline in urine", "price": 2800},
+        {"name": "Organic acid in urine", "price": 3500},
+        {"name": "Osteocalcin Level", "price": 1500},
+        {"name": "Oxalate (urine)", "price": 1500},
+        {"name": "Phenylalanine (PKU)", "price": 1500},
+        {"name": "Plasminogen", "price": 2000},
+        {"name": "Plasminogen Activator inhibitor", "price": 2000},
+        {"name": "Protein C Activity", "price": 1000},
+        {"name": "Protein S Activity", "price": 1000},
+        {"name": "Protein/creatinine ratio", "price": 250},
+        {"name": "Pyruvate Kinase PK", "price": 1000},
+        {"name": "Reducing Suger In Stool", "price": 270},
+        {"name": "Rota virus antigen", "price": 500},
+        {"name": "S.Bicarbonate (blood)", "price": 550},
+        {"name": "Sickling test", "price": 400},
+        {"name": "Stone Analysis", "price": 550},
+        {"name": "Thyroid profie", "price": 870},
+        {"name": "Total Lipid", "price": 400},
+        {"name": "TPHA", "price": 250},
+        {"name": "Urate in Urine", "price": 550},
+        {"name": "Urea Breath Test", "price": 2100},
+        {"name": "Uric Acid (Urine)", "price": 120},
+        {"name": "Uric acid/creatinine ratio", "price": 220},
+        {"name": "VDRL", "price": 250},
+    ],
+    "SEROLOGY": [
+        {"name": "Brucella Test", "price": 300},
+        {"name": "H.pylori  IgA  (quantit)", "price": 560},
+        {"name": "H.pylori  IgG  (qualiti)", "price": 300},
+        {"name": "H.pylori  IgG  (quantit)", "price": 550},
+        {"name": "H.pylori  IgM  (quantit)", "price": 700},
+        {"name": "H.pylori Ag in Stool (Qualit)", "price": 560},
+        {"name": "RF (Qualit)", "price": 150},
+        {"name": "RF (Quantit)", "price": 250},
+        {"name": "Widal Test", "price": 250},
+    ],
+    "Serum Electrolytes": [
+        {"name": "Chloride (CL) in serum", "price": 300},
+        {"name": "Osmolality. (serum)", "price": 350},
+    ],
+    "Stool Examination": [
+        {"name": "Stool Examination", "price": 150},
+    ],
+    "Suprarenal Hormones": [
+        {"name": "11-Desoxycortisol", "price": 1800},
+        {"name": "17 OH Progesterone", "price": 1800},
+        {"name": "5-HIAA (hydroxyindoleacetic", "price": 1500},
+        {"name": "ACTH (AM)", "price": 900},
+        {"name": "ACTH (PM)", "price": 900},
+        {"name": "ACTH (Random)", "price": 900},
+        {"name": "ACTH level after Inj.", "price": 900},
+        {"name": "Adrenaline (Epinephrine)", "price": 2500},
+        {"name": "Aldosterone", "price": 1600},
+        {"name": "Catecholamines free fraction", "price": 2500},
+        {"name": "Cortisol (AM)", "price": 350},
+        {"name": "Cortisol (PM)", "price": 350},
+        {"name": "Cortisol (random)", "price": 350},
+        {"name": "Cortisol (Urine)", "price": 350},
+        {"name": "Cortisol level after Inj.", "price": 350},
+        {"name": "Cortisol level before Inj.", "price": 350},
+        {"name": "Dopamine", "price": 4000},
+        {"name": "Free metanephrine", "price": 3500},
+        {"name": "Free Normetanephrine", "price": 3500},
+        {"name": "Ghrelin", "price": 4000},
+        {"name": "Homovanillic acid (HVA)", "price": 2500},
+        {"name": "Metanephrine in urine", "price": 3500},
+        {"name": "Noradrenaline (Norepinephrine)", "price": 3000},
+        {"name": "Normetanephrine in urine", "price": 3500},
+        {"name": "Plasma Renin", "price": 2200},
+        {"name": "Serotonin", "price": 3500},
+        {"name": "VMA (Urine)", "price": 2000},
+    ],
+    "Thyroid Hormones": [
+        {"name": "Anti Microsomal/peroxidase Ab.", "price": 600},
+        {"name": "Anti Thyroid Antibodies", "price": 635},
+        {"name": "Anti-Thyroglobulin Abs", "price": 650},
+        {"name": "Calcitonin", "price": 1700},
+        {"name": "FT3", "price": 270},
+        {"name": "FT4", "price": 270},
+        {"name": "FTI  (Free Thyroxin Index)", "price": 300},
+        {"name": "PBI (Protein Bound Iodine)", "price": 250},
+        {"name": "Reverse T3 (rT3)", "price": 2500},
+        {"name": "T3 (Total)", "price": 270},
+        {"name": "T3 Uptake", "price": 270},
+        {"name": "T4 (Total)", "price": 270},
+        {"name": "Thyroglobulin (Tg)", "price": 1000},
+        {"name": "TSH", "price": 330},
+        {"name": "TSH Receptor Ab (Anti-TSHR)", "price": 2000},
+    ],
+    "TORCH Screen": [
+        {"name": "CMV IgG", "price": 350},
+        {"name": "CMV IgM", "price": 350},
+        {"name": "Epstein Barr virus (EBV - VCA", "price": 650},
+        {"name": "Epstein Barr virus (EBV- VCA", "price": 650},
+        {"name": "Herpes (I) IgG", "price": 300},
+        {"name": "Herpes (I) IgM", "price": 300},
+        {"name": "Herpes (II)  IgG", "price": 300},
+        {"name": "Herpes (II)  IgM", "price": 300},
+        {"name": "Rubella IgG", "price": 300},
+        {"name": "Rubella IgM", "price": 300},
+        {"name": "Toxo IgG", "price": 300},
+        {"name": "Toxo IgM", "price": 300},
+        {"name": "Toxo IHA", "price": 120},
+    ],
+    "Trace Elements": [
+        {"name": "Aluminium (blood)", "price": 6000},
+        {"name": "Aluminium (Hair)", "price": 2500},
+        {"name": "Aluminium (urine)", "price": 6000},
+        {"name": "Arsenic (blood)", "price": 5000},
+        {"name": "Arsenic (Hair)", "price": 1500},
+        {"name": "Cadmium (blood)", "price": 1200},
+        {"name": "Cadmium (urine)", "price": 1200},
+        {"name": "Chromium (blood)", "price": 550},
+        {"name": "Chromium (urine)", "price": 650},
+        {"name": "Cobalt (blood)", "price": 1500},
+        {"name": "Cobalt (urine)", "price": 1500},
+        {"name": "Copper (blood)", "price": 550},
+        {"name": "Copper (urine)", "price": 550},
+        {"name": "heavy metals (in hair)", "price": 12000},
+        {"name": "Lead (blood)", "price": 1500},
+        {"name": "Lead (hair)", "price": 2000},
+        {"name": "Lead (urine)", "price": 1500},
+        {"name": "Mercury (hair)", "price": 1000},
+        {"name": "Mercury (urine)", "price": 1500},
+        {"name": "Nickel (blood)", "price": 1200},
+        {"name": "Nickel (urine)", "price": 1200},
+        {"name": "Selenium (blood)", "price": 5000},
+        {"name": "Selenium (urine)", "price": 5000},
+        {"name": "Water Examination", "price": 1500},
+        {"name": "Water Examination (chemical)", "price": 1000},
+        {"name": "Zinc (blood)", "price": 550},
+        {"name": "Zinc (urine)", "price": 550},
+    ],
+    "Tumors Markers": [
+        {"name": "AFP", "price": 600},
+        {"name": "B2 Microglobulin (Serum)", "price": 600},
+        {"name": "B2 Microglobulin (Urine)", "price": 1000},
+        {"name": "Bcl - 2", "price": 1000},
+        {"name": "BCR-ABL by FISH", "price": 1600},
+        {"name": "BCR-ABL by PCR", "price": 5000},
+        {"name": "BHCG (TUMOR MARKER)", "price": 400},
+        {"name": "BRCA 1 ,2 gene mutation", "price": 19000},
+        {"name": "CA 125", "price": 650},
+        {"name": "CA 15.3", "price": 650},
+        {"name": "CA 19.9", "price": 650},
+        {"name": "CA 27.29", "price": 5000},
+        {"name": "CA 27.29 Antigen", "price": 4500},
+        {"name": "CA 50", "price": 4000},
+        {"name": "CA 72.4", "price": 4500},
+        {"name": "CEA (Carcinoembryonic Antigen)", "price": 550},
+        {"name": "IGHV by Fish", "price": 4000},
+        {"name": "Jak - 2 Exon 12 Mutation", "price": 2500},
+        {"name": "Jak - 2(V617F)", "price": 2500},
+        {"name": "Kappa light chain in serum", "price": 1500},
+        {"name": "Kappa light chain in urine", "price": 1800},
+        {"name": "Lambda Light Chain in serum", "price": 1300},
+        {"name": "Lambda Light Chain in urine", "price": 1600},
+        {"name": "NSE", "price": 1500},
+        {"name": "Pap Smear", "price": 1300},
+        {"name": "Pathological Examination", "price": 2500},
+        {"name": "PSA (Free)", "price": 450},
+        {"name": "PSA (Total)", "price": 300},
+        {"name": "PSA Ratio", "price": 800},
+        {"name": "Schebo test (M2-PK)", "price": 2500},
+        {"name": "Urinary Bladder Cancer (UBC)", "price": 1800},
+    ],
+    "Urine Electrolytes": [
+        {"name": "Calcium (Ca) urine", "price": 220},
+        {"name": "Chloride (CL) in urine", "price": 300},
+        {"name": "Citrate (urine)", "price": 1350},
+        {"name": "Magnesium (Mg) in urine", "price": 260},
+        {"name": "Osmolality. (urine)", "price": 350},
+        {"name": "Phosphorus (Ph) urine", "price": 150},
+        {"name": "Potassium (k) urine", "price": 150},
+        {"name": "Sodium (Na) urine", "price": 170},
+    ],
+    "Urine Examination": [
+        {"name": "Amino Acids in urine", "price": 3500},
+        {"name": "Bence jones protein (Urine)", "price": 250},
+        {"name": "Creatinine (urine)", "price": 150},
+        {"name": "Dysmorphic RBCs in urine", "price": 300},
+        {"name": "Free light Kappa/Lambda in Urine", "price": 3500},
+        {"name": "Protein in urine", "price": 150},
+        {"name": "STROX in urine", "price": 400},
+        {"name": "Urine Examination", "price": 120},
+    ],
+    "Virology": [
+        {"name": "Adeno Virus Ab", "price": 500},
+        {"name": "Bartonnella Henselae", "price": 1060},
+        {"name": "EBV  (IgG)", "price": 450},
+        {"name": "EBV  (IgM)", "price": 450},
+        {"name": "EBV- EBNA (IgG)", "price": 450},
+        {"name": "EBV- EBNA (IgM)", "price": 450},
+        {"name": "Entero Virus (Coxsackie A9) IgG", "price": 1800},
+        {"name": "Entero Virus (Coxsackie A9) IgM", "price": 1800},
+        {"name": "Entero Virus (Coxsackie B1-6)", "price": 1800},
+        {"name": "Entero Virus (Coxsackie B1-6)", "price": 1800},
+        {"name": "H1N1 by Real Time PCR", "price": 2500},
+        {"name": "HIV (I,II) Abs", "price": 450},
+        {"name": "HIV Combi Ag/Ab", "price": 500},
+        {"name": "Human Papilloma Virus (IgG) HPV", "price": 4000},
+        {"name": "Malaria IgM Ab", "price": 1500},
+        {"name": "Measles IgG", "price": 1400},
+        {"name": "Measles IgM", "price": 1400},
+        {"name": "Mumps Abs(IgM)", "price": 1200},
+        {"name": "Spike Corona IgG Abs", "price": 600},
+        {"name": "Spike Corona IgM Abs", "price": 600},
+        {"name": "Varicella Zoster (IgA)", "price": 1200},
+        {"name": "Varicella Zoster (IgG)", "price": 1200},
+        {"name": "Varicella Zoster (IgM)", "price": 1300},
+        {"name": "Viral Ag (Rapid test)", "price": 700},
+        {"name": "Viral PCR-RNA (Qualitative)", "price": 1700},
+        {"name": "Viral PCR-RNA (Qualitative)", "price": 1500},
+        {"name": "Viral PCR-RNA (Urgently)", "price": 2800},
+    ],
+    "Vitamins": [
+        {"name": "Ascorbic acid in plasma (vitamin", "price": 6000},
+        {"name": "Biotin (Vitamin H/ B7 /B8)", "price": 7500},
+        {"name": "Folate (Folic Acid) serum", "price": 1200},
+        {"name": "Index Omega 3", "price": 7000},
+        {"name": "Lactoferrin", "price": 2000},
+        {"name": "Vitamin A", "price": 4500},
+        {"name": "Vitamin B1", "price": 7000},
+        {"name": "Vitamin B12", "price": 1500},
+        {"name": "Vitamin B2", "price": 6000},
+        {"name": "Vitamin B3", "price": 6000},
+        {"name": "Vitamin B5", "price": 8000},
+        {"name": "Vitamin B6", "price": 6000},
+        {"name": "Vitamin C", "price": 6000},
+        {"name": "Vitamin D2 (1,25 Dihydroxy)", "price": 2000},
+        {"name": "Vitamin D3(25 Hydroxy Cholecal.)", "price": 1000},
+        {"name": "Vitamin E", "price": 6000},
+        {"name": "Vitamin K", "price": 6000},
+    ],
+}
+# Flat list for search
+ALL_LABS = [{"name": t["name"], "price": t["price"], "category": cat}
+            for cat, tests in LABS_DB.items() for t in tests]
+
 DATA_FILE = "visits.json"
 
-LABS = [
-    {"name": "CBC - صورة دم كاملة",         "price": 50},
-    {"name": "Blood Sugar - سكر صائم",       "price": 30},
-    {"name": "HbA1c - سكر تراكمي",           "price": 120},
-    {"name": "Lipid Profile - دهون",         "price": 150},
-    {"name": "Liver Function - وظائف كبد",  "price": 180},
-    {"name": "Kidney Function - وظائف كلى", "price": 180},
-    {"name": "Thyroid TSH - هرمون غدة",     "price": 100},
-    {"name": "Vitamin D",                    "price": 200},
-    {"name": "Vitamin B12",                  "price": 150},
-    {"name": "Urine Analysis - تحليل بول",  "price": 40},
-    {"name": "CRP - بروتين التهابي",         "price": 80},
-    {"name": "PT/INR - تجلط",                "price": 100},
-    {"name": "Ferritin - حديد",              "price": 120},
-    {"name": "Calcium - كالسيوم",            "price": 60},
-    {"name": "COVID PCR",                    "price": 350},
-]
-
-# ─── Data helpers ───────────────────────────────────────────────────────────────
+# ─── Helpers ───────────────────────────────────────────────────────────────────
 def load_visits():
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, "r", encoding="utf-8") as f:
@@ -146,14 +996,17 @@ def save_visits(visits):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(visits, f, ensure_ascii=False, indent=2)
 
+def get_lab_price(name):
+    for l in ALL_LABS:
+        if l["name"] == name:
+            return l["price"]
+    return 0
+
 def format_date_ar(d):
-    if not d:
-        return ""
+    if not d: return ""
     if isinstance(d, str):
-        try:
-            d = datetime.strptime(d, "%Y-%m-%d").date()
-        except:
-            return d
+        try: d = datetime.strptime(d, "%Y-%m-%d").date()
+        except: return d
     months = ["يناير","فبراير","مارس","أبريل","مايو","يونيو",
               "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
     return f"{d.day} {months[d.month-1]} {d.year}"
@@ -163,275 +1016,247 @@ def make_whatsapp_msg(v, for_client=False):
     visit_price = v.get("visit_price", 0)
     total       = v.get("total_price", labs_price + visit_price)
     visit_date  = format_date_ar(v.get("visit_date", ""))
-
-    labs_lines = ""
+    labs_lines  = ""
     for l in v.get("selected_labs", []):
-        labs_lines += f"• {l}\n"
+        p = get_lab_price(l)
+        labs_lines += f"• {l} — {p} جنيه\n"
     if v.get("custom_labs"):
         labs_lines += f"• {v['custom_labs']}\n"
     if not labs_lines:
         labs_lines = "لا توجد تحاليل\n"
-
     if for_client:
-        msg = (
-            f"🟠 *Orange Home Visit*\n"
-            f"أهلاً {v['name']} 👋\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"📅 *موعد الزيارة:* {visit_date}\n"
-            f"🧪 *التحاليل المطلوبة:*\n{labs_lines}"
-            f"━━━━━━━━━━━━━━\n"
-            f"💉 *سعر التحاليل:* {labs_price} جنيه\n"
-            f"🚗 *سعر الزيارة:* {visit_price} جنيه\n"
-            f"💰 *الإجمالي:* {total} جنيه\n"
-            f"شكراً لثقتكم 🙏"
-        )
-    else:
-        location_line = f"🗺️ *الموقع:* {v.get('location_link','')}\n" if v.get("location_link") else ""
-        notes_line    = f"📌 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
-        msg = (
-            f"🟠 *Orange Home Visit*\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"👤 *الاسم:* {v['name']}\n"
-            f"🎂 *السن:* {v.get('age','')} سنة\n"
-            f"📞 *التليفون:* {v.get('phone','')}\n"
-            f"📅 *تاريخ الزيارة:* {visit_date}\n"
-            f"📍 *العنوان:* {v.get('address','')}\n"
-            f"{location_line}"
-            f"━━━━━━━━━━━━━━\n"
-            f"🧪 *التحاليل المطلوبة:*\n{labs_lines}"
-            f"━━━━━━━━━━━━━━\n"
-            f"💉 *سعر التحاليل:* {labs_price} جنيه\n"
-            f"🚗 *سعر الزيارة:* {visit_price} جنيه\n"
-            f"💰 *الإجمالي:* {total} جنيه\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"{notes_line}"
-        )
-    return msg
+        return (f"🟠 *Orange Home Visit*\nأهلاً {v['name']} 👋\n━━━━━━━━━━━━━━\n"
+                f"📅 *موعد الزيارة:* {visit_date}\n🧪 *التحاليل المطلوبة:*\n{labs_lines}"
+                f"━━━━━━━━━━━━━━\n💉 *سعر التحاليل:* {labs_price} جنيه\n"
+                f"🚗 *سعر الزيارة:* {visit_price} جنيه\n💰 *الإجمالي:* {total} جنيه\nشكراً لثقتكم 🙏")
+    loc = f"🗺️ *الموقع:* {v.get('location_link','')}\n" if v.get("location_link") else ""
+    notes = f"📌 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
+    return (f"🟠 *Orange Home Visit*\n━━━━━━━━━━━━━━\n"
+            f"👤 *الاسم:* {v['name']}\n🎂 *السن:* {v.get('age','')} سنة\n"
+            f"📞 *التليفون:* {v.get('phone','')}\n📅 *تاريخ الزيارة:* {visit_date}\n"
+            f"📍 *العنوان:* {v.get('address','')}\n{loc}"
+            f"━━━━━━━━━━━━━━\n🧪 *التحاليل المطلوبة:*\n{labs_lines}"
+            f"━━━━━━━━━━━━━━\n💉 *سعر التحاليل:* {labs_price} جنيه\n"
+            f"🚗 *سعر الزيارة:* {visit_price} جنيه\n💰 *الإجمالي:* {total} جنيه\n━━━━━━━━━━━━━━\n{notes}")
 
 def whatsapp_link(msg, phone=None):
     encoded = urllib.parse.quote(msg)
     if phone:
-        p = phone.replace(" ", "").replace("-", "")
-        if p.startswith("0"):
-            p = "2" + p
+        p = phone.replace(" ","").replace("-","")
+        if p.startswith("0"): p = "2" + p
         return f"https://wa.me/{p}?text={encoded}"
     return f"https://wa.me/?text={encoded}"
 
 # ─── Session State ──────────────────────────────────────────────────────────────
-if "page"        not in st.session_state: st.session_state.page = "home"
-if "visits"      not in st.session_state: st.session_state.visits = load_visits()
-if "selected_id" not in st.session_state: st.session_state.selected_id = None
-if "prefill"     not in st.session_state: st.session_state.prefill = {}
-if "search_q"    not in st.session_state: st.session_state.search_q = ""
+for k,v in [("page","home"),("visits",None),("selected_id",None),("prefill",{}),("search_q","")]:
+    if k not in st.session_state:
+        st.session_state[k] = v
+if st.session_state.visits is None:
+    st.session_state.visits = load_visits()
 
 def go(page, prefill=None, visit_id=None):
     st.session_state.page = page
-    if prefill   is not None: st.session_state.prefill     = prefill
-    if visit_id  is not None: st.session_state.selected_id = visit_id
+    if prefill  is not None: st.session_state.prefill     = prefill
+    if visit_id is not None: st.session_state.selected_id = visit_id
     st.rerun()
 
 # ─── Header ────────────────────────────────────────────────────────────────────
-today_str = format_date_ar(date.today())
-st.markdown(f"""
+st.markdown(f'''
 <div class="ohv-header">
   <h1>🟠 Orange Home Visit</h1>
-  <span>📅 {today_str}</span>
+  <span>📅 {format_date_ar(date.today())}</span>
 </div>
-""", unsafe_allow_html=True)
+''', unsafe_allow_html=True)
 
-# ─── Navigation ────────────────────────────────────────────────────────────────
-col1, col2, col3 = st.columns(3)
+col1,col2,col3 = st.columns(3)
 with col1:
-    if st.button("🏠 الرئيسية", use_container_width=True):
-        go("home")
+    if st.button("🏠 الرئيسية", use_container_width=True): go("home")
 with col2:
-    if st.button("➕ زيارة جديدة", use_container_width=True):
-        go("new", prefill={})
+    if st.button("➕ زيارة جديدة", use_container_width=True): go("new", prefill={})
 with col3:
-    if st.button("🔍 بحث", use_container_width=True):
-        go("search")
-
+    if st.button("🔍 بحث", use_container_width=True): go("search")
 st.markdown("---")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE: HOME
+# HOME
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.page == "home":
-    visits = st.session_state.visits
-    today  = date.today().isoformat()
-
-    total_visits  = len(visits)
-    today_visits  = sum(1 for v in visits if v.get("visit_date") == today)
-    total_revenue = sum(v.get("total_price", 0) for v in visits)
-
-    st.markdown(f"""
+    visits   = st.session_state.visits
+    today    = date.today().isoformat()
+    t_visits = len(visits)
+    t_today  = sum(1 for v in visits if v.get("visit_date")==today)
+    t_rev    = sum(v.get("total_price",0) for v in visits)
+    st.markdown(f'''
     <div class="stat-grid">
-      <div class="stat-box">
-        <div class="stat-num">{total_visits}</div>
-        <div class="stat-label">إجمالي الزيارات</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-num">{today_visits}</div>
-        <div class="stat-label">زيارات اليوم</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-num" style="font-size:18px">{total_revenue:,}</div>
-        <div class="stat-label">إجمالي الإيراد (جنيه)</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+      <div class="stat-box"><div class="stat-num">{t_visits}</div><div class="stat-label">إجمالي الزيارات</div></div>
+      <div class="stat-box"><div class="stat-num">{t_today}</div><div class="stat-label">زيارات اليوم</div></div>
+      <div class="stat-box"><div class="stat-num" style="font-size:17px">{t_rev:,}</div><div class="stat-label">الإيراد (جنيه)</div></div>
+    </div>''', unsafe_allow_html=True)
 
-    search_q = st.text_input("🔍 ابحث بالاسم أو رقم التليفون",
-                              value=st.session_state.search_q,
-                              placeholder="اكتب هنا...")
-    st.session_state.search_q = search_q
-
-    filtered = [v for v in visits if
-                search_q.lower() in v.get("name","").lower() or
-                search_q in v.get("phone","")]
+    sq = st.text_input("🔍 ابحث بالاسم أو التليفون", value=st.session_state.search_q, placeholder="اكتب هنا...")
+    st.session_state.search_q = sq
+    filtered = [v for v in visits if sq.lower() in v.get("name","").lower() or sq in v.get("phone","")]
 
     if not filtered:
-        st.info("لا توجد زيارات. اضغط ➕ زيارة جديدة للبدء.")
+        st.info("لا توجد زيارات. اضغط ➕ لإضافة زيارة جديدة.")
     else:
         for v in filtered:
-            total      = v.get("total_price", 0)
-            labs_count = len(v.get("selected_labs", []))
-            vdate      = format_date_ar(v.get("visit_date", ""))
-            addr       = v.get("address","")
-            addr_short = addr[:38] + "..." if len(addr) > 38 else addr
-
-            st.markdown(f"""
+            total = v.get("total_price",0)
+            vdate = format_date_ar(v.get("visit_date",""))
+            addr  = v.get("address","")[:38] + ("..." if len(v.get("address",""))>38 else "")
+            labs_count = len(v.get("selected_labs",[]))
+            st.markdown(f'''
             <div class="visit-card">
               <span class="visit-badge">{total:,} جنيه</span>
-              <div class="visit-name">👤 {v['name']}</div>
-              <div class="visit-meta">📞 {v.get('phone','')} &nbsp;|&nbsp; 📅 {vdate}</div>
-              <div class="visit-meta">📍 {addr_short}</div>
+              <div class="visit-name">👤 {v["name"]}</div>
+              <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate}</div>
+              <div class="visit-meta">📍 {addr}</div>
               <div class="visit-meta" style="margin-top:5px">🧪 {labs_count} تحليل</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            if st.button(f"📂 فتح تفاصيل {v['name']}", key=f"open_{v['id']}",
-                         use_container_width=True):
+            </div>''', unsafe_allow_html=True)
+            if st.button(f"📂 فتح {v['name']}", key=f"o_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE: NEW VISIT
+# NEW VISIT
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "new":
     pf      = st.session_state.prefill or {}
     is_edit = pf.get("_edit", False)
-
     st.markdown(f"### {'✏️ تعديل الزيارة' if is_edit else '➕ زيارة جديدة'}")
 
-    # ── Personal Info ──
+    # Personal
     st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
-    name  = st.text_input("الاسم الكامل *", value=pf.get("name",""), placeholder="اسم العميل")
-    c1, c2 = st.columns(2)
-    with c1:
-        age = st.number_input("السن *", min_value=0, max_value=120,
-                               value=int(pf.get("age", 0) or 0))
-    with c2:
-        phone = st.text_input("رقم التليفون *", value=pf.get("phone",""),
-                               placeholder="01xxxxxxxxx")
-
+    name  = st.text_input("الاسم الكامل *", value=pf.get("name",""))
+    c1,c2 = st.columns(2)
+    with c1: age   = st.number_input("السن *", 0, 120, int(pf.get("age",0) or 0))
+    with c2: phone = st.text_input("رقم التليفون *", value=pf.get("phone",""), placeholder="01xxxxxxxxx")
     default_date = date.today()
     if pf.get("visit_date"):
-        try:
-            default_date = datetime.strptime(pf["visit_date"], "%Y-%m-%d").date()
-        except:
-            pass
+        try: default_date = datetime.strptime(pf["visit_date"],"%Y-%m-%d").date()
+        except: pass
     visit_date = st.date_input("تاريخ الزيارة *", value=default_date)
-
     st.markdown("---")
 
-    # ── Address ──
+    # Address
     st.markdown('<div class="section-title">📍 العنوان</div>', unsafe_allow_html=True)
-    address = st.text_area("العنوان بالتفصيل *",
-                            value=pf.get("address",""),
-                            placeholder="المحافظة - المدينة - الشارع - رقم المبنى - الدور - الشقة...",
-                            height=90)
-    location_link = st.text_input("🗺️ رابط الموقع (Google Maps)",
-                                   value=pf.get("location_link",""),
-                                   placeholder="https://maps.google.com/...")
+    address       = st.text_area("العنوان بالتفصيل *", value=pf.get("address",""),
+                                  placeholder="المحافظة - المدينة - الشارع - رقم المبنى - الدور - الشقة...", height=90)
+    location_link = st.text_input("🗺️ رابط الموقع (Google Maps)", value=pf.get("location_link",""))
     st.markdown("---")
 
-    # ── Labs ──
-    st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
-    lab_names     = [l["name"] for l in LABS]
-    default_labs  = pf.get("selected_labs", [])
-    selected_labs = st.multiselect("اختر التحاليل من القائمة", options=lab_names,
-                                    default=default_labs)
+    # ── Labs Selection ──
+    st.markdown('<div class="section-title">🧪 اختيار التحاليل</div>', unsafe_allow_html=True)
 
+    # Search within labs
+    lab_search = st.text_input("🔍 ابحث عن تحليل", placeholder="مثال: CBC أو سكر أو Vitamin...")
+
+    if lab_search:
+        results = [l for l in ALL_LABS if lab_search.lower() in l["name"].lower()]
+        if results:
+            st.markdown(f"**{len(results)} نتيجة** — اختر من النتائج:")
+            search_choices = [f"{l['name']} ({l['category']}) — {l['price']} جنيه" for l in results]
+        else:
+            st.info("لا توجد نتائج، جرب كلمة تانية")
+            search_choices = []
+    else:
+        search_choices = []
+
+    # Category filter
+    all_cats = list(LABS_DB.keys())
+    selected_cat = st.selectbox("أو اختر قسم", ["-- كل الأقسام --"] + all_cats)
+
+    if selected_cat == "-- كل الأقسام --":
+        if lab_search and search_choices:
+            display_labs = [f"{l['name']} ({l['category']}) — {l['price']} جنيه" for l in results]
+        else:
+            display_labs = [f"{l['name']} ({l['category']}) — {l['price']} جنيه" for l in ALL_LABS]
+    else:
+        cat_labs = LABS_DB[selected_cat]
+        if lab_search:
+            cat_labs = [l for l in cat_labs if lab_search.lower() in l["name"].lower()]
+        display_labs = [f"{l['name']} — {l['price']} جنيه" for l in cat_labs]
+
+    # Current selections (restore from prefill)
+    default_sel = pf.get("selected_labs", [])
+    # Map back to display format
+    default_display = []
+    for sel in default_sel:
+        lab = next((l for l in ALL_LABS if l["name"]==sel), None)
+        if lab:
+            if selected_cat == "-- كل الأقسام --":
+                default_display.append(f"{lab['name']} ({lab['category']}) — {lab['price']} جنيه")
+            else:
+                default_display.append(f"{lab['name']} — {lab['price']} جنيه")
+
+    valid_defaults = [d for d in default_display if d in display_labs]
+
+    chosen_display = st.multiselect(
+        f"اختر التحاليل ({len(display_labs)} متاح)",
+        options=display_labs,
+        default=valid_defaults,
+        placeholder="اختر أو ابحث..."
+    )
+
+    # Extract clean names
+    selected_labs = []
+    for cd in chosen_display:
+        name_part = cd.split(" (")[0].split(" — ")[0].strip()
+        selected_labs.append(name_part)
+
+    # Show selected chips
     if selected_labs:
-        badges = " ".join([
-            f'<span class="lab-badge">{l.split(" - ")[0]}</span>'
-            for l in selected_labs
-        ])
-        st.markdown(badges, unsafe_allow_html=True)
+        chips = ""
+        for l in selected_labs:
+            p = get_lab_price(l)
+            chips += f'<span class="lab-chip">{l} <span class="price-tag">{p} جنيه</span></span>'
+        st.markdown(chips, unsafe_allow_html=True)
+        st.markdown(f"**{len(selected_labs)} تحليل مختار** | إجمالي التحاليل: **{sum(get_lab_price(l) for l in selected_labs):,} جنيه**")
 
-    custom_labs = st.text_area("تحاليل إضافية (اكتبها هنا)",
-                                value=pf.get("custom_labs",""),
-                                placeholder="أي تحاليل غير موجودة في القائمة...",
-                                height=65)
+    custom_labs = st.text_area("تحاليل إضافية (غير موجودة في القائمة)",
+                                value=pf.get("custom_labs",""), height=65)
     st.markdown("---")
 
-    # ── Notes ──
+    # Notes
     st.markdown('<div class="section-title">📌 ملاحظات</div>', unsafe_allow_html=True)
-    notes = st.text_area("ملاحظات خاصة", value=pf.get("notes",""),
-                          height=75, placeholder="أي ملاحظات...")
+    notes = st.text_area("ملاحظات خاصة", value=pf.get("notes",""), height=75)
     st.markdown("---")
 
-    # ── Prices (MANUAL) ──
+    # Prices Manual
     st.markdown('<div class="section-title">💰 الأسعار</div>', unsafe_allow_html=True)
-    p1, p2 = st.columns(2)
-    with p1:
-        labs_price = st.number_input("💉 سعر التحاليل (جنيه)",
-                                      min_value=0, step=10,
-                                      value=int(pf.get("labs_price", 0) or 0))
-    with p2:
-        visit_price = st.number_input("🚗 سعر الزيارة (جنيه)",
-                                       min_value=0, step=10,
-                                       value=int(pf.get("visit_price", 100) or 100))
-
+    p1,p2 = st.columns(2)
+    with p1: labs_price  = st.number_input("💉 سعر التحاليل (جنيه)", min_value=0, step=10,
+                                            value=int(pf.get("labs_price",0) or 0))
+    with p2: visit_price = st.number_input("🚗 سعر الزيارة (جنيه)",  min_value=0, step=10,
+                                            value=int(pf.get("visit_price",100) or 100))
     total_price = labs_price + visit_price
-
-    st.markdown(f"""
+    st.markdown(f'''
     <div class="price-box">
       <div class="price-row"><span>💉 سعر التحاليل</span><span>{labs_price} جنيه</span></div>
       <div class="price-row"><span>🚗 سعر الزيارة</span><span>{visit_price} جنيه</span></div>
       <div class="price-total"><span>💰 الإجمالي</span><span>{total_price} جنيه</span></div>
-    </div>
-    """, unsafe_allow_html=True)
+    </div>''', unsafe_allow_html=True)
 
-    # ── Save ──
-    if st.button("💾 حفظ الزيارة" if not is_edit else "💾 حفظ التعديلات",
-                 use_container_width=True):
+    if st.button("💾 حفظ الزيارة" if not is_edit else "💾 حفظ التعديلات", use_container_width=True):
         if not name or not phone or not address:
             st.error("⚠️ من فضلك املأ الاسم والتليفون والعنوان")
         else:
             visits = load_visits()
             record = {
-                "id":            pf.get("id", str(int(datetime.now().timestamp() * 1000))),
+                "id":            pf.get("id", str(int(datetime.now().timestamp()*1000))),
                 "created_at":    pf.get("created_at", datetime.now().isoformat()),
-                "name":          name,
-                "age":           age,
-                "phone":         phone,
+                "name": name, "age": age, "phone": phone,
                 "visit_date":    visit_date.isoformat(),
-                "address":       address,
-                "location_link": location_link,
+                "address": address, "location_link": location_link,
                 "selected_labs": selected_labs,
-                "custom_labs":   custom_labs,
-                "notes":         notes,
-                "labs_price":    labs_price,
-                "visit_price":   visit_price,
-                "total_price":   total_price,
+                "custom_labs": custom_labs, "notes": notes,
+                "labs_price": labs_price, "visit_price": visit_price, "total_price": total_price,
             }
             if is_edit:
-                visits = [record if v["id"] == record["id"] else v for v in visits]
-                st.success("✅ تم تحديث الزيارة بنجاح!")
+                visits = [record if v["id"]==record["id"] else v for v in visits]
+                st.success("✅ تم تحديث الزيارة!")
             else:
                 visits.insert(0, record)
-                st.success("✅ تم حفظ الزيارة بنجاح!")
+                st.success("✅ تم حفظ الزيارة!")
             save_visits(visits)
             st.session_state.visits = visits
             go("detail", visit_id=record["id"])
@@ -441,152 +1266,105 @@ elif st.session_state.page == "new":
             go("detail", visit_id=pf.get("id"))
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE: DETAIL
+# DETAIL
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "detail":
     visits = st.session_state.visits
     vid    = st.session_state.selected_id
-    v      = next((x for x in visits if x["id"] == vid), None)
-
+    v      = next((x for x in visits if x["id"]==vid), None)
     if not v:
-        st.error("لم يتم العثور على الزيارة")
-        go("home")
+        st.error("لم يتم العثور على الزيارة"); go("home")
     else:
-        labs_price  = v.get("labs_price", 0)
-        visit_price = v.get("visit_price", 0)
-        total_price = v.get("total_price", labs_price + visit_price)
+        labs_price  = v.get("labs_price",0)
+        visit_price = v.get("visit_price",0)
+        total_price = v.get("total_price", labs_price+visit_price)
 
-        # ── Personal ──
         st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
-        st.markdown(f"""
-        <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v['name']}</span></div>
-        <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{v.get('age','')} سنة</span></div>
-        <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get('phone','')}</span></div>
-        <div class="detail-row"><span class="detail-label">📅 تاريخ الزيارة</span><span class="detail-value">{format_date_ar(v.get('visit_date',''))}</span></div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'''
+        <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v["name"]}</span></div>
+        <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{v.get("age","")} سنة</span></div>
+        <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get("phone","")}</span></div>
+        <div class="detail-row"><span class="detail-label">📅 تاريخ الزيارة</span><span class="detail-value">{format_date_ar(v.get("visit_date",""))}</span></div>
+        ''', unsafe_allow_html=True)
         st.markdown("---")
 
-        # ── Address ──
         st.markdown('<div class="section-title">📍 العنوان</div>', unsafe_allow_html=True)
         st.write(v.get("address",""))
         if v.get("location_link"):
-            st.markdown(
-                f'<a href="{v["location_link"]}" target="_blank" '
-                f'style="color:#FF6B00;font-weight:700;">🗺️ فتح الموقع على الخريطة</a>',
-                unsafe_allow_html=True)
+            st.markdown(f'<a href="{v["location_link"]}" target="_blank" style="color:#FF6B00;font-weight:700;">🗺️ فتح الموقع على الخريطة</a>', unsafe_allow_html=True)
         st.markdown("---")
 
-        # ── Labs ──
         if v.get("selected_labs") or v.get("custom_labs"):
             st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
-            for l in v.get("selected_labs", []):
-                st.markdown(f'<div class="detail-row"><span class="detail-label">• {l}</span></div>',
-                            unsafe_allow_html=True)
+            chips = ""
+            for l in v.get("selected_labs",[]):
+                p = get_lab_price(l)
+                chips += f'<span class="lab-chip">{l} <span class="price-tag">{p} جنيه</span></span>'
+            if chips: st.markdown(chips, unsafe_allow_html=True)
             if v.get("custom_labs"):
                 st.markdown(f"📝 **تحاليل إضافية:** {v['custom_labs']}")
             st.markdown("---")
 
-        # ── Price ──
-        st.markdown(f"""
+        st.markdown(f'''
         <div class="price-box">
           <div class="price-row"><span>💉 سعر التحاليل</span><span>{labs_price} جنيه</span></div>
           <div class="price-row"><span>🚗 سعر الزيارة</span><span>{visit_price} جنيه</span></div>
           <div class="price-total"><span>💰 الإجمالي</span><span>{total_price} جنيه</span></div>
-        </div>
-        """, unsafe_allow_html=True)
+        </div>''', unsafe_allow_html=True)
 
-        # ── Notes ──
         if v.get("notes"):
             st.markdown('<div class="section-title">📌 ملاحظات</div>', unsafe_allow_html=True)
-            st.write(v["notes"])
-            st.markdown("---")
+            st.write(v["notes"]); st.markdown("---")
 
-        # ── WhatsApp ──
         st.markdown('<div class="section-title">📱 إرسال على واتساب</div>', unsafe_allow_html=True)
-        wa_client_link = whatsapp_link(make_whatsapp_msg(v, for_client=True), phone=v.get("phone"))
-        wa_share_link  = whatsapp_link(make_whatsapp_msg(v, for_client=False))
-
-        c1, c2 = st.columns(2)
-        with c1:
-            st.markdown(f'<a href="{wa_client_link}" target="_blank" class="wa-btn wa-client">📱 واتساب العميل</a>',
-                        unsafe_allow_html=True)
-        with c2:
-            st.markdown(f'<a href="{wa_share_link}" target="_blank" class="wa-btn wa-share">📋 مشاركة الملخص</a>',
-                        unsafe_allow_html=True)
-
+        c1,c2 = st.columns(2)
+        with c1: st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,True),v.get("phone"))}" target="_blank" class="wa-btn wa-client">📱 واتساب العميل</a>', unsafe_allow_html=True)
+        with c2: st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,False))}" target="_blank" class="wa-btn wa-share">📋 مشاركة الملخص</a>', unsafe_allow_html=True)
         st.markdown("---")
 
-        # ── Actions ──
-        c1, c2 = st.columns(2)
+        c1,c2 = st.columns(2)
         with c1:
-            if st.button("✏️ تعديل", use_container_width=True):
-                go("new", prefill={**v, "_edit": True})
+            if st.button("✏️ تعديل", use_container_width=True): go("new", prefill={**v,"_edit":True})
         with c2:
-            if st.button("🗑️ حذف", use_container_width=True):
-                st.session_state["confirm_delete"] = True
+            if st.button("🗑️ حذف", use_container_width=True): st.session_state["confirm_delete"]=True
 
         if st.session_state.get("confirm_delete"):
-            st.warning("⚠️ هل أنت متأكد من حذف هذه الزيارة؟")
-            cc1, cc2 = st.columns(2)
+            st.warning("⚠️ هل أنت متأكد من الحذف؟")
+            cc1,cc2 = st.columns(2)
             with cc1:
                 if st.button("✅ نعم، احذف", use_container_width=True):
-                    updated = [x for x in load_visits() if x["id"] != vid]
-                    save_visits(updated)
-                    st.session_state.visits = updated
-                    st.session_state["confirm_delete"] = False
-                    go("home")
+                    updated = [x for x in load_visits() if x["id"]!=vid]
+                    save_visits(updated); st.session_state.visits=updated
+                    st.session_state["confirm_delete"]=False; go("home")
             with cc2:
                 if st.button("❌ إلغاء", use_container_width=True):
-                    st.session_state["confirm_delete"] = False
-                    st.rerun()
+                    st.session_state["confirm_delete"]=False; st.rerun()
 
-        # ── Repeat Visit ──
-        st.markdown(f"""
-        <div class="repeat-banner">🔄 هتروح لـ {v['name']} مرة تانية؟</div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="repeat-banner">🔄 هتروح لـ {v["name"]} مرة تانية؟</div>', unsafe_allow_html=True)
         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
-            go("new", prefill={
-                "name":          v["name"],
-                "age":           v.get("age",""),
-                "phone":         v.get("phone",""),
-                "address":       v.get("address",""),
-                "location_link": v.get("location_link",""),
-                "selected_labs": [],
-                "custom_labs":   "",
-                "notes":         "",
-                "labs_price":    0,
-                "visit_price":   100,
-            })
-
-        if st.button("← رجوع للقائمة", use_container_width=True):
-            go("home")
+            go("new", prefill={"name":v["name"],"age":v.get("age",""),"phone":v.get("phone",""),
+                               "address":v.get("address",""),"location_link":v.get("location_link",""),
+                               "selected_labs":[],"custom_labs":"","notes":"","labs_price":0,"visit_price":100})
+        if st.button("← رجوع للقائمة", use_container_width=True): go("home")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PAGE: SEARCH
+# SEARCH
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "search":
     st.markdown("### 🔍 البحث عن عميل")
-    query = st.text_input("اكتب الاسم أو التليفون",
-                           placeholder="مثال: محمد أو 01012345678")
-
+    query = st.text_input("اكتب الاسم أو التليفون", placeholder="مثال: محمد أو 01012345678")
     if query:
         visits  = st.session_state.visits
-        results = [v for v in visits if
-                   query.lower() in v.get("name","").lower() or
-                   query in v.get("phone","")]
-
+        results = [v for v in visits if query.lower() in v.get("name","").lower() or query in v.get("phone","")]
         st.markdown(f"**{len(results)} نتيجة**")
-
         for v in results:
-            total = v.get("total_price", 0)
+            total = v.get("total_price",0)
             vdate = format_date_ar(v.get("visit_date",""))
-            st.markdown(f"""
+            st.markdown(f'''
             <div class="visit-card">
               <span class="visit-badge">{total:,} جنيه</span>
-              <div class="visit-name">👤 {v['name']}</div>
-              <div class="visit-meta">📞 {v.get('phone','')} &nbsp;|&nbsp; 📅 {vdate}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            if st.button(f"📂 فتح {v['name']}", key=f"s_{v['id']}",
-                         use_container_width=True):
+              <div class="visit-name">👤 {v["name"]}</div>
+              <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate}</div>
+            </div>''', unsafe_allow_html=True)
+            if st.button(f"📂 فتح {v['name']}", key=f"s_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
