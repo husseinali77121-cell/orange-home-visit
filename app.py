@@ -1149,51 +1149,61 @@ elif st.session_state.page == "new":
     location_link = st.text_input("🗺️ رابط الموقع (Google Maps)", value=pf.get("location_link",""))
     st.markdown("---")
 
-    # ── Session key for labs text (so buttons can append to it) ──
-    labs_key = "labs_text_buffer"
-    if labs_key not in st.session_state:
-        st.session_state[labs_key] = pf.get("selected_labs_text","")
-    # Sync prefill once
-    if pf.get("selected_labs_text","") and st.session_state[labs_key] == "":
-        st.session_state[labs_key] = pf["selected_labs_text"]
+    # ── Session state: persist added labs + search query ──
+    visit_id_key = pf.get("id", "new_visit")
+    labs_ss_key  = f"added_labs_{visit_id_key}"
+    search_ss_key = f"lab_search_{visit_id_key}"
 
-    # ── Price Search — interactive ──
-    st.markdown('<div class="section-title">🔍 البحث عن تحليل وإضافته</div>', unsafe_allow_html=True)
-    price_search = st.text_input("ابحث باسم التحليل",
-                                  placeholder="مثال: CBC أو سكر أو Vitamin D...",
-                                  key="price_search_input")
+    if labs_ss_key not in st.session_state:
+        # Load from prefill (edit mode) or start fresh
+        if pf.get("selected_labs_text",""):
+            st.session_state[labs_ss_key] = [
+                l.strip() for l in pf["selected_labs_text"].splitlines() if l.strip()
+            ]
+        else:
+            st.session_state[labs_ss_key] = []
+
+    if search_ss_key not in st.session_state:
+        st.session_state[search_ss_key] = ""
+
+    # ── Price Search — always visible, stays after adding ──
+    st.markdown('<div class="section-title">🔍 ابحث وأضف من قائمة الأسعار</div>', unsafe_allow_html=True)
+    st.caption("💰 = يضاف **مع السعر**  &nbsp;|&nbsp;  📋 = يضاف **بدون سعر**")
+
+    price_search = st.text_input(
+        "ابحث باسم التحليل",
+        value=st.session_state[search_ss_key],
+        placeholder="مثال: CBC أو سكر أو Vitamin D...",
+        key=f"search_input_{visit_id_key}"
+    )
+    st.session_state[search_ss_key] = price_search
+
     if price_search:
         results = [l for l in ALL_LABS if price_search.lower() in l["name"].lower()]
         if results:
-            st.caption(f"🔎 {len(results)} نتيجة — اضغط لإضافة التحليل:")
+            st.caption(f"🔎 {len(results)} نتيجة:")
             for r in results[:12]:
-                c1, c2, c3 = st.columns([5, 2, 2])
-                with c1:
+                c_name, c_price, c_priced, c_plain = st.columns([5, 2, 1, 1])
+                with c_name:
                     st.markdown(
-                        f'<div style="padding:6px 0;font-size:13px;color:#333">🧪 {r["name"]}</div>',
+                        f'<div style="padding:6px 2px;font-size:13px;color:#222">🧪 {r["name"]}</div>',
                         unsafe_allow_html=True)
-                with c2:
+                with c_price:
                     st.markdown(
-                        f'<div style="padding:6px 0;font-size:13px;font-weight:700;color:#FF6B00">{r["price"]:,} جنيه</div>',
+                        f'<div style="padding:6px 2px;font-size:13px;font-weight:700;color:#FF6B00">{r["price"]:,} جنيه</div>',
                         unsafe_allow_html=True)
-                with c3:
-                    col_a, col_b = st.columns(2)
-                    with col_a:
-                        if st.button("💰", key=f"add_priced_{r['name']}",
-                                     help="أضف مع السعر"):
-                            entry = f"{r['name']} — {r['price']} جنيه"
-                            current = st.session_state[labs_key]
-                            if entry not in current:
-                                st.session_state[labs_key] = (current + "\n" + entry).strip()
-                            st.rerun()
-                    with col_b:
-                        if st.button("📋", key=f"add_plain_{r['name']}",
-                                     help="أضف بدون سعر"):
-                            entry = r['name']
-                            current = st.session_state[labs_key]
-                            if entry not in current:
-                                st.session_state[labs_key] = (current + "\n" + entry).strip()
-                            st.rerun()
+                with c_priced:
+                    if st.button("💰", key=f"ap_{visit_id_key}_{r['name']}", help="أضف مع السعر"):
+                        entry = f"{r['name']} — {r['price']} جنيه"
+                        if entry not in st.session_state[labs_ss_key]:
+                            st.session_state[labs_ss_key].append(entry)
+                        st.rerun()
+                with c_plain:
+                    if st.button("📋", key=f"an_{visit_id_key}_{r['name']}", help="أضف بدون سعر"):
+                        entry = r["name"]
+                        if entry not in st.session_state[labs_ss_key]:
+                            st.session_state[labs_ss_key].append(entry)
+                        st.rerun()
             if len(results) > 12:
                 st.caption(f"+ {len(results)-12} نتيجة أخرى، دقّق في البحث")
         else:
@@ -1201,23 +1211,62 @@ elif st.session_state.page == "new":
 
     st.markdown("---")
 
-    # ── Labs: free text (editable, gets appended to by buttons above) ──
-    st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
-    st.caption("💰 = يضاف بالسعر &nbsp;&nbsp; 📋 = يضاف بدون سعر &nbsp;&nbsp; أو اكتب يدوياً")
-    selected_labs_text = st.text_area(
-        "التحاليل (كل تحليل في سطر)",
-        value=st.session_state[labs_key],
-        placeholder="CBC — 400 جنيه\nسكر صائم\nوظائف كبد — 180 جنيه\nVitamin D\n...",
-        height=150,
-        key="labs_textarea"
-    )
-    # Keep buffer in sync with manual edits
-    st.session_state[labs_key] = selected_labs_text
-    selected_labs = [l.strip() for l in selected_labs_text.splitlines() if l.strip()]
+    # ── Labs list: shows what's been added ──
+    st.markdown('<div class="section-title">🧪 التحاليل المضافة</div>', unsafe_allow_html=True)
 
-    if selected_labs:
-        st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-top:4px">✅ {len(selected_labs)} تحليل مضاف</div>',
+    if st.session_state[labs_ss_key]:
+        import re
+        auto_total = sum(
+            int(m.group(1))
+            for e in st.session_state[labs_ss_key]
+            for m in [re.search(r'(\d+)\s*جنيه', e)] if m
+        )
+        st.markdown(
+            f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-bottom:8px">'
+            f'✅ {len(st.session_state[labs_ss_key])} تحليل'
+            f'{"  —  إجمالي الأسعار: " + f"{auto_total:,} جنيه" if auto_total else ""}'
+            f'</div>', unsafe_allow_html=True)
+
+        to_remove = None
+        for i, entry in enumerate(st.session_state[labs_ss_key]):
+            ca, cb = st.columns([10, 1])
+            with ca:
+                st.markdown(
+                    f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333">🔹 {entry}</div>',
                     unsafe_allow_html=True)
+            with cb:
+                if st.button("✕", key=f"del_{visit_id_key}_{i}", help="احذف"):
+                    to_remove = i
+        if to_remove is not None:
+            st.session_state[labs_ss_key].pop(to_remove)
+            st.rerun()
+
+        if st.button("🗑️ مسح الكل", key=f"clear_{visit_id_key}"):
+            st.session_state[labs_ss_key] = []
+            st.rerun()
+    else:
+        st.markdown('<div style="color:#aaa;font-size:13px;padding:8px 0">لا توجد تحاليل بعد — ابحث وأضف من فوق أو أضف يدوياً</div>',
+                    unsafe_allow_html=True)
+
+    # Manual add
+    col_m1, col_m2 = st.columns([8, 2])
+    with col_m1:
+        manual_entry = st.text_input(
+            "أو أضف يدوياً",
+            placeholder="CBC — 400 جنيه  أو  سكر صائم",
+            key=f"manual_{visit_id_key}"
+        )
+    with col_m2:
+        st.markdown('<div style="margin-top:28px"></div>', unsafe_allow_html=True)
+        if st.button("➕ أضف", key=f"manual_btn_{visit_id_key}", use_container_width=True):
+            if manual_entry.strip():
+                st.session_state[labs_ss_key].append(manual_entry.strip())
+                st.rerun()
+
+    # Build final values
+    selected_labs_text = "\n".join(st.session_state[labs_ss_key])
+    selected_labs      = st.session_state[labs_ss_key][:]
+
     st.markdown("---")
 
     # Notes
@@ -1225,13 +1274,30 @@ elif st.session_state.page == "new":
     notes = st.text_area("ملاحظات خاصة", value=pf.get("notes",""), height=75)
     st.markdown("---")
 
-    # Prices Manual
+    # Prices — labs auto-calculated, visit manual
     st.markdown('<div class="section-title">💰 الأسعار</div>', unsafe_allow_html=True)
-    p1,p2 = st.columns(2)
-    with p1: labs_price  = st.number_input("💉 سعر التحاليل (جنيه)", min_value=0, step=10,
-                                            value=int(pf.get("labs_price",0) or 0))
-    with p2: visit_price = st.number_input("🚗 سعر الزيارة (جنيه)",  min_value=0, step=10,
-                                            value=int(pf.get("visit_price",100) or 100))
+
+    import re as _re
+    auto_labs_total = sum(
+        int(m.group(1))
+        for e in selected_labs
+        for m in [_re.search(r'(\d+)\s*جنيه', e)] if m
+    )
+
+    p1, p2 = st.columns(2)
+    with p1:
+        labs_price = st.number_input(
+            "💉 سعر التحاليل (جنيه)",
+            min_value=0, step=10,
+            value=auto_labs_total if auto_labs_total > 0 else int(pf.get("labs_price", 0) or 0),
+            help="يُحسب تلقائياً من التحاليل المسعّرة"
+        )
+    with p2:
+        visit_price = st.number_input(
+            "🚗 سعر الزيارة (جنيه)",
+            min_value=0, step=10,
+            value=int(pf.get("visit_price", 100) or 100)
+        )
     total_price = labs_price + visit_price
     st.markdown(f'''
     <div class="price-box">
