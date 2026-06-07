@@ -1016,24 +1016,24 @@ def make_whatsapp_msg(v, for_client=False):
     visit_price = v.get("visit_price", 0)
     total       = v.get("total_price", labs_price + visit_price)
     visit_date  = format_date_ar(v.get("visit_date", ""))
-    labs_lines  = ""
-    for l in v.get("selected_labs", []):
-        p = get_lab_price(l)
-        labs_lines += f"• {l} — {p} جنيه\n"
-    if v.get("custom_labs"):
-        labs_lines += f"• {v['custom_labs']}\n"
-    if not labs_lines:
+    visit_time  = v.get("visit_time","")
+    datetime_str = f"{visit_date}" + (f" — {visit_time}" if visit_time else "")
+    # Build labs list from free text
+    labs_text = v.get("selected_labs_text","") or "\n".join(v.get("selected_labs",[]))
+    if labs_text.strip():
+        labs_lines = "\n".join(f"• {l.strip()}" for l in labs_text.splitlines() if l.strip()) + "\n"
+    else:
         labs_lines = "لا توجد تحاليل\n"
     if for_client:
         return (f"🟠 *Orange Home Visit*\nأهلاً {v['name']} 👋\n━━━━━━━━━━━━━━\n"
-                f"📅 *موعد الزيارة:* {visit_date}\n🧪 *التحاليل المطلوبة:*\n{labs_lines}"
+                f"📅 *موعد الزيارة:* {datetime_str}\n🧪 *التحاليل المطلوبة:*\n{labs_lines}"
                 f"━━━━━━━━━━━━━━\n💉 *سعر التحاليل:* {labs_price} جنيه\n"
                 f"🚗 *سعر الزيارة:* {visit_price} جنيه\n💰 *الإجمالي:* {total} جنيه\nشكراً لثقتكم 🙏")
-    loc = f"🗺️ *الموقع:* {v.get('location_link','')}\n" if v.get("location_link") else ""
+    loc   = f"🗺️ *الموقع:* {v.get('location_link','')}\n" if v.get("location_link") else ""
     notes = f"📌 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
     return (f"🟠 *Orange Home Visit*\n━━━━━━━━━━━━━━\n"
             f"👤 *الاسم:* {v['name']}\n🎂 *السن:* {v.get('age','')} سنة\n"
-            f"📞 *التليفون:* {v.get('phone','')}\n📅 *تاريخ الزيارة:* {visit_date}\n"
+            f"📞 *التليفون:* {v.get('phone','')}\n📅 *تاريخ الزيارة:* {datetime_str}\n"
             f"📍 *العنوان:* {v.get('address','')}\n{loc}"
             f"━━━━━━━━━━━━━━\n🧪 *التحاليل المطلوبة:*\n{labs_lines}"
             f"━━━━━━━━━━━━━━\n💉 *سعر التحاليل:* {labs_price} جنيه\n"
@@ -1130,11 +1130,16 @@ elif st.session_state.page == "new":
     c1,c2 = st.columns(2)
     with c1: age   = st.number_input("السن *", 0, 120, int(pf.get("age",0) or 0))
     with c2: phone = st.text_input("رقم التليفون *", value=pf.get("phone",""), placeholder="01xxxxxxxxx")
-    default_date = date.today()
-    if pf.get("visit_date"):
-        try: default_date = datetime.strptime(pf["visit_date"],"%Y-%m-%d").date()
-        except: pass
-    visit_date = st.date_input("تاريخ الزيارة *", value=default_date)
+    d1, d2 = st.columns(2)
+    with d1:
+        default_date = date.today()
+        if pf.get("visit_date"):
+            try: default_date = datetime.strptime(pf["visit_date"],"%Y-%m-%d").date()
+            except: pass
+        visit_date = st.date_input("📅 تاريخ الزيارة *", value=default_date)
+    with d2:
+        visit_time = st.text_input("🕐 وقت الزيارة", value=pf.get("visit_time",""),
+                                    placeholder="مثال: 2:00 PM")
     st.markdown("---")
 
     # Address
@@ -1144,76 +1149,39 @@ elif st.session_state.page == "new":
     location_link = st.text_input("🗺️ رابط الموقع (Google Maps)", value=pf.get("location_link",""))
     st.markdown("---")
 
-    # ── Labs Selection ──
-    st.markdown('<div class="section-title">🧪 اختيار التحاليل</div>', unsafe_allow_html=True)
-
-    # Search within labs
-    lab_search = st.text_input("🔍 ابحث عن تحليل", placeholder="مثال: CBC أو سكر أو Vitamin...")
-
-    if lab_search:
-        results = [l for l in ALL_LABS if lab_search.lower() in l["name"].lower()]
-        if results:
-            st.markdown(f"**{len(results)} نتيجة** — اختر من النتائج:")
-            search_choices = [f"{l['name']} ({l['category']}) — {l['price']} جنيه" for l in results]
-        else:
-            st.info("لا توجد نتائج، جرب كلمة تانية")
-            search_choices = []
-    else:
-        search_choices = []
-
-    # Category filter
-    all_cats = list(LABS_DB.keys())
-    selected_cat = st.selectbox("أو اختر قسم", ["-- كل الأقسام --"] + all_cats)
-
-    if selected_cat == "-- كل الأقسام --":
-        if lab_search and search_choices:
-            display_labs = [f"{l['name']} ({l['category']}) — {l['price']} جنيه" for l in results]
-        else:
-            display_labs = [f"{l['name']} ({l['category']}) — {l['price']} جنيه" for l in ALL_LABS]
-    else:
-        cat_labs = LABS_DB[selected_cat]
-        if lab_search:
-            cat_labs = [l for l in cat_labs if lab_search.lower() in l["name"].lower()]
-        display_labs = [f"{l['name']} — {l['price']} جنيه" for l in cat_labs]
-
-    # Current selections (restore from prefill)
-    default_sel = pf.get("selected_labs", [])
-    # Map back to display format
-    default_display = []
-    for sel in default_sel:
-        lab = next((l for l in ALL_LABS if l["name"]==sel), None)
-        if lab:
-            if selected_cat == "-- كل الأقسام --":
-                default_display.append(f"{lab['name']} ({lab['category']}) — {lab['price']} جنيه")
-            else:
-                default_display.append(f"{lab['name']} — {lab['price']} جنيه")
-
-    valid_defaults = [d for d in default_display if d in display_labs]
-
-    chosen_display = st.multiselect(
-        f"اختر التحاليل ({len(display_labs)} متاح)",
-        options=display_labs,
-        default=valid_defaults,
-        placeholder="اختر أو ابحث..."
+    # ── Labs: free text ──
+    st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
+    selected_labs_text = st.text_area(
+        "اكتب التحاليل المطلوبة (كل تحليل في سطر)",
+        value=pf.get("selected_labs_text",""),
+        placeholder="CBC\nسكر صائم\nوظائف كبد\nVitamin D\n...",
+        height=130
     )
+    # keep selected_labs as list for backwards compat
+    selected_labs = [l.strip() for l in selected_labs_text.splitlines() if l.strip()]
 
-    # Extract clean names
-    selected_labs = []
-    for cd in chosen_display:
-        name_part = cd.split(" (")[0].split(" — ")[0].strip()
-        selected_labs.append(name_part)
+    st.markdown("---")
 
-    # Show selected chips
-    if selected_labs:
-        chips = ""
-        for l in selected_labs:
-            p = get_lab_price(l)
-            chips += f'<span class="lab-chip">{l} <span class="price-tag">{p} جنيه</span></span>'
-        st.markdown(chips, unsafe_allow_html=True)
-        st.markdown(f"**{len(selected_labs)} تحليل مختار** | إجمالي التحاليل: **{sum(get_lab_price(l) for l in selected_labs):,} جنيه**")
-
-    custom_labs = st.text_area("تحاليل إضافية (غير موجودة في القائمة)",
-                                value=pf.get("custom_labs",""), height=65)
+    # ── Price Search (reference only) ──
+    st.markdown('<div class="section-title">🔍 البحث عن سعر تحليل</div>', unsafe_allow_html=True)
+    price_search = st.text_input("ابحث باسم التحليل لمعرفة سعره",
+                                  placeholder="مثال: CBC أو سكر أو Vitamin D...")
+    if price_search:
+        results = [l for l in ALL_LABS if price_search.lower() in l["name"].lower()]
+        if results:
+            rows = ""
+            for r in results[:15]:
+                rows += f'''
+                <div class="detail-row">
+                  <span class="detail-label">🧪 {r["name"]}</span>
+                  <span class="lab-chip">{r["price"]:,} جنيه</span>
+                </div>'''
+            st.markdown(f'<div style="background:#fff;border-radius:12px;padding:10px 14px;border:1px solid #ffe8d1">{rows}</div>',
+                        unsafe_allow_html=True)
+            if len(results) > 15:
+                st.caption(f"+ {len(results)-15} نتيجة أخرى، دقّق في البحث")
+        else:
+            st.info("لا توجد نتائج — جرب كلمة تانية")
     st.markdown("---")
 
     # Notes
@@ -1242,13 +1210,15 @@ elif st.session_state.page == "new":
         else:
             visits = load_visits()
             record = {
-                "id":            pf.get("id", str(int(datetime.now().timestamp()*1000))),
-                "created_at":    pf.get("created_at", datetime.now().isoformat()),
+                "id":                 pf.get("id", str(int(datetime.now().timestamp()*1000))),
+                "created_at":         pf.get("created_at", datetime.now().isoformat()),
                 "name": name, "age": age, "phone": phone,
-                "visit_date":    visit_date.isoformat(),
+                "visit_date":         visit_date.isoformat(),
+                "visit_time":         visit_time,
                 "address": address, "location_link": location_link,
-                "selected_labs": selected_labs,
-                "custom_labs": custom_labs, "notes": notes,
+                "selected_labs":      selected_labs,
+                "selected_labs_text": selected_labs_text,
+                "custom_labs": "", "notes": notes,
                 "labs_price": labs_price, "visit_price": visit_price, "total_price": total_price,
             }
             if is_edit:
@@ -1279,12 +1249,15 @@ elif st.session_state.page == "detail":
         visit_price = v.get("visit_price",0)
         total_price = v.get("total_price", labs_price+visit_price)
 
+        visit_time  = v.get("visit_time","")
+        datetime_display = format_date_ar(v.get("visit_date","")) + (f" — {visit_time}" if visit_time else "")
+
         st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
         st.markdown(f'''
         <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v["name"]}</span></div>
         <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{v.get("age","")} سنة</span></div>
         <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get("phone","")}</span></div>
-        <div class="detail-row"><span class="detail-label">📅 تاريخ الزيارة</span><span class="detail-value">{format_date_ar(v.get("visit_date",""))}</span></div>
+        <div class="detail-row"><span class="detail-label">📅 الموعد</span><span class="detail-value">{datetime_display}</span></div>
         ''', unsafe_allow_html=True)
         st.markdown("---")
 
@@ -1294,15 +1267,18 @@ elif st.session_state.page == "detail":
             st.markdown(f'<a href="{v["location_link"]}" target="_blank" style="color:#FF6B00;font-weight:700;">🗺️ فتح الموقع على الخريطة</a>', unsafe_allow_html=True)
         st.markdown("---")
 
-        if v.get("selected_labs") or v.get("custom_labs"):
+        labs_text = v.get("selected_labs_text","") or "\n".join(v.get("selected_labs",[]))
+        if labs_text.strip() or v.get("custom_labs"):
             st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
-            chips = ""
-            for l in v.get("selected_labs",[]):
-                p = get_lab_price(l)
-                chips += f'<span class="lab-chip">{l} <span class="price-tag">{p} جنيه</span></span>'
-            if chips: st.markdown(chips, unsafe_allow_html=True)
+            if labs_text.strip():
+                lines_html = "".join(
+                    f'<div class="detail-row"><span class="detail-label">🔹 {l.strip()}</span></div>'
+                    for l in labs_text.splitlines() if l.strip()
+                )
+                st.markdown(f'<div style="background:#fffaf6;border-radius:12px;padding:8px 14px;border:1px solid #ffe8d1">{lines_html}</div>',
+                            unsafe_allow_html=True)
             if v.get("custom_labs"):
-                st.markdown(f"📝 **تحاليل إضافية:** {v['custom_labs']}")
+                st.markdown(f"📝 {v['custom_labs']}")
             st.markdown("---")
 
         st.markdown(f'''
@@ -1344,7 +1320,8 @@ elif st.session_state.page == "detail":
         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
             go("new", prefill={"name":v["name"],"age":v.get("age",""),"phone":v.get("phone",""),
                                "address":v.get("address",""),"location_link":v.get("location_link",""),
-                               "selected_labs":[],"custom_labs":"","notes":"","labs_price":0,"visit_price":100})
+                               "selected_labs":[],"selected_labs_text":"","visit_time":"",
+                               "notes":"","labs_price":0,"visit_price":100})
         if st.button("← رجوع للقائمة", use_container_width=True): go("home")
 
 # ══════════════════════════════════════════════════════════════════════════════
