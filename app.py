@@ -1149,39 +1149,75 @@ elif st.session_state.page == "new":
     location_link = st.text_input("🗺️ رابط الموقع (Google Maps)", value=pf.get("location_link",""))
     st.markdown("---")
 
-    # ── Labs: free text ──
-    st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
-    selected_labs_text = st.text_area(
-        "اكتب التحاليل المطلوبة (كل تحليل في سطر)",
-        value=pf.get("selected_labs_text",""),
-        placeholder="CBC\nسكر صائم\nوظائف كبد\nVitamin D\n...",
-        height=130
-    )
-    # keep selected_labs as list for backwards compat
-    selected_labs = [l.strip() for l in selected_labs_text.splitlines() if l.strip()]
+    # ── Session key for labs text (so buttons can append to it) ──
+    labs_key = "labs_text_buffer"
+    if labs_key not in st.session_state:
+        st.session_state[labs_key] = pf.get("selected_labs_text","")
+    # Sync prefill once
+    if pf.get("selected_labs_text","") and st.session_state[labs_key] == "":
+        st.session_state[labs_key] = pf["selected_labs_text"]
 
-    st.markdown("---")
-
-    # ── Price Search (reference only) ──
-    st.markdown('<div class="section-title">🔍 البحث عن سعر تحليل</div>', unsafe_allow_html=True)
-    price_search = st.text_input("ابحث باسم التحليل لمعرفة سعره",
-                                  placeholder="مثال: CBC أو سكر أو Vitamin D...")
+    # ── Price Search — interactive ──
+    st.markdown('<div class="section-title">🔍 البحث عن تحليل وإضافته</div>', unsafe_allow_html=True)
+    price_search = st.text_input("ابحث باسم التحليل",
+                                  placeholder="مثال: CBC أو سكر أو Vitamin D...",
+                                  key="price_search_input")
     if price_search:
         results = [l for l in ALL_LABS if price_search.lower() in l["name"].lower()]
         if results:
-            rows = ""
-            for r in results[:15]:
-                rows += f'''
-                <div class="detail-row">
-                  <span class="detail-label">🧪 {r["name"]}</span>
-                  <span class="lab-chip">{r["price"]:,} جنيه</span>
-                </div>'''
-            st.markdown(f'<div style="background:#fff;border-radius:12px;padding:10px 14px;border:1px solid #ffe8d1">{rows}</div>',
+            st.caption(f"🔎 {len(results)} نتيجة — اضغط لإضافة التحليل:")
+            for r in results[:12]:
+                c1, c2, c3 = st.columns([5, 2, 2])
+                with c1:
+                    st.markdown(
+                        f'<div style="padding:6px 0;font-size:13px;color:#333">🧪 {r["name"]}</div>',
                         unsafe_allow_html=True)
-            if len(results) > 15:
-                st.caption(f"+ {len(results)-15} نتيجة أخرى، دقّق في البحث")
+                with c2:
+                    st.markdown(
+                        f'<div style="padding:6px 0;font-size:13px;font-weight:700;color:#FF6B00">{r["price"]:,} جنيه</div>',
+                        unsafe_allow_html=True)
+                with c3:
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        if st.button("💰", key=f"add_priced_{r['name']}",
+                                     help="أضف مع السعر"):
+                            entry = f"{r['name']} — {r['price']} جنيه"
+                            current = st.session_state[labs_key]
+                            if entry not in current:
+                                st.session_state[labs_key] = (current + "\n" + entry).strip()
+                            st.rerun()
+                    with col_b:
+                        if st.button("📋", key=f"add_plain_{r['name']}",
+                                     help="أضف بدون سعر"):
+                            entry = r['name']
+                            current = st.session_state[labs_key]
+                            if entry not in current:
+                                st.session_state[labs_key] = (current + "\n" + entry).strip()
+                            st.rerun()
+            if len(results) > 12:
+                st.caption(f"+ {len(results)-12} نتيجة أخرى، دقّق في البحث")
         else:
             st.info("لا توجد نتائج — جرب كلمة تانية")
+
+    st.markdown("---")
+
+    # ── Labs: free text (editable, gets appended to by buttons above) ──
+    st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
+    st.caption("💰 = يضاف بالسعر &nbsp;&nbsp; 📋 = يضاف بدون سعر &nbsp;&nbsp; أو اكتب يدوياً")
+    selected_labs_text = st.text_area(
+        "التحاليل (كل تحليل في سطر)",
+        value=st.session_state[labs_key],
+        placeholder="CBC — 400 جنيه\nسكر صائم\nوظائف كبد — 180 جنيه\nVitamin D\n...",
+        height=150,
+        key="labs_textarea"
+    )
+    # Keep buffer in sync with manual edits
+    st.session_state[labs_key] = selected_labs_text
+    selected_labs = [l.strip() for l in selected_labs_text.splitlines() if l.strip()]
+
+    if selected_labs:
+        st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-top:4px">✅ {len(selected_labs)} تحليل مضاف</div>',
+                    unsafe_allow_html=True)
     st.markdown("---")
 
     # Notes
