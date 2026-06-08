@@ -39,27 +39,16 @@ def inject_css():
       .price-box { background: linear-gradient(135deg, #FF6B00, #FF9A3C); border-radius:16px; padding:16px 20px; color:#fff; margin-bottom:14px; }
       .price-row { display:flex; justify-content:space-between; font-size:14px; margin-bottom:7px; }
       .price-total { display:flex; justify-content:space-between; font-size:19px; font-weight:800; border-top:2px solid rgba(255,255,255,0.3); padding-top:9px; margin-top:5px; }
-      .wa-btn { display:block; padding:11px 16px; border-radius:12px; color:#fff !important; font-weight:700; font-size:13px; text-decoration:none; text-align:center; font-family:'Cairo',sans-serif; }
+      .wa-btn { display:block; padding:11px 16px; border-radius:12px; color:#fff !important; font-weight:700; font-size:13px; text-decoration:none; text-align:center; font-family:'Cairo',sans-serif; margin-bottom: 8px; }
       .wa-client { background:#25D366; }
       .wa-share  { background:#128C7E; }
+      .wa-group  { background:#075E54; }
       .detail-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f5f5f5; font-size:13px; }
       .detail-label { color:#888; }
       .detail-value { font-weight:600; color:#222; max-width:58%; text-align:left; }
       .lab-chip { display:inline-flex; align-items:center; gap:6px; margin:3px; background:#fff3e6; color:#FF6B00; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; border:1px solid #ffd4a8; }
-      .lab-chip .price-tag { background:#FF6B00; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; }
       .repeat-banner { background:#fff8f0; border:2px dashed #FF9A3C; border-radius:14px; padding:12px; text-align:center; margin-top:12px; color:#FF6B00; font-weight:700; font-size:14px; }
       .section-title { font-size:14px; font-weight:700; color:#FF6B00; border-right:4px solid #FF6B00; padding-right:10px; margin-bottom:10px; }
-      /* Orange star bullet replaces ? */
-      .section-title::before { content:'★ '; color:#FF6B00; }
-      .wa-doctor { background: linear-gradient(90deg,#7B2FF7,#9B4FFF); }
-      .status-box { background:#fff8f0; border:2px solid #ffe0c8; border-radius:14px; padding:14px; margin-bottom:12px; }
-      .status-btn { display:inline-block; padding:9px 18px; border-radius:20px; font-size:13px; font-weight:700; text-decoration:none; margin:4px; color:#fff !important; }
-      .s-confirm { background:#25D366; }
-      .s-delay   { background:#FF9A3C; }
-      .s-cancel  { background:#e53935; }
-      .dev-credit { text-align:center; color:#ccc; font-size:11px; padding:20px 0 8px; }
-      .dev-credit span { color:#FF6B00; font-weight:700; }
-      .cat-header { background:#fff3e6; border-radius:10px; padding:8px 14px; font-weight:700; color:#FF6B00; font-size:13px; margin-bottom:6px; margin-top:10px; }
       div[data-testid="stButton"] button { font-family:'Cairo',sans-serif !important; font-weight:700 !important; border-radius:12px !important; }
       div[data-testid="stTextInput"] label, div[data-testid="stNumberInput"] label,
       div[data-testid="stDateInput"] label, div[data-testid="stTextArea"] label,
@@ -75,7 +64,7 @@ def inject_css():
 
 inject_css()
 
-# ─── Orange Lab Price List 2026 ────────────────────────────────────────────────
+# ─── LABS_DB_PLACEHOLDER ───────────────────────────────────────────────────────
 LABS_DB = {
     "Allergy Screen": [
         {"name": "IgE Food allergy test panel", "price": 2500},
@@ -989,6 +978,7 @@ LABS_DB = {
         {"name": "Vitamin K", "price": 6000},
     ],
 }
+
 # Flat list for search
 ALL_LABS = [{"name": t["name"], "price": t["price"], "category": cat}
             for cat, tests in LABS_DB.items() for t in tests]
@@ -1006,12 +996,6 @@ def save_visits(visits):
     with open(DATA_FILE, "w", encoding="utf-8") as f:
         json.dump(visits, f, ensure_ascii=False, indent=2)
 
-def get_lab_price(name):
-    for l in ALL_LABS:
-        if l["name"] == name:
-            return l["price"]
-    return 0
-
 def format_date_ar(d):
     if not d: return ""
     if isinstance(d, str):
@@ -1021,97 +1005,54 @@ def format_date_ar(d):
               "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
     return f"{d.day} {months[d.month-1]} {d.year}"
 
-def make_whatsapp_msg(v, for_client=False, for_doctor=False):
-    labs_before  = v.get("labs_price_before", 0)
-    labs_after   = v.get("labs_price_after", 0)
-    transport    = v.get("visit_price", 0)
-    total        = v.get("total_price", labs_after + transport)
-    visit_date   = format_date_ar(v.get("visit_date", ""))
-    visit_time   = v.get("visit_time","")
+def make_whatsapp_msg(v, target="internal"):
+    labs_price_before = v.get("labs_price_before", v.get("labs_price", 0))
+    labs_price_after  = v.get("labs_price_after", v.get("labs_price", 0))
+    transport_fee     = v.get("transport_fee", v.get("visit_price", 0))
+    total       = v.get("total_price", labs_price_after + transport_fee)
+    visit_date  = format_date_ar(v.get("visit_date", ""))
+    visit_time  = v.get("visit_time","")
     datetime_str = f"{visit_date}" + (f" — {visit_time}" if visit_time else "")
-    doctor       = v.get("doctor_name","")
-    status       = v.get("visit_status","⏳ في الانتظار")
-
+    doc_name = v.get("doctor_name", "غير محدد")
     labs_text = v.get("selected_labs_text","") or "\n".join(v.get("selected_labs",[]))
     if labs_text.strip():
-        labs_lines = "\n".join(f"• {l.strip()}" for l in labs_text.splitlines() if l.strip()) + "\n"
+        labs_lines = "\n".join(f"⭐ {l.strip()}" for l in labs_text.splitlines() if l.strip()) + "\n"
     else:
         labs_lines = "لا توجد تحاليل\n"
 
-    discount_line = ""
-    if labs_before > 0 and labs_after < labs_before:
-        discount_line = f"~~{labs_before}~~ ← "
-
-    if for_doctor:
-        return (
-            f"🟠 *Orange Lab Home Visit*\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"👨‍⚕️ *الدكتور:* {doctor}\n"
-            f"📅 *تاريخ الزيارة:* {datetime_str}\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"👤 *اسم العميل:* {v['name']}\n"
-            f"📞 *التليفون:* {v.get('phone','')}\n"
-            f"📍 *العنوان:* {v.get('address','')}\n"
-            f"{'🗺️ ' + v.get('location_link','') + chr(10) if v.get('location_link') else ''}"
-            f"━━━━━━━━━━━━━━\n"
-            f"🧪 *التحاليل:*\n{labs_lines}"
-            f"━━━━━━━━━━━━━━\n"
-            f"💉 *سعر التحاليل:* {discount_line}{labs_after} جنيه\n"
-            f"🚌 *بدل الانتقال:* {transport} جنيه\n"
-            f"💰 *الإجمالي:* {total} جنيه\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"📋 *حالة الزيارة:* {status}"
-        )
-
-    if for_client:
-        status_line = (
-            f"\n━━━━━━━━━━━━━━\n"
-            f"📋 *يرجى تأكيد موعد زيارتكم:*\n"
-            f"✅ تأكيد الزيارة\n"
-            f"⏰ تأجيل الزيارة\n"
-            f"❌ إلغاء الزيارة\n"
-            f"_(الرجاء الرد بكلمة: تأكيد أو تأجيل أو إلغاء)_"
-        )
-        doctor_line = f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doctor}\n" if doctor else ""
-        return (
-            f"🟠 *Orange Lab Home Visit*\n"
-            f"أهلاً {v['name']} 👋\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"📅 *موعد الزيارة:* {datetime_str}\n"
-            f"{doctor_line}"
-            f"🧪 *التحاليل المطلوبة:*\n{labs_lines}"
-            f"━━━━━━━━━━━━━━\n"
-            f"💉 *سعر التحاليل:* {discount_line}{labs_after} جنيه\n"
-            f"🚌 *بدل الانتقال:* {transport} جنيه\n"
-            f"💰 *الإجمالي:* {total} جنيه\n"
-            f"{status_line}\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"شكراً لثقتكم 🙏 *معمل أورانج لاب*"
-        )
-
-    # Internal summary
-    loc   = f"🗺️ *الموقع:* {v.get('location_link','')}\n" if v.get("location_link") else ""
-    notes = f"📌 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
-    doctor_line = f"👨‍⚕️ *الدكتور:* {doctor}\n" if doctor else ""
-    return (
-        f"🟠 *Orange Lab Home Visit*\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"👤 *الاسم:* {v['name']}\n"
-        f"🎂 *السن:* {v.get('age','')} سنة\n"
-        f"📞 *التليفون:* {v.get('phone','')}\n"
-        f"📅 *تاريخ الزيارة:* {datetime_str}\n"
-        f"{doctor_line}"
-        f"📍 *العنوان:* {v.get('address','')}\n{loc}"
-        f"━━━━━━━━━━━━━━\n"
-        f"🧪 *التحاليل المطلوبة:*\n{labs_lines}"
-        f"━━━━━━━━━━━━━━\n"
-        f"💉 *سعر التحاليل:* {discount_line}{labs_after} جنيه\n"
-        f"🚌 *بدل الانتقال:* {transport} جنيه\n"
-        f"💰 *الإجمالي:* {total} جنيه\n"
-        f"━━━━━━━━━━━━━━\n"
-        f"📋 *حالة الزيارة:* {status}\n"
-        f"{notes}"
-    )
+    if target == "client":
+        return (f"🟠 *Orange Lab Home Visit*\nأهلاً بك 👋\n━━━━━━━━━━━━━━\n"
+                f"⭐ *الدكتور القائم بالزيارة:* {doc_name}\n"
+                f"⭐ *موعد الزيارة:* {datetime_str}\n"
+                f"⭐ *التحاليل المطلوبة:*\n{labs_lines}"
+                f"━━━━━━━━━━━━━━\n"
+                f"⭐ *السعر قبل الخصم:* {labs_price_before} جنيه\n"
+                f"⭐ *السعر بعد الخصم:* {labs_price_after} جنيه\n"
+                f"⭐ *بدل الانتقال:* {transport_fee} جنيه\n"
+                f"⭐ *الإجمالي المطلوب:* {total} جنيه\n"
+                f"━━━━━━━━━━━━━━\n"
+                f"برجاء الرد باختيارك:\n"
+                f"1️⃣ تأكيد الزيارة\n"
+                f"2️⃣ تأجيل الزيارة\n"
+                f"3️⃣ إلغاء الزيارة\n\n"
+                f"شكراً لثقتكم 🙏")
+    elif target == "group":
+        return (f"🚨 *زيارة منزلية*\n"
+                f"⭐ *الدكتور القائم بالزيارة:* {doc_name}\n"
+                f"⭐ *الموعد:* {datetime_str}")
+    else:
+        loc   = f"⭐ *الموقع:* {v.get('location_link','')}\n" if v.get("location_link") else ""
+        notes = f"⭐ *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
+        return (f"⭐ *Orange Lab Home Visit*\n━━━━━━━━━━━━━━\n"
+                f"⭐ *الاسم:* {v['name']}\n⭐ *السن:* {v.get('age','')} سنة\n"
+                f"⭐ *التليفون:* {v.get('phone','')}\n⭐ *الموعد:* {datetime_str}\n"
+                f"⭐ *دكتور الزيارة:* {doc_name}\n"
+                f"⭐ *العنوان:* {v.get('address','')}\n{loc}"
+                f"━━━━━━━━━━━━━━\n⭐ *التحاليل المطلوبة:*\n{labs_lines}"
+                f"━━━━━━━━━━━━━━\n⭐ *السعر قبل الخصم:* {labs_price_before} جنيه\n"
+                f"⭐ *السعر بعد الخصم:* {labs_price_after} جنيه\n"
+                f"⭐ *بدل الانتقال:* {transport_fee} جنيه\n"
+                f"⭐ *الإجمالي:* {total} جنيه\n━━━━━━━━━━━━━━\n{notes}")
 
 def whatsapp_link(msg, phone=None):
     encoded = urllib.parse.quote(msg)
@@ -1180,7 +1121,6 @@ if st.session_state.page == "home":
             addr  = v.get("address","")[:38] + ("..." if len(v.get("address",""))>38 else "")
             labs_count = len(v.get("selected_labs",[]))
             doctor_show = f" | 👨‍⚕️ {v.get('doctor_name','')}" if v.get("doctor_name") else ""
-            status_show = v.get("visit_status","")
             st.markdown(f'''
             <div class="visit-card">
               <span class="visit-badge">{total:,} جنيه</span>
@@ -1188,17 +1128,15 @@ if st.session_state.page == "home":
               <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate}</div>
               <div class="visit-meta">📍 {addr}</div>
               <div class="visit-meta" style="margin-top:5px">🧪 {labs_count} تحليل{doctor_show}</div>
-              <div class="visit-meta" style="color:#FF6B00;margin-top:3px">{status_show}</div>
             </div>''', unsafe_allow_html=True)
             if st.button(f"📂 فتح {v['name']}", key=f"o_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
-    # Developer credit
-    st.markdown('''
-    <div class="dev-credit">
-      Developed by <span>Dr. Hussein Ali</span> — 2026
+    st.markdown("""
+    <div style="text-align:center;margin-top:50px;padding-top:20px;border-top:1px solid #ffe8d1;color:#aaa;font-size:13px;font-weight:600;">
+      Developed with <span style="color:#FF6B00;">❤️</span> by <b>Dr. Hussein Ali</b> — 2026
     </div>
-    ''', unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # NEW VISIT
@@ -1208,13 +1146,12 @@ elif st.session_state.page == "new":
     is_edit = pf.get("_edit", False)
     st.markdown(f"### {'✏️ تعديل الزيارة' if is_edit else '➕ زيارة جديدة'}")
 
-    # Personal
     st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
     name  = st.text_input("الاسم الكامل *", value=pf.get("name",""))
     c1,c2 = st.columns(2)
     with c1: age   = st.number_input("السن *", 0, 120, int(pf.get("age",0) or 0))
     with c2: phone = st.text_input("رقم التليفون *", value=pf.get("phone",""), placeholder="01xxxxxxxxx")
-    doctor_name = st.text_input("👨‍⚕️ الدكتور القائم بالزيارة", value=pf.get("doctor_name",""), placeholder="اسم الدكتور...")
+    doctor_name = st.text_input("👨‍⚕️ الدكتور القائم بالزيارة", value=pf.get("doctor_name",""))
     d1, d2 = st.columns(2)
     with d1:
         default_date = date.today()
@@ -1223,44 +1160,32 @@ elif st.session_state.page == "new":
             except: pass
         visit_date = st.date_input("📅 تاريخ الزيارة *", value=default_date)
     with d2:
-        visit_time = st.text_input("🕐 وقت الزيارة", value=pf.get("visit_time",""),
-                                    placeholder="مثال: 2:00 PM")
+        visit_time = st.text_input("🕐 وقت الزيارة", value=pf.get("visit_time",""), placeholder="مثال: 2:00 PM")
     st.markdown("---")
 
-    # Address
     st.markdown('<div class="section-title">📍 العنوان</div>', unsafe_allow_html=True)
     address       = st.text_area("العنوان بالتفصيل *", value=pf.get("address",""),
                                   placeholder="المحافظة - المدينة - الشارع - رقم المبنى - الدور - الشقة...", height=90)
     location_link = st.text_input("🗺️ رابط الموقع (Google Maps)", value=pf.get("location_link",""))
     st.markdown("---")
 
-    # ── Session state: persist added labs + search query ──
-    visit_id_key = pf.get("id", "new_visit")
-    labs_ss_key  = f"added_labs_{visit_id_key}"
+    visit_id_key  = pf.get("id", "new_visit")
+    labs_ss_key   = f"added_labs_{visit_id_key}"
     search_ss_key = f"lab_search_{visit_id_key}"
 
     if labs_ss_key not in st.session_state:
-        # Load from prefill (edit mode) or start fresh
         if pf.get("selected_labs_text",""):
-            st.session_state[labs_ss_key] = [
-                l.strip() for l in pf["selected_labs_text"].splitlines() if l.strip()
-            ]
+            st.session_state[labs_ss_key] = [l.strip() for l in pf["selected_labs_text"].splitlines() if l.strip()]
         else:
             st.session_state[labs_ss_key] = []
-
     if search_ss_key not in st.session_state:
         st.session_state[search_ss_key] = ""
 
-    # ── Price Search — always visible, stays after adding ──
     st.markdown('<div class="section-title">🔍 ابحث وأضف من قائمة الأسعار</div>', unsafe_allow_html=True)
-    st.caption("💰 = يضاف **مع السعر**  &nbsp;|&nbsp;  📋 = يضاف **بدون سعر**")
+    st.caption("💰 = يضاف مع السعر  |  📋 = يضاف بدون سعر")
 
-    price_search = st.text_input(
-        "ابحث باسم التحليل",
-        value=st.session_state[search_ss_key],
-        placeholder="مثال: CBC أو سكر أو Vitamin D...",
-        key=f"search_input_{visit_id_key}"
-    )
+    price_search = st.text_input("ابحث باسم التحليل", value=st.session_state[search_ss_key],
+                                  placeholder="مثال: CBC أو سكر أو Vitamin D...", key=f"search_input_{visit_id_key}")
     st.session_state[search_ss_key] = price_search
 
     if price_search:
@@ -1270,13 +1195,9 @@ elif st.session_state.page == "new":
             for r in results[:12]:
                 c_name, c_price, c_priced, c_plain = st.columns([5, 2, 1, 1])
                 with c_name:
-                    st.markdown(
-                        f'<div style="padding:6px 2px;font-size:13px;color:#222">🧪 {r["name"]}</div>',
-                        unsafe_allow_html=True)
+                    st.markdown(f'<div style="padding:6px 2px;font-size:13px;color:#222">🧪 {r["name"]}</div>', unsafe_allow_html=True)
                 with c_price:
-                    st.markdown(
-                        f'<div style="padding:6px 2px;font-size:13px;font-weight:700;color:#FF6B00">{r["price"]:,} جنيه</div>',
-                        unsafe_allow_html=True)
+                    st.markdown(f'<div style="padding:6px 2px;font-size:13px;font-weight:700;color:#FF6B00">{r["price"]:,} جنيه</div>', unsafe_allow_html=True)
                 with c_priced:
                     if st.button("💰", key=f"ap_{visit_id_key}_{r['name']}", help="أضف مع السعر"):
                         entry = f"{r['name']} — {r['price']} جنيه"
@@ -1290,57 +1211,36 @@ elif st.session_state.page == "new":
                             st.session_state[labs_ss_key].append(entry)
                         st.rerun()
             if len(results) > 12:
-                st.caption(f"+ {len(results)-12} نتيجة أخرى، دقّق في البحث")
+                st.caption(f"+ {len(results)-12} نتيجة أخرى")
         else:
             st.info("لا توجد نتائج — جرب كلمة تانية")
-
     st.markdown("---")
 
-    # ── Labs list: shows what's been added ──
     st.markdown('<div class="section-title">🧪 التحاليل المضافة</div>', unsafe_allow_html=True)
-
     if st.session_state[labs_ss_key]:
         import re
-        auto_total = sum(
-            int(m.group(1))
-            for e in st.session_state[labs_ss_key]
-            for m in [re.search(r'(\d+)\s*جنيه', e)] if m
-        )
-        st.markdown(
-            f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-bottom:8px">'
-            f'✅ {len(st.session_state[labs_ss_key])} تحليل'
-            f'{"  —  إجمالي الأسعار: " + f"{auto_total:,} جنيه" if auto_total else ""}'
-            f'</div>', unsafe_allow_html=True)
-
+        auto_total = sum(int(m.group(1)) for e in st.session_state[labs_ss_key] for m in [re.search(r'(\d+)\s*جنيه', e)] if m)
+        st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-bottom:8px">✅ {len(st.session_state[labs_ss_key])} تحليل{"  —  إجمالي: " + f"{auto_total:,} جنيه" if auto_total else ""}</div>', unsafe_allow_html=True)
         to_remove = None
         for i, entry in enumerate(st.session_state[labs_ss_key]):
             ca, cb = st.columns([10, 1])
             with ca:
-                st.markdown(
-                    f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333">🔹 {entry}</div>',
-                    unsafe_allow_html=True)
+                st.markdown(f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333">🔹 {entry}</div>', unsafe_allow_html=True)
             with cb:
                 if st.button("✕", key=f"del_{visit_id_key}_{i}", help="احذف"):
                     to_remove = i
         if to_remove is not None:
             st.session_state[labs_ss_key].pop(to_remove)
             st.rerun()
-
         if st.button("🗑️ مسح الكل", key=f"clear_{visit_id_key}"):
             st.session_state[labs_ss_key] = []
             st.rerun()
     else:
-        st.markdown('<div style="color:#aaa;font-size:13px;padding:8px 0">لا توجد تحاليل بعد — ابحث وأضف من فوق أو أضف يدوياً</div>',
-                    unsafe_allow_html=True)
+        st.markdown('<div style="color:#aaa;font-size:13px;padding:8px 0">لا توجد تحاليل — ابحث وأضف من فوق أو أضف يدوياً</div>', unsafe_allow_html=True)
 
-    # Manual add
     col_m1, col_m2 = st.columns([8, 2])
     with col_m1:
-        manual_entry = st.text_input(
-            "أو أضف يدوياً",
-            placeholder="CBC — 400 جنيه  أو  سكر صائم",
-            key=f"manual_{visit_id_key}"
-        )
+        manual_entry = st.text_input("أو أضف يدوياً", placeholder="CBC — 400 جنيه  أو  سكر صائم", key=f"manual_{visit_id_key}")
     with col_m2:
         st.markdown('<div style="margin-top:28px"></div>', unsafe_allow_html=True)
         if st.button("➕ أضف", key=f"manual_btn_{visit_id_key}", use_container_width=True):
@@ -1348,63 +1248,35 @@ elif st.session_state.page == "new":
                 st.session_state[labs_ss_key].append(manual_entry.strip())
                 st.rerun()
 
-    # Build final values
     selected_labs_text = "\n".join(st.session_state[labs_ss_key])
     selected_labs      = st.session_state[labs_ss_key][:]
-
     st.markdown("---")
 
-    # Notes
     st.markdown('<div class="section-title">📌 ملاحظات</div>', unsafe_allow_html=True)
     notes = st.text_area("ملاحظات خاصة", value=pf.get("notes",""), height=75)
     st.markdown("---")
 
-    # Prices
     st.markdown('<div class="section-title">💰 الأسعار</div>', unsafe_allow_html=True)
-
     import re as _re
-    auto_labs_total = sum(
-        int(m.group(1))
-        for e in selected_labs
-        for m in [_re.search(r'(\d+)\s*جنيه', e)] if m
-    )
+    auto_labs_total = sum(int(m.group(1)) for e in selected_labs for m in [_re.search(r'(\d+)\s*جنيه', e)] if m)
 
-    p1, p2 = st.columns(2)
+    p1, p2, p3 = st.columns(3)
     with p1:
-        labs_price_before = st.number_input(
-            "💉 سعر التحاليل قبل الخصم",
-            min_value=0, step=10,
-            value=auto_labs_total if auto_labs_total > 0 else int(pf.get("labs_price_before", 0) or 0),
-        )
+        labs_price_before = st.number_input("⭐ السعر قبل الخصم", min_value=0, step=10,
+                                             value=auto_labs_total if auto_labs_total > 0 else int(pf.get("labs_price_before", 0) or 0))
     with p2:
-        labs_price_after = st.number_input(
-            "💉 سعر التحاليل بعد الخصم",
-            min_value=0, step=10,
-            value=int(pf.get("labs_price_after", 0) or 0),
-        )
-
-    transport_price = st.number_input(
-        "🚌 بدل الانتقال (جنيه)",
-        min_value=0, step=10,
-        value=int(pf.get("visit_price", 100) or 100)
-    )
-
-    visit_status = st.selectbox(
-        "📋 حالة الزيارة",
-        ["⏳ في الانتظار", "✅ تم التأكيد", "⏰ تم التأجيل", "❌ تم الإلغاء"],
-        index=["⏳ في الانتظار","✅ تم التأكيد","⏰ تم التأجيل","❌ تم الإلغاء"].index(
-            pf.get("visit_status","⏳ في الانتظار")
-        ) if pf.get("visit_status") in ["⏳ في الانتظار","✅ تم التأكيد","⏰ تم التأجيل","❌ تم الإلغاء"] else 0
-    )
-
-    total_price = labs_price_after + transport_price
-
+        labs_price_after = st.number_input("⭐ السعر بعد الخصم", min_value=0, step=10,
+                                            value=int(pf.get("labs_price_after", 0) or 0))
+    with p3:
+        transport_fee = st.number_input("⭐ بدل الانتقال", min_value=0, step=10,
+                                         value=int(pf.get("transport_fee", 100) or 100))
+    total_price = labs_price_after + transport_fee
     st.markdown(f'''
     <div class="price-box">
-      <div class="price-row"><span>💉 قبل الخصم</span><span><s>{labs_price_before}</s> جنيه</span></div>
-      <div class="price-row"><span>💉 بعد الخصم</span><span>{labs_price_after} جنيه</span></div>
-      <div class="price-row"><span>🚌 بدل الانتقال</span><span>{transport_price} جنيه</span></div>
-      <div class="price-total"><span>💰 الإجمالي</span><span>{total_price} جنيه</span></div>
+      <div class="price-row"><span>⭐ السعر قبل الخصم</span><span>{labs_price_before} جنيه</span></div>
+      <div class="price-row"><span>⭐ السعر بعد الخصم</span><span>{labs_price_after} جنيه</span></div>
+      <div class="price-row"><span>⭐ بدل الانتقال</span><span>{transport_fee} جنيه</span></div>
+      <div class="price-total"><span>⭐ الإجمالي</span><span>{total_price} جنيه</span></div>
     </div>''', unsafe_allow_html=True)
 
     if st.button("💾 حفظ الزيارة" if not is_edit else "💾 حفظ التعديلات", use_container_width=True):
@@ -1416,19 +1288,17 @@ elif st.session_state.page == "new":
                 "id":                 pf.get("id", str(int(datetime.now().timestamp()*1000))),
                 "created_at":         pf.get("created_at", datetime.now().isoformat()),
                 "name": name, "age": age, "phone": phone,
-                "doctor_name":        doctor_name,
                 "visit_date":         visit_date.isoformat(),
                 "visit_time":         visit_time,
+                "doctor_name":        doctor_name,
                 "address": address, "location_link": location_link,
                 "selected_labs":      selected_labs,
                 "selected_labs_text": selected_labs_text,
-                "custom_labs": "", "notes": notes,
+                "notes": notes,
                 "labs_price_before":  labs_price_before,
                 "labs_price_after":   labs_price_after,
-                "labs_price":         labs_price_after,
-                "visit_price":        transport_price,
+                "transport_fee":      transport_fee,
                 "total_price":        total_price,
-                "visit_status":       visit_status,
             }
             if is_edit:
                 visits = [record if v["id"]==record["id"] else v for v in visits]
@@ -1454,15 +1324,12 @@ elif st.session_state.page == "detail":
     if not v:
         st.error("لم يتم العثور على الزيارة"); go("home")
     else:
-        labs_price_before = v.get("labs_price_before", v.get("labs_price",0))
-        labs_price_after  = v.get("labs_price_after",  v.get("labs_price",0))
-        transport_price   = v.get("visit_price", 0)
-        total_price       = v.get("total_price", labs_price_after + transport_price)
-        visit_status      = v.get("visit_status","⏳ في الانتظار")
-        doctor_name       = v.get("doctor_name","")
-
-        visit_time  = v.get("visit_time","")
-        datetime_display = format_date_ar(v.get("visit_date","")) + (f" — {visit_time}" if visit_time else "")
+        labs_price_before = v.get("labs_price_before", v.get("labs_price", 0))
+        labs_price_after  = v.get("labs_price_after",  v.get("labs_price", 0))
+        transport_fee     = v.get("transport_fee",      v.get("visit_price", 0))
+        total_price       = v.get("total_price", labs_price_after + transport_fee)
+        visit_time        = v.get("visit_time","")
+        datetime_display  = format_date_ar(v.get("visit_date","")) + (f" — {visit_time}" if visit_time else "")
 
         st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
         st.markdown(f'''
@@ -1470,8 +1337,7 @@ elif st.session_state.page == "detail":
         <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{v.get("age","")} سنة</span></div>
         <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get("phone","")}</span></div>
         <div class="detail-row"><span class="detail-label">📅 الموعد</span><span class="detail-value">{datetime_display}</span></div>
-        {"<div class='detail-row'><span class='detail-label'>👨‍⚕️ الدكتور</span><span class='detail-value'>" + doctor_name + "</span></div>" if doctor_name else ""}
-        <div class="detail-row"><span class="detail-label">📋 الحالة</span><span class="detail-value">{visit_status}</span></div>
+        <div class="detail-row"><span class="detail-label">👨‍⚕️ الدكتور</span><span class="detail-value">{v.get("doctor_name","")}</span></div>
         ''', unsafe_allow_html=True)
         st.markdown("---")
 
@@ -1482,62 +1348,32 @@ elif st.session_state.page == "detail":
         st.markdown("---")
 
         labs_text = v.get("selected_labs_text","") or "\n".join(v.get("selected_labs",[]))
-        if labs_text.strip() or v.get("custom_labs"):
+        if labs_text.strip():
             st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
-            if labs_text.strip():
-                lines_html = "".join(
-                    f'<div class="detail-row"><span class="detail-label">🔹 {l.strip()}</span></div>'
-                    for l in labs_text.splitlines() if l.strip()
-                )
-                st.markdown(f'<div style="background:#fffaf6;border-radius:12px;padding:8px 14px;border:1px solid #ffe8d1">{lines_html}</div>',
-                            unsafe_allow_html=True)
-            if v.get("custom_labs"):
-                st.markdown(f"📝 {v['custom_labs']}")
+            lines_html = "".join(f'<div class="detail-row"><span class="detail-label">🔹 {l.strip()}</span></div>' for l in labs_text.splitlines() if l.strip())
+            st.markdown(f'<div style="background:#fffaf6;border-radius:12px;padding:8px 14px;border:1px solid #ffe8d1">{lines_html}</div>', unsafe_allow_html=True)
             st.markdown("---")
 
         st.markdown(f'''
         <div class="price-box">
-          <div class="price-row"><span>💉 قبل الخصم</span><span><s>{labs_price_before}</s> جنيه</span></div>
-          <div class="price-row"><span>💉 بعد الخصم</span><span>{labs_price_after} جنيه</span></div>
-          <div class="price-row"><span>🚌 بدل الانتقال</span><span>{transport_price} جنيه</span></div>
-          <div class="price-total"><span>💰 الإجمالي</span><span>{total_price} جنيه</span></div>
+          <div class="price-row"><span>⭐ السعر قبل الخصم</span><span>{labs_price_before} جنيه</span></div>
+          <div class="price-row"><span>⭐ السعر بعد الخصم</span><span>{labs_price_after} جنيه</span></div>
+          <div class="price-row"><span>⭐ بدل الانتقال</span><span>{transport_fee} جنيه</span></div>
+          <div class="price-total"><span>⭐ الإجمالي</span><span>{total_price} جنيه</span></div>
         </div>''', unsafe_allow_html=True)
 
         if v.get("notes"):
             st.markdown('<div class="section-title">📌 ملاحظات</div>', unsafe_allow_html=True)
             st.write(v["notes"]); st.markdown("---")
 
-        # ── WhatsApp Buttons ──
         st.markdown('<div class="section-title">📱 إرسال على واتساب</div>', unsafe_allow_html=True)
-
-        wa_client_url  = whatsapp_link(make_whatsapp_msg(v, for_client=True),  phone=v.get("phone"))
-        wa_summary_url = whatsapp_link(make_whatsapp_msg(v, for_client=False))
-        wa_doctor_url  = whatsapp_link(make_whatsapp_msg(v, for_doctor=True))
-
-        c1, c2 = st.columns(2)
+        c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown(f'<a href="{wa_client_url}" target="_blank" class="wa-btn wa-client">📱 واتساب العميل</a>',
-                        unsafe_allow_html=True)
+            st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,"client"),v.get("phone"))}" target="_blank" class="wa-btn wa-client">📱 واتساب العميل</a>', unsafe_allow_html=True)
         with c2:
-            st.markdown(f'<a href="{wa_summary_url}" target="_blank" class="wa-btn wa-share">📋 الملخص الداخلي</a>',
-                        unsafe_allow_html=True)
-
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-
-        # Doctor group message
-        doctor_display = doctor_name if doctor_name else "الدكتور"
-        visit_dt = format_date_ar(v.get("visit_date","")) + (f" — {visit_time}" if visit_time else "")
-        group_msg = (
-            f"🟠 *Orange Lab Home Visit*\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"🏠 *زيارة منزلية*\n"
-            f"👨‍⚕️ *{doctor_display}*\n"
-            f"📅 *{visit_dt}*"
-        )
-        st.markdown(
-            f'<a href="{whatsapp_link(group_msg)}" target="_blank" class="wa-btn wa-doctor">'
-            f'👥 إرسال لمجموعة العمل</a>',
-            unsafe_allow_html=True)
+            st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,"group"))}" target="_blank" class="wa-btn wa-group">👥 جروب العمل</a>', unsafe_allow_html=True)
+        with c3:
+            st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,"internal"))}" target="_blank" class="wa-btn wa-share">📋 ملخص الزيارة</a>', unsafe_allow_html=True)
         st.markdown("---")
 
         c1,c2 = st.columns(2)
@@ -1562,9 +1398,9 @@ elif st.session_state.page == "detail":
         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
             go("new", prefill={"name":v["name"],"age":v.get("age",""),"phone":v.get("phone",""),
                                "address":v.get("address",""),"location_link":v.get("location_link",""),
-                               "doctor_name":"","selected_labs":[],"selected_labs_text":"","visit_time":"",
-                               "notes":"","labs_price_before":0,"labs_price_after":0,"visit_price":100,
-                               "visit_status":"⏳ في الانتظار"})
+                               "doctor_name":v.get("doctor_name",""),
+                               "selected_labs":[],"selected_labs_text":"","visit_time":"",
+                               "notes":"","labs_price_before":0,"labs_price_after":0,"transport_fee":100})
         if st.button("← رجوع للقائمة", use_container_width=True): go("home")
 
 # ══════════════════════════════════════════════════════════════════════════════
