@@ -6,7 +6,7 @@ from datetime import date, datetime
 
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Orange Home Visit",
+    page_title="Orange Lab Home Visit",
     page_icon="🟠",
     layout="centered",
     initial_sidebar_state="collapsed",
@@ -49,6 +49,16 @@ def inject_css():
       .lab-chip .price-tag { background:#FF6B00; color:#fff; border-radius:10px; padding:1px 7px; font-size:11px; }
       .repeat-banner { background:#fff8f0; border:2px dashed #FF9A3C; border-radius:14px; padding:12px; text-align:center; margin-top:12px; color:#FF6B00; font-weight:700; font-size:14px; }
       .section-title { font-size:14px; font-weight:700; color:#FF6B00; border-right:4px solid #FF6B00; padding-right:10px; margin-bottom:10px; }
+      /* Orange star bullet replaces ? */
+      .section-title::before { content:'★ '; color:#FF6B00; }
+      .wa-doctor { background: linear-gradient(90deg,#7B2FF7,#9B4FFF); }
+      .status-box { background:#fff8f0; border:2px solid #ffe0c8; border-radius:14px; padding:14px; margin-bottom:12px; }
+      .status-btn { display:inline-block; padding:9px 18px; border-radius:20px; font-size:13px; font-weight:700; text-decoration:none; margin:4px; color:#fff !important; }
+      .s-confirm { background:#25D366; }
+      .s-delay   { background:#FF9A3C; }
+      .s-cancel  { background:#e53935; }
+      .dev-credit { text-align:center; color:#ccc; font-size:11px; padding:20px 0 8px; }
+      .dev-credit span { color:#FF6B00; font-weight:700; }
       .cat-header { background:#fff3e6; border-radius:10px; padding:8px 14px; font-weight:700; color:#FF6B00; font-size:13px; margin-bottom:6px; margin-top:10px; }
       div[data-testid="stButton"] button { font-family:'Cairo',sans-serif !important; font-weight:700 !important; border-radius:12px !important; }
       div[data-testid="stTextInput"] label, div[data-testid="stNumberInput"] label,
@@ -1011,33 +1021,97 @@ def format_date_ar(d):
               "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
     return f"{d.day} {months[d.month-1]} {d.year}"
 
-def make_whatsapp_msg(v, for_client=False):
-    labs_price  = v.get("labs_price", 0)
-    visit_price = v.get("visit_price", 0)
-    total       = v.get("total_price", labs_price + visit_price)
-    visit_date  = format_date_ar(v.get("visit_date", ""))
-    visit_time  = v.get("visit_time","")
+def make_whatsapp_msg(v, for_client=False, for_doctor=False):
+    labs_before  = v.get("labs_price_before", 0)
+    labs_after   = v.get("labs_price_after", 0)
+    transport    = v.get("visit_price", 0)
+    total        = v.get("total_price", labs_after + transport)
+    visit_date   = format_date_ar(v.get("visit_date", ""))
+    visit_time   = v.get("visit_time","")
     datetime_str = f"{visit_date}" + (f" — {visit_time}" if visit_time else "")
-    # Build labs list from free text
+    doctor       = v.get("doctor_name","")
+    status       = v.get("visit_status","⏳ في الانتظار")
+
     labs_text = v.get("selected_labs_text","") or "\n".join(v.get("selected_labs",[]))
     if labs_text.strip():
         labs_lines = "\n".join(f"• {l.strip()}" for l in labs_text.splitlines() if l.strip()) + "\n"
     else:
         labs_lines = "لا توجد تحاليل\n"
+
+    discount_line = ""
+    if labs_before > 0 and labs_after < labs_before:
+        discount_line = f"~~{labs_before}~~ ← "
+
+    if for_doctor:
+        return (
+            f"🟠 *Orange Lab Home Visit*\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"👨‍⚕️ *الدكتور:* {doctor}\n"
+            f"📅 *تاريخ الزيارة:* {datetime_str}\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"👤 *اسم العميل:* {v['name']}\n"
+            f"📞 *التليفون:* {v.get('phone','')}\n"
+            f"📍 *العنوان:* {v.get('address','')}\n"
+            f"{'🗺️ ' + v.get('location_link','') + chr(10) if v.get('location_link') else ''}"
+            f"━━━━━━━━━━━━━━\n"
+            f"🧪 *التحاليل:*\n{labs_lines}"
+            f"━━━━━━━━━━━━━━\n"
+            f"💉 *سعر التحاليل:* {discount_line}{labs_after} جنيه\n"
+            f"🚌 *بدل الانتقال:* {transport} جنيه\n"
+            f"💰 *الإجمالي:* {total} جنيه\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"📋 *حالة الزيارة:* {status}"
+        )
+
     if for_client:
-        return (f"🟠 *Orange Home Visit*\nأهلاً {v['name']} 👋\n━━━━━━━━━━━━━━\n"
-                f"📅 *موعد الزيارة:* {datetime_str}\n🧪 *التحاليل المطلوبة:*\n{labs_lines}"
-                f"━━━━━━━━━━━━━━\n💉 *سعر التحاليل:* {labs_price} جنيه\n"
-                f"🚗 *سعر الزيارة:* {visit_price} جنيه\n💰 *الإجمالي:* {total} جنيه\nشكراً لثقتكم 🙏")
+        status_line = (
+            f"\n━━━━━━━━━━━━━━\n"
+            f"📋 *يرجى تأكيد موعد زيارتكم:*\n"
+            f"✅ تأكيد الزيارة\n"
+            f"⏰ تأجيل الزيارة\n"
+            f"❌ إلغاء الزيارة\n"
+            f"_(الرجاء الرد بكلمة: تأكيد أو تأجيل أو إلغاء)_"
+        )
+        doctor_line = f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doctor}\n" if doctor else ""
+        return (
+            f"🟠 *Orange Lab Home Visit*\n"
+            f"أهلاً {v['name']} 👋\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"📅 *موعد الزيارة:* {datetime_str}\n"
+            f"{doctor_line}"
+            f"🧪 *التحاليل المطلوبة:*\n{labs_lines}"
+            f"━━━━━━━━━━━━━━\n"
+            f"💉 *سعر التحاليل:* {discount_line}{labs_after} جنيه\n"
+            f"🚌 *بدل الانتقال:* {transport} جنيه\n"
+            f"💰 *الإجمالي:* {total} جنيه\n"
+            f"{status_line}\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"شكراً لثقتكم 🙏 *معمل أورانج لاب*"
+        )
+
+    # Internal summary
     loc   = f"🗺️ *الموقع:* {v.get('location_link','')}\n" if v.get("location_link") else ""
     notes = f"📌 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
-    return (f"🟠 *Orange Home Visit*\n━━━━━━━━━━━━━━\n"
-            f"👤 *الاسم:* {v['name']}\n🎂 *السن:* {v.get('age','')} سنة\n"
-            f"📞 *التليفون:* {v.get('phone','')}\n📅 *تاريخ الزيارة:* {datetime_str}\n"
-            f"📍 *العنوان:* {v.get('address','')}\n{loc}"
-            f"━━━━━━━━━━━━━━\n🧪 *التحاليل المطلوبة:*\n{labs_lines}"
-            f"━━━━━━━━━━━━━━\n💉 *سعر التحاليل:* {labs_price} جنيه\n"
-            f"🚗 *سعر الزيارة:* {visit_price} جنيه\n💰 *الإجمالي:* {total} جنيه\n━━━━━━━━━━━━━━\n{notes}")
+    doctor_line = f"👨‍⚕️ *الدكتور:* {doctor}\n" if doctor else ""
+    return (
+        f"🟠 *Orange Lab Home Visit*\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"👤 *الاسم:* {v['name']}\n"
+        f"🎂 *السن:* {v.get('age','')} سنة\n"
+        f"📞 *التليفون:* {v.get('phone','')}\n"
+        f"📅 *تاريخ الزيارة:* {datetime_str}\n"
+        f"{doctor_line}"
+        f"📍 *العنوان:* {v.get('address','')}\n{loc}"
+        f"━━━━━━━━━━━━━━\n"
+        f"🧪 *التحاليل المطلوبة:*\n{labs_lines}"
+        f"━━━━━━━━━━━━━━\n"
+        f"💉 *سعر التحاليل:* {discount_line}{labs_after} جنيه\n"
+        f"🚌 *بدل الانتقال:* {transport} جنيه\n"
+        f"💰 *الإجمالي:* {total} جنيه\n"
+        f"━━━━━━━━━━━━━━\n"
+        f"📋 *حالة الزيارة:* {status}\n"
+        f"{notes}"
+    )
 
 def whatsapp_link(msg, phone=None):
     encoded = urllib.parse.quote(msg)
@@ -1063,7 +1137,7 @@ def go(page, prefill=None, visit_id=None):
 # ─── Header ────────────────────────────────────────────────────────────────────
 st.markdown(f'''
 <div class="ohv-header">
-  <h1>🟠 Orange Home Visit</h1>
+  <h1>🟠 Orange Lab Home Visit</h1>
   <span>📅 {format_date_ar(date.today())}</span>
 </div>
 ''', unsafe_allow_html=True)
@@ -1105,16 +1179,26 @@ if st.session_state.page == "home":
             vdate = format_date_ar(v.get("visit_date",""))
             addr  = v.get("address","")[:38] + ("..." if len(v.get("address",""))>38 else "")
             labs_count = len(v.get("selected_labs",[]))
+            doctor_show = f" | 👨‍⚕️ {v.get('doctor_name','')}" if v.get("doctor_name") else ""
+            status_show = v.get("visit_status","")
             st.markdown(f'''
             <div class="visit-card">
               <span class="visit-badge">{total:,} جنيه</span>
               <div class="visit-name">👤 {v["name"]}</div>
               <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate}</div>
               <div class="visit-meta">📍 {addr}</div>
-              <div class="visit-meta" style="margin-top:5px">🧪 {labs_count} تحليل</div>
+              <div class="visit-meta" style="margin-top:5px">🧪 {labs_count} تحليل{doctor_show}</div>
+              <div class="visit-meta" style="color:#FF6B00;margin-top:3px">{status_show}</div>
             </div>''', unsafe_allow_html=True)
             if st.button(f"📂 فتح {v['name']}", key=f"o_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
+
+    # Developer credit
+    st.markdown('''
+    <div class="dev-credit">
+      Developed by <span>Dr. Hussein Ali</span> — 2026
+    </div>
+    ''', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # NEW VISIT
@@ -1130,6 +1214,7 @@ elif st.session_state.page == "new":
     c1,c2 = st.columns(2)
     with c1: age   = st.number_input("السن *", 0, 120, int(pf.get("age",0) or 0))
     with c2: phone = st.text_input("رقم التليفون *", value=pf.get("phone",""), placeholder="01xxxxxxxxx")
+    doctor_name = st.text_input("👨‍⚕️ الدكتور القائم بالزيارة", value=pf.get("doctor_name",""), placeholder="اسم الدكتور...")
     d1, d2 = st.columns(2)
     with d1:
         default_date = date.today()
@@ -1274,7 +1359,7 @@ elif st.session_state.page == "new":
     notes = st.text_area("ملاحظات خاصة", value=pf.get("notes",""), height=75)
     st.markdown("---")
 
-    # Prices — labs auto-calculated, visit manual
+    # Prices
     st.markdown('<div class="section-title">💰 الأسعار</div>', unsafe_allow_html=True)
 
     import re as _re
@@ -1286,23 +1371,39 @@ elif st.session_state.page == "new":
 
     p1, p2 = st.columns(2)
     with p1:
-        labs_price = st.number_input(
-            "💉 سعر التحاليل (جنيه)",
+        labs_price_before = st.number_input(
+            "💉 سعر التحاليل قبل الخصم",
             min_value=0, step=10,
-            value=auto_labs_total if auto_labs_total > 0 else int(pf.get("labs_price", 0) or 0),
-            help="يُحسب تلقائياً من التحاليل المسعّرة"
+            value=auto_labs_total if auto_labs_total > 0 else int(pf.get("labs_price_before", 0) or 0),
         )
     with p2:
-        visit_price = st.number_input(
-            "🚗 سعر الزيارة (جنيه)",
+        labs_price_after = st.number_input(
+            "💉 سعر التحاليل بعد الخصم",
             min_value=0, step=10,
-            value=int(pf.get("visit_price", 100) or 100)
+            value=int(pf.get("labs_price_after", 0) or 0),
         )
-    total_price = labs_price + visit_price
+
+    transport_price = st.number_input(
+        "🚌 بدل الانتقال (جنيه)",
+        min_value=0, step=10,
+        value=int(pf.get("visit_price", 100) or 100)
+    )
+
+    visit_status = st.selectbox(
+        "📋 حالة الزيارة",
+        ["⏳ في الانتظار", "✅ تم التأكيد", "⏰ تم التأجيل", "❌ تم الإلغاء"],
+        index=["⏳ في الانتظار","✅ تم التأكيد","⏰ تم التأجيل","❌ تم الإلغاء"].index(
+            pf.get("visit_status","⏳ في الانتظار")
+        ) if pf.get("visit_status") in ["⏳ في الانتظار","✅ تم التأكيد","⏰ تم التأجيل","❌ تم الإلغاء"] else 0
+    )
+
+    total_price = labs_price_after + transport_price
+
     st.markdown(f'''
     <div class="price-box">
-      <div class="price-row"><span>💉 سعر التحاليل</span><span>{labs_price} جنيه</span></div>
-      <div class="price-row"><span>🚗 سعر الزيارة</span><span>{visit_price} جنيه</span></div>
+      <div class="price-row"><span>💉 قبل الخصم</span><span><s>{labs_price_before}</s> جنيه</span></div>
+      <div class="price-row"><span>💉 بعد الخصم</span><span>{labs_price_after} جنيه</span></div>
+      <div class="price-row"><span>🚌 بدل الانتقال</span><span>{transport_price} جنيه</span></div>
       <div class="price-total"><span>💰 الإجمالي</span><span>{total_price} جنيه</span></div>
     </div>''', unsafe_allow_html=True)
 
@@ -1315,13 +1416,19 @@ elif st.session_state.page == "new":
                 "id":                 pf.get("id", str(int(datetime.now().timestamp()*1000))),
                 "created_at":         pf.get("created_at", datetime.now().isoformat()),
                 "name": name, "age": age, "phone": phone,
+                "doctor_name":        doctor_name,
                 "visit_date":         visit_date.isoformat(),
                 "visit_time":         visit_time,
                 "address": address, "location_link": location_link,
                 "selected_labs":      selected_labs,
                 "selected_labs_text": selected_labs_text,
                 "custom_labs": "", "notes": notes,
-                "labs_price": labs_price, "visit_price": visit_price, "total_price": total_price,
+                "labs_price_before":  labs_price_before,
+                "labs_price_after":   labs_price_after,
+                "labs_price":         labs_price_after,
+                "visit_price":        transport_price,
+                "total_price":        total_price,
+                "visit_status":       visit_status,
             }
             if is_edit:
                 visits = [record if v["id"]==record["id"] else v for v in visits]
@@ -1347,9 +1454,12 @@ elif st.session_state.page == "detail":
     if not v:
         st.error("لم يتم العثور على الزيارة"); go("home")
     else:
-        labs_price  = v.get("labs_price",0)
-        visit_price = v.get("visit_price",0)
-        total_price = v.get("total_price", labs_price+visit_price)
+        labs_price_before = v.get("labs_price_before", v.get("labs_price",0))
+        labs_price_after  = v.get("labs_price_after",  v.get("labs_price",0))
+        transport_price   = v.get("visit_price", 0)
+        total_price       = v.get("total_price", labs_price_after + transport_price)
+        visit_status      = v.get("visit_status","⏳ في الانتظار")
+        doctor_name       = v.get("doctor_name","")
 
         visit_time  = v.get("visit_time","")
         datetime_display = format_date_ar(v.get("visit_date","")) + (f" — {visit_time}" if visit_time else "")
@@ -1360,6 +1470,8 @@ elif st.session_state.page == "detail":
         <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{v.get("age","")} سنة</span></div>
         <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get("phone","")}</span></div>
         <div class="detail-row"><span class="detail-label">📅 الموعد</span><span class="detail-value">{datetime_display}</span></div>
+        {"<div class='detail-row'><span class='detail-label'>👨‍⚕️ الدكتور</span><span class='detail-value'>" + doctor_name + "</span></div>" if doctor_name else ""}
+        <div class="detail-row"><span class="detail-label">📋 الحالة</span><span class="detail-value">{visit_status}</span></div>
         ''', unsafe_allow_html=True)
         st.markdown("---")
 
@@ -1385,8 +1497,9 @@ elif st.session_state.page == "detail":
 
         st.markdown(f'''
         <div class="price-box">
-          <div class="price-row"><span>💉 سعر التحاليل</span><span>{labs_price} جنيه</span></div>
-          <div class="price-row"><span>🚗 سعر الزيارة</span><span>{visit_price} جنيه</span></div>
+          <div class="price-row"><span>💉 قبل الخصم</span><span><s>{labs_price_before}</s> جنيه</span></div>
+          <div class="price-row"><span>💉 بعد الخصم</span><span>{labs_price_after} جنيه</span></div>
+          <div class="price-row"><span>🚌 بدل الانتقال</span><span>{transport_price} جنيه</span></div>
           <div class="price-total"><span>💰 الإجمالي</span><span>{total_price} جنيه</span></div>
         </div>''', unsafe_allow_html=True)
 
@@ -1394,10 +1507,37 @@ elif st.session_state.page == "detail":
             st.markdown('<div class="section-title">📌 ملاحظات</div>', unsafe_allow_html=True)
             st.write(v["notes"]); st.markdown("---")
 
+        # ── WhatsApp Buttons ──
         st.markdown('<div class="section-title">📱 إرسال على واتساب</div>', unsafe_allow_html=True)
-        c1,c2 = st.columns(2)
-        with c1: st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,True),v.get("phone"))}" target="_blank" class="wa-btn wa-client">📱 واتساب العميل</a>', unsafe_allow_html=True)
-        with c2: st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,False))}" target="_blank" class="wa-btn wa-share">📋 مشاركة الملخص</a>', unsafe_allow_html=True)
+
+        wa_client_url  = whatsapp_link(make_whatsapp_msg(v, for_client=True),  phone=v.get("phone"))
+        wa_summary_url = whatsapp_link(make_whatsapp_msg(v, for_client=False))
+        wa_doctor_url  = whatsapp_link(make_whatsapp_msg(v, for_doctor=True))
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(f'<a href="{wa_client_url}" target="_blank" class="wa-btn wa-client">📱 واتساب العميل</a>',
+                        unsafe_allow_html=True)
+        with c2:
+            st.markdown(f'<a href="{wa_summary_url}" target="_blank" class="wa-btn wa-share">📋 الملخص الداخلي</a>',
+                        unsafe_allow_html=True)
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+        # Doctor group message
+        doctor_display = doctor_name if doctor_name else "الدكتور"
+        visit_dt = format_date_ar(v.get("visit_date","")) + (f" — {visit_time}" if visit_time else "")
+        group_msg = (
+            f"🟠 *Orange Lab Home Visit*\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"🏠 *زيارة منزلية*\n"
+            f"👨‍⚕️ *{doctor_display}*\n"
+            f"📅 *{visit_dt}*"
+        )
+        st.markdown(
+            f'<a href="{whatsapp_link(group_msg)}" target="_blank" class="wa-btn wa-doctor">'
+            f'👥 إرسال لمجموعة العمل</a>',
+            unsafe_allow_html=True)
         st.markdown("---")
 
         c1,c2 = st.columns(2)
@@ -1422,8 +1562,9 @@ elif st.session_state.page == "detail":
         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
             go("new", prefill={"name":v["name"],"age":v.get("age",""),"phone":v.get("phone",""),
                                "address":v.get("address",""),"location_link":v.get("location_link",""),
-                               "selected_labs":[],"selected_labs_text":"","visit_time":"",
-                               "notes":"","labs_price":0,"visit_price":100})
+                               "doctor_name":"","selected_labs":[],"selected_labs_text":"","visit_time":"",
+                               "notes":"","labs_price_before":0,"labs_price_after":0,"visit_price":100,
+                               "visit_status":"⏳ في الانتظار"})
         if st.button("← رجوع للقائمة", use_container_width=True): go("home")
 
 # ══════════════════════════════════════════════════════════════════════════════
