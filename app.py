@@ -1081,10 +1081,14 @@ def make_whatsapp_msg(v, target="internal"):
         )
 
 def whatsapp_link(msg, phone=None):
-    encoded = urllib.parse.quote(msg)
+    # إجبار UTF-8 قبل إرسال النص إلى واتساب
+    encoded = urllib.parse.quote_from_bytes(
+        msg.encode("utf-8")
+    )
     if phone:
-        p = phone.replace(" ","").replace("-","")
-        if p.startswith("0"): p = "2" + p
+        p = phone.replace(" ", "").replace("-", "")
+        if p.startswith("0"):
+            p = "2" + p
         return f"https://wa.me/{p}?text={encoded}"
     return f"https://wa.me/?text={encoded}"
 
