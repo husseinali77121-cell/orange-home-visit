@@ -1027,8 +1027,8 @@ def make_whatsapp_msg(v, target="internal"):
 
     if target == "client":
         return (
-            f"🟠 *Orange Lab Home Visit*\n"
-            f"أهلاً بك 👋\n"
+            f"*Orange Lab Home Visit*\n"
+            f"أهلاً بك\n"
             f"━━━━━━━━━━━━━━\n"
             f"★ *الدكتور القائم بالزيارة:* {doc_name}\n"
             f"★ *موعد الزيارة:* {datetime_str}\n"
@@ -1043,15 +1043,15 @@ def make_whatsapp_msg(v, target="internal"):
             f"★ *بدل الانتقال:* {transport_fee} جنيه\n"
             f"★ *الإجمالي المطلوب:* {total} جنيه\n"
             f"━━━━━━━━━━━━━━\n"
-            f"📌 *برجاء تأكيد حجزك بالرد برقم:*\n"
-            f"1️⃣ - تأكيد الزيارة ✅\n"
-            f"2️⃣ - تأجيل الزيارة ⏰\n"
-            f"3️⃣ - إلغاء الزيارة ❌\n\n"
-            f"شكراً لثقتكم 🙏 *معمل أورانج لاب*"
+            f"*برجاء تأكيد حجزك بالرد برقم:*\n"
+            f"  1 - تأكيد الزيارة\n"
+            f"  2 - تأجيل الزيارة\n"
+            f"  3 - إلغاء الزيارة\n\n"
+            f"شكراً لثقتكم *معمل أورانج لاب*"
         )
     elif target == "group":
         return (
-            f"🚨 *زيارة منزلية*\n"
+            f"★ *زيارة منزلية*\n"
             f"━━━━━━━━━━━━━━\n"
             f"★ *الدكتور القائم بالزيارة:* {doc_name}\n"
             f"★ *الموعد:* {datetime_str}"
@@ -1059,7 +1059,7 @@ def make_whatsapp_msg(v, target="internal"):
     else:  # internal
         notes    = f"★ *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
         return (
-            f"🟠 *Orange Lab Home Visit*\n"
+            f"*Orange Lab Home Visit*\n"
             f"━━━━━━━━━━━━━━\n"
             f"★ *الاسم:* {v['name']}\n"
             f"★ *السن:* {v.get('age','')} سنة\n"
