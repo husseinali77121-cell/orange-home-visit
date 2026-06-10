@@ -1213,66 +1213,66 @@ def make_whatsapp_msg(v, target="internal"):
 
     labs_text = v.get("selected_labs_text", "")
     if labs_text.strip():
-        labs_lines = "\n".join(f"★ {l.strip()}" for l in labs_text.splitlines() if l.strip()) + "\n"
+        labs_lines = "\n".join(f"🧪 {l.strip()}" for l in labs_text.splitlines() if l.strip()) + "\n"
     else:
-        labs_lines = "لا توجد تحاليل\n"
+        labs_lines = "🚫 لا توجد تحاليل\n"
 
-    loc_line = f"★ *الموقع:* {location}\n" if location else ""
-    branch_line = f"★ *الفرع:* {branch}\n" if branch else ""
+    loc_line = f"📍 *الموقع:* {location}\n" if location else ""
+    branch_line = f"🏥 *الفرع:* {branch}\n" if branch else ""
 
     if target == "client":
         return (
-            f"*Orange Lab Home Visit*\n"
-            f"أهلاً بك\n"
+            f"🟠 *Orange Lab Home Visit*\n"
+            f"🏠 أهلاً بك\n"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *الدكتور القائم بالزيارة:* {doc_name}\n"
-            f"★ *موعد الزيارة:* {datetime_str}\n"
+            f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doc_name}\n"
+            f"📅 *موعد الزيارة:* {datetime_str}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *عنوان الزيارة:*\n{address}\n"
+            f"📍 *عنوان الزيارة:*\n{address}\n"
             f"{loc_line}"
             f"{branch_line}"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *التحاليل المطلوبة:*\n{labs_lines}"
+            f"🧪 *التحاليل المطلوبة:*\n{labs_lines}"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *السعر قبل الخصم:* {labs_price_before} جنيه\n"
-            f"★ *السعر بعد الخصم:* {labs_price_after} جنيه\n"
-            f"★ *بدل الانتقال:* {transport_fee} جنيه\n"
-            f"★ *الإجمالي المطلوب:* {total} جنيه\n"
+            f"💰 *السعر قبل الخصم:* {labs_price_before} جنيه\n"
+            f"💰 *السعر بعد الخصم:* {labs_price_after} جنيه\n"
+            f"🚗 *بدل الانتقال:* {transport_fee} جنيه\n"
+            f"💵 *الإجمالي المطلوب:* {total} جنيه\n"
             f"━━━━━━━━━━━━━━\n"
-            f"*برجاء تأكيد حجزك بالرد برقم:*\n"
-            f"  1 - تأكيد الزيارة\n"
-            f"  2 - تأجيل الزيارة\n"
-            f"  3 - إلغاء الزيارة\n\n"
-            f"شكراً لثقتكم *معمل أورانج لاب*"
+            f"✏️ *برجاء تأكيد حجزك بالرد برقم:*\n"
+            f"  1️⃣ - تأكيد الزيارة\n"
+            f"  2️⃣ - تأجيل الزيارة\n"
+            f"  3️⃣ - إلغاء الزيارة\n\n"
+            f"شكراً لثقتكم 🧡 *معمل أورانج لاب*"
         )
     elif target == "group":
         return (
-            f"★ *زيارة منزلية*\n"
+            f"🟠 *زيارة منزلية*\n"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *الدكتور القائم بالزيارة:* {doc_name}\n"
-            f"★ *الموعد:* {datetime_str}"
+            f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doc_name}\n"
+            f"📅 *الموعد:* {datetime_str}"
         )
-    else:
-        notes = f"★ *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
+    else:   # internal
+        notes = f"📝 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
         return (
-            f"*Orange Lab Home Visit*\n"
+            f"🟠 *Orange Lab Home Visit*\n"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *الاسم:* {v['name']}\n"
-            f"★ *السن:* {v.get('age','')} سنة\n"
-            f"★ *التليفون:* {v.get('phone','')}\n"
-            f"★ *الموعد:* {datetime_str}\n"
-            f"★ *دكتور الزيارة:* {doc_name}\n"
-            f"★ *الفرع:* {branch}\n"
+            f"👤 *الاسم:* {v['name']}\n"
+            f"🎂 *السن:* {v.get('age','')} سنة\n"
+            f"📞 *التليفون:* {v.get('phone','')}\n"
+            f"📅 *الموعد:* {datetime_str}\n"
+            f"👨‍⚕️ *دكتور الزيارة:* {doc_name}\n"
+            f"🏥 *الفرع:* {branch}\n"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *العنوان:* {address}\n"
+            f"📍 *العنوان:* {address}\n"
             f"{loc_line}"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *التحاليل المطلوبة:*\n{labs_lines}"
+            f"🧪 *التحاليل المطلوبة:*\n{labs_lines}"
             f"━━━━━━━━━━━━━━\n"
-            f"★ *السعر قبل الخصم:* {labs_price_before} جنيه\n"
-            f"★ *السعر بعد الخصم:* {labs_price_after} جنيه\n"
-            f"★ *بدل الانتقال:* {transport_fee} جنيه\n"
-            f"★ *الإجمالي:* {total} جنيه\n"
+            f"💰 *السعر قبل الخصم:* {labs_price_before} جنيه\n"
+            f"💰 *السعر بعد الخصم:* {labs_price_after} جنيه\n"
+            f"🚗 *بدل الانتقال:* {transport_fee} جنيه\n"
+            f"💵 *الإجمالي:* {total} جنيه\n"
             f"━━━━━━━━━━━━━━\n"
             f"{notes}"
         )
@@ -1813,4 +1813,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-)
+        )
