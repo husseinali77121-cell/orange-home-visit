@@ -1278,7 +1278,7 @@ def make_whatsapp_msg(v, target="internal"):
         )
 
 def whatsapp_link(msg, phone=None):
-    encoded = urllib.parse.quote_from_bytes(msg.encode("utf-8"))
+    encoded = urllib.parse.quote(msg)  # تم التصحيح: استخدام quote مباشرة مثل برنامج الفواتير
     if phone:
         p = phone.replace(" ", "").replace("-", "")
         if p.startswith("0"):
@@ -1813,4 +1813,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-        )
+)
