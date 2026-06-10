@@ -1278,11 +1278,14 @@ def make_whatsapp_msg(v, target="internal"):
         )
 
 def whatsapp_link(msg, phone=None):
-    encoded = urllib.parse.quote(msg)  # تم التصحيح: استخدام quote مباشرة مثل برنامج الفواتير
+    # استخدام quote_plus مع ترميز UTF-8 صريح (مثل برنامج الفواتير)
+    encoded = urllib.parse.quote_plus(msg, encoding='utf-8')
     if phone:
-        p = phone.replace(" ", "").replace("-", "")
+        p = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
         if p.startswith("0"):
-            p = "2" + p
+            p = "20" + p[1:]  # يحول 010... إلى 2010...
+        elif not p.startswith("20"):
+            p = "20" + p
         return f"https://wa.me/{p}?text={encoded}"
     return f"https://wa.me/?text={encoded}"
 
