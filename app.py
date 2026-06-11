@@ -21,7 +21,9 @@ OLD_JSON = "visits.json"
 MIGRATED_FLAG = "visits_migrated.txt"
 
 def run_migration_if_needed():
+    # Only migrate if JSON exists, DB doesn't exist (or is empty), and not previously migrated
     if os.path.exists(OLD_JSON) and not os.path.exists(MIGRATED_FLAG):
+        # Create DB and table if not exists
         conn = sqlite3.connect(DB_FILE, check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL;")
         conn.execute("""
@@ -45,8 +47,11 @@ def run_migration_if_needed():
                 total_price REAL DEFAULT 0
             )
         """)
+
+        # Check if DB already has data
         existing = conn.execute("SELECT COUNT(*) FROM visits").fetchone()[0]
         if existing == 0:
+            # Load old data
             with open(OLD_JSON, "r", encoding="utf-8") as f:
                 old_visits = json.load(f)
             for v in old_visits:
@@ -58,24 +63,34 @@ def run_migration_if_needed():
                         labs_price_after, transport_fee, total_price
                     ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """, (
-                    v.get("id"), v.get("created_at"), v.get("name"), v.get("age"),
-                    v.get("phone"), v.get("visit_date"), v.get("visit_time"),
-                    v.get("doctor_name", ""), v.get("branch", "La Cite"),
-                    v.get("address"), v.get("location_link"),
-                    v.get("selected_labs_text", ""), v.get("notes"),
+                    v.get("id"),
+                    v.get("created_at"),
+                    v.get("name"),
+                    v.get("age"),
+                    v.get("phone"),
+                    v.get("visit_date"),
+                    v.get("visit_time"),
+                    v.get("doctor_name", ""),
+                    v.get("branch", "La Cite"),
+                    v.get("address"),
+                    v.get("location_link"),
+                    v.get("selected_labs_text", ""),
+                    v.get("notes"),
                     v.get("labs_price_before", v.get("labs_price", 0)),
                     v.get("labs_price_after", v.get("labs_price", 0)),
                     v.get("transport_fee", v.get("visit_price", 0)),
                     v.get("total_price", 0)
                 ))
             conn.commit()
+            # Mark migration as done
             with open(MIGRATED_FLAG, "w") as f:
                 f.write("done")
         conn.close()
 
+# Run migration on startup
 run_migration_if_needed()
 
-# ─── Database Setup ──────────────────────────────────────────────────────────
+# ─── Database Setup (SQLite) ──────────────────────────────────────────────────
 def init_db():
     conn = sqlite3.connect(DB_FILE, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL;")
@@ -103,6 +118,7 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Ensure DB file and table exist
 if not os.path.exists(DB_FILE):
     init_db()
 else:
@@ -229,16 +245,6 @@ def inject_css():
       .lab-chip { display:inline-flex; align-items:center; gap:6px; margin:3px; background:#fff3e6; color:#FF6B00; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; border:1px solid #ffd4a8; }
       .repeat-banner { background:#fff8f0; border:2px dashed #FF9A3C; border-radius:14px; padding:12px; text-align:center; margin-top:12px; color:#FF6B00; font-weight:700; font-size:14px; }
       .section-title { font-size:14px; font-weight:700; color:#FF6B00; border-right:4px solid #FF6B00; padding-right:10px; margin-bottom:10px; }
-      /* Quick Panels */
-      .panels-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
-      .panel-card {
-        background:#fff; border:2px solid #ffe8d1; border-radius:14px;
-        padding:10px 14px; cursor:pointer; transition:all 0.2s;
-        flex: 1 1 calc(50% - 8px); min-width:140px;
-      }
-      .panel-card:hover { border-color:#FF6B00; background:#fff8f0; }
-      .panel-title { font-size:13px; font-weight:700; color:#FF6B00; }
-      .panel-count { font-size:11px; color:#aaa; margin-top:2px; }
       div[data-testid="stButton"] button { font-family:'Cairo',sans-serif !important; font-weight:700 !important; border-radius:12px !important; }
       div[data-testid="stTextInput"] label, div[data-testid="stNumberInput"] label,
       div[data-testid="stDateInput"] label, div[data-testid="stTextArea"] label,
@@ -248,6 +254,7 @@ def inject_css():
       #MainMenu { visibility: hidden; }
       footer { visibility: hidden; }
       header { visibility: hidden; }
+      /* PRINT */
       @media print {
         body * { visibility: hidden; }
         #printable-report, #printable-report * { visibility: visible; }
@@ -260,44 +267,7 @@ def inject_css():
 
 inject_css()
 
-# ─── QUICK PANELS ────────────────────────────────────────────────────────────
-QUICK_PANELS = [
-    {
-        "name": "🩸 CBC",
-        "tests": ["CBC"]
-    },
-    {
-        "name": "🍬 Diabetes",
-        "tests": ["HbA1C", "Urea", "Creatinine (Serum)", "Uric Acid", "ALT (SGPT)", "AST (SGOT)", "Urine Examination"]
-    },
-    {
-        "name": "❤️ Cardiac Risk",
-        "tests": ["Cholesterol", "HDL", "LDL", "Triglycerides", "ALT (SGPT)", "AST (SGOT)", "Uric Acid"]
-    },
-    {
-        "name": "🦋 Thyroid",
-        "tests": ["TSH", "FT3", "FT4"]
-    },
-    {
-        "name": "🔋 Fatigue",
-        "tests": ["CBC", "Ferritin", "Vitamin D3(25 Hydroxy Cholecal.)", "TSH"]
-    },
-    {
-        "name": "🧪 Kidney",
-        "tests": ["Urea", "Creatinine (Serum)", "Uric Acid", "Urine Examination"]
-    },
-    {
-        "name": "🫀 Liver",
-        "tests": ["ALT (SGPT)", "AST (SGOT)", "Albumin (ALB)", "Bilirubin Total", "Alkaline Phosphatase (ALP)"]
-    },
-    {
-        "name": "🌟 General",
-        "tests": ["CBC", "Cholesterol", "HDL", "LDL", "Triglycerides", "HbA1C", "TSH",
-                  "ALT (SGPT)", "AST (SGOT)", "Urea", "Creatinine (Serum)", "Urine Examination"]
-    },
-]
-
-# ─── LABS_DB ─────────────────────────────────────────────────────────────────
+# ─── LABS_DB (unchanged) ─────────────────────────────────────────────────────
 LABS_DB = {
     "Allergy Screen": [
         {"name": "IgE Food allergy test panel", "price": 2500},
@@ -339,6 +309,11 @@ LABS_DB = {
         {"name": "Anti Endomysial IgM (EMA IgM)", "price": 2000},
         {"name": "Anti Gad Abs", "price": 2600},
         {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
+        {"name": "Anti Hepatic Soluble Antigens", "price": 3500},
         {"name": "Anti Insulin Abs.", "price": 2500},
         {"name": "Anti intrinsic factor Abs.", "price": 3000},
         {"name": "Anti Jo1 Ab", "price": 400},
@@ -369,6 +344,7 @@ LABS_DB = {
         {"name": "Anti-SSA (Ro) Abs", "price": 850},
         {"name": "Anti-SSB (La) Abs", "price": 850},
         {"name": "Aquoporin 4 (neuromyelitis optic", "price": 3960},
+        {"name": "Aquoporin 4 (neuromyelitis optic", "price": 5940},
         {"name": "ASCA (IgA)", "price": 900},
         {"name": "ASCA (IgG)", "price": 900},
         {"name": "ASOT(Anti-Streptolysin-O)(Quanti", "price": 350},
@@ -664,6 +640,7 @@ LABS_DB = {
     "Hemoglobin Electrophoresis": [
         {"name": "HB-A1(Hemoglobin A1", "price": 940},
         {"name": "Hemoglobin electrophoresis by", "price": 600},
+        {"name": "Hemoglobin electrophoresis by", "price": 4000},
     ],
     "Hepatitis Markers": [
         {"name": "HAV IgG Ab", "price": 400},
@@ -704,6 +681,7 @@ LABS_DB = {
         {"name": "IgG4", "price": 1500},
         {"name": "IgM (Immunoglobulin M)", "price": 350},
         {"name": "Immunofixation Electrophoresis", "price": 3000},
+        {"name": "Immunofixation Electrophoresis", "price": 3000},
     ],
     "IMMUNOLOGY": [
         {"name": "C1 Esterase inhibitor", "price": 1350},
@@ -715,6 +693,40 @@ LABS_DB = {
         {"name": "Thiopurine methyl transferase", "price": 5000},
         {"name": "Tissue Polypeptide Anigen (TPA)", "price": 1200},
         {"name": "Tissue Polypeptide Specific", "price": 1200},
+    ],
+    "Immunophenotyping": [
+        {"name": "Anti Kappa", "price": 700},
+        {"name": "Anti Lambda", "price": 700},
+        {"name": "CD 10", "price": 1000},
+        {"name": "CD 103", "price": 1000},
+        {"name": "CD 11c", "price": 1000},
+        {"name": "CD 13", "price": 1000},
+        {"name": "CD 14", "price": 1000},
+        {"name": "CD 16", "price": 1000},
+        {"name": "CD 19", "price": 1000},
+        {"name": "CD 20", "price": 1000},
+        {"name": "CD 200", "price": 1000},
+        {"name": "CD 22", "price": 1000},
+        {"name": "CD 23", "price": 1000},
+        {"name": "CD 25", "price": 1000},
+        {"name": "CD 3", "price": 1000},
+        {"name": "CD 33", "price": 1000},
+        {"name": "CD 34", "price": 1000},
+        {"name": "CD 4", "price": 1000},
+        {"name": "CD 41", "price": 1000},
+        {"name": "CD 5", "price": 1000},
+        {"name": "CD 55", "price": 1000},
+        {"name": "CD 56", "price": 1000},
+        {"name": "CD 59", "price": 1700},
+        {"name": "CD 7", "price": 1000},
+        {"name": "CD 79a", "price": 1000},
+        {"name": "CD 79b", "price": 1000},
+        {"name": "CD 8", "price": 1000},
+        {"name": "CD38", "price": 1000},
+        {"name": "CD4/CD8 Ratio", "price": 1500},
+        {"name": "CD56", "price": 1000},
+        {"name": "FMC-7", "price": 600},
+        {"name": "MPO", "price": 650},
     ],
     "Iron Profile": [
         {"name": "Ferritin", "price": 400},
@@ -857,6 +869,7 @@ LABS_DB = {
         {"name": "Acid Phosphatase (Total)", "price": 350},
         {"name": "ACID-FAST STAIN (ZN Film) 3", "price": 300},
         {"name": "Acrosin Activity", "price": 400},
+        {"name": "Adenosine Deaminase (ADA) in", "price": 500},
         {"name": "Adenosine Deaminase (ADA) in", "price": 500},
         {"name": "Albumin (Urine)", "price": 100},
         {"name": "Alpha-1 antitrypsin in blood", "price": 750},
@@ -1129,6 +1142,7 @@ LABS_DB = {
         {"name": "Entero Virus (Coxsackie A9) IgG", "price": 1800},
         {"name": "Entero Virus (Coxsackie A9) IgM", "price": 1800},
         {"name": "Entero Virus (Coxsackie B1-6)", "price": 1800},
+        {"name": "Entero Virus (Coxsackie B1-6)", "price": 1800},
         {"name": "H1N1 by Real Time PCR", "price": 2500},
         {"name": "HIV (I,II) Abs", "price": 450},
         {"name": "HIV Combi Ag/Ab", "price": 500},
@@ -1144,6 +1158,7 @@ LABS_DB = {
         {"name": "Varicella Zoster (IgM)", "price": 1300},
         {"name": "Viral Ag (Rapid test)", "price": 700},
         {"name": "Viral PCR-RNA (Qualitative)", "price": 1700},
+        {"name": "Viral PCR-RNA (Qualitative)", "price": 1500},
         {"name": "Viral PCR-RNA (Urgently)", "price": 2800},
     ],
     "Vitamins": [
@@ -1170,9 +1185,6 @@ LABS_DB = {
 ALL_LABS = [{"name": t["name"], "price": t["price"], "category": cat}
             for cat, tests in LABS_DB.items() for t in tests]
 
-# Build a lookup: test name → price (for panels)
-LABS_PRICE_LOOKUP = {t["name"]: t["price"] for t in ALL_LABS}
-
 # ─── Helper functions ────────────────────────────────────────────────────────
 def format_date_ar(d):
     if not d:
@@ -1198,7 +1210,6 @@ def make_whatsapp_msg(v, target="internal"):
     address           = v.get("address", "")
     location          = v.get("location_link", "")
     branch            = v.get("branch", "")
-    client_name       = v.get("name", "")
 
     labs_text = v.get("selected_labs_text", "")
     if labs_text.strip():
@@ -1212,7 +1223,7 @@ def make_whatsapp_msg(v, target="internal"):
     if target == "client":
         return (
             f"🟠 *Orange Lab Home Visit*\n"
-            f"🏠 أهلاً بك {client_name}\n"
+            f"🏠 أهلاً بك\n"
             f"━━━━━━━━━━━━━━\n"
             f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doc_name}\n"
             f"📅 *موعد الزيارة:* {datetime_str}\n"
@@ -1267,7 +1278,7 @@ def make_whatsapp_msg(v, target="internal"):
         )
 
 def whatsapp_link(msg, phone=None):
-    encoded = urllib.parse.quote(msg, encoding='utf-8')
+    encoded = urllib.parse.quote(msg, encoding='utf-8')  # ← quote مش quote_plus
     if phone:
         p = phone.strip().replace(" ", "").replace("-", "").replace("+", "")
         if p.startswith("0"):
@@ -1313,6 +1324,7 @@ st.markdown("---")
 # HOME
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.page == "home":
+    # Get unique doctors and branches for filter
     conn = get_connection()
     all_doctors = [row[0] for row in conn.execute("SELECT DISTINCT doctor_name FROM visits WHERE doctor_name != ''").fetchall()]
     all_branches = [row[0] for row in conn.execute("SELECT DISTINCT branch FROM visits").fetchall()]
@@ -1341,7 +1353,9 @@ if st.session_state.page == "home":
 
     visits = fetch_visits(filters)
     today = date.today().isoformat()
-    all_visits = fetch_visits()
+    t_visits = len(visits)
+    # For stats we fetch all visits without filters to get total counts
+    all_visits = fetch_visits()  # unfiltered
     t_today = sum(1 for v in all_visits if v.get("visit_date") == today)
     t_rev = sum(v.get("total_price", 0) for v in all_visits)
 
@@ -1420,40 +1434,51 @@ elif st.session_state.page == "new":
 
     visit_id_key = pf.get("id", "new_visit")
     labs_ss_key = f"added_labs_{visit_id_key}"
+    search_ss_key = f"lab_search_{visit_id_key}"
 
     if labs_ss_key not in st.session_state:
         if pf.get("selected_labs_text", ""):
             st.session_state[labs_ss_key] = [l.strip() for l in pf["selected_labs_text"].splitlines() if l.strip()]
         else:
             st.session_state[labs_ss_key] = []
+    if search_ss_key not in st.session_state:
+        st.session_state[search_ss_key] = ""
 
-    # ── QUICK PANELS ──────────────────────────────────────────────────────────
-    st.markdown('<div class="section-title">⚡ Quick Panels</div>', unsafe_allow_html=True)
-    st.caption("اضغط على panel لإضافة تحاليله فوراً — التحاليل المكررة لن تُضاف مجدداً")
+    st.markdown('<div class="section-title">🔍 ابحث وأضف من قائمة الأسعار</div>', unsafe_allow_html=True)
+    st.caption("💰 = يضاف مع السعر  |  📋 = يضاف بدون سعر")
 
-    cols = st.columns(4)
-    for i, panel in enumerate(QUICK_PANELS):
-        with cols[i % 4]:
-            if st.button(panel["name"], key=f"panel_{visit_id_key}_{i}", use_container_width=True):
-                added = 0
-                for test_name in panel["tests"]:
-                    entry = test_name
-                    # check not already in list (by name)
-                    existing_names = [e.split(" — ")[0].strip() for e in st.session_state[labs_ss_key]]
-                    if test_name not in existing_names:
-                        st.session_state[labs_ss_key].append(entry)
-                        added += 1
-                st.rerun()
+    price_search = st.text_input("ابحث باسم التحليل", value=st.session_state[search_ss_key],
+                                 placeholder="مثال: CBC أو سكر أو Vitamin D...", key=f"search_input_{visit_id_key}")
+    st.session_state[search_ss_key] = price_search
 
-    # Show panel contents on hover via caption
-    with st.expander("👁️ شاهد محتوى الـ Panels"):
-        for panel in QUICK_PANELS:
-            tests_str = " • ".join(panel["tests"])
-            st.markdown(f'<div style="font-size:12px;margin-bottom:6px"><b style="color:#FF6B00">{panel["name"]}</b> — {tests_str}</div>', unsafe_allow_html=True)
-
+    if price_search:
+        results = [l for l in ALL_LABS if price_search.lower() in l["name"].lower()]
+        if results:
+            st.caption(f"🔎 {len(results)} نتيجة:")
+            for r in results[:12]:
+                c_name, c_price, c_priced, c_plain = st.columns([5, 2, 1, 1])
+                with c_name:
+                    st.markdown(f'<div style="padding:6px 2px;font-size:13px;color:#222">🧪 {r["name"]}</div>', unsafe_allow_html=True)
+                with c_price:
+                    st.markdown(f'<div style="padding:6px 2px;font-size:13px;font-weight:700;color:#FF6B00">{r["price"]:,} جنيه</div>', unsafe_allow_html=True)
+                with c_priced:
+                    if st.button("💰", key=f"ap_{visit_id_key}_{r['name']}", help="أضف مع السعر"):
+                        entry = f"{r['name']} — {r['price']} جنيه"
+                        if entry not in st.session_state[labs_ss_key]:
+                            st.session_state[labs_ss_key].append(entry)
+                        st.rerun()
+                with c_plain:
+                    if st.button("📋", key=f"an_{visit_id_key}_{r['name']}", help="أضف بدون سعر"):
+                        entry = r["name"]
+                        if entry not in st.session_state[labs_ss_key]:
+                            st.session_state[labs_ss_key].append(entry)
+                        st.rerun()
+            if len(results) > 12:
+                st.caption(f"+ {len(results)-12} نتيجة أخرى")
+        else:
+            st.info("لا توجد نتائج — جرب كلمة تانية")
     st.markdown("---")
 
-    # ── ADDED LABS ─────────────────────────────────────────────────────────
     st.markdown('<div class="section-title">🧪 التحاليل المضافة</div>', unsafe_allow_html=True)
     if st.session_state[labs_ss_key]:
         import re as _re
@@ -1474,12 +1499,11 @@ elif st.session_state.page == "new":
             st.session_state[labs_ss_key] = []
             st.rerun()
     else:
-        st.markdown('<div style="color:#aaa;font-size:13px;padding:8px 0">لا توجد تحاليل — اختر panel من فوق أو أضف يدوياً</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#aaa;font-size:13px;padding:8px 0">لا توجد تحاليل — ابحث وأضف من فوق أو أضف يدوياً</div>', unsafe_allow_html=True)
 
-    # Manual add
     col_m1, col_m2 = st.columns([8, 2])
     with col_m1:
-        manual_entry = st.text_input("أضف تحليل يدوياً", placeholder="CBC — 400 جنيه  أو  سكر صائم", key=f"manual_{visit_id_key}")
+        manual_entry = st.text_input("أو أضف يدوياً", placeholder="CBC — 400 جنيه  أو  سكر صائم", key=f"manual_{visit_id_key}")
     with col_m2:
         st.markdown('<div style="margin-top:28px"></div>', unsafe_allow_html=True)
         if st.button("➕ أضف", key=f"manual_btn_{visit_id_key}", use_container_width=True):
@@ -1678,7 +1702,7 @@ elif st.session_state.page == "reports":
     st.markdown("### 📊 تقارير نهاية الشهر")
     col_y, col_m, col_b = st.columns(3)
     with col_y:
-        year = st.selectbox("السنة", options=list(range(2023, 2031)), index=3)
+        year = st.selectbox("السنة", options=list(range(2023, 2031)), index=3)  # 2026
     with col_m:
         month = st.selectbox("الشهر", options=list(range(1, 13)),
                              format_func=lambda m: ["يناير","فبراير","مارس","أبريل","مايو","يونيو",
@@ -1696,6 +1720,7 @@ elif st.session_state.page == "reports":
     if not visits:
         st.info("لا توجد زيارات في هذا الشهر / الفرع.")
     else:
+        # Build summary per doctor
         summary = {}
         for v in visits:
             doc = v.get("doctor_name", "غير محدد")
@@ -1713,6 +1738,7 @@ elif st.session_state.page == "reports":
         df.columns = ["الدكتور", "عدد الزيارات", "قبل الخصم", "بعد الخصم", "الانتقال", "الإجمالي"]
         df = df.sort_values("عدد الزيارات", ascending=False)
 
+        # Overall totals
         total_count = df["عدد الزيارات"].sum()
         total_before = df["قبل الخصم"].sum()
         total_after = df["بعد الخصم"].sum()
@@ -1728,7 +1754,15 @@ elif st.session_state.page == "reports":
             "الإجمالي": "{:,} جنيه"
         }), use_container_width=True)
 
+        # Printable report
         st.markdown("---")
+        st.markdown('<div class="no-print">', unsafe_allow_html=True)
+        if st.button("🖨️ طباعة التقرير"):
+            # The print will use CSS media print to only show #printable-report
+            pass
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        # Build printable div
         month_name = ["يناير","فبراير","مارس","أبريل","مايو","يونيو",
                       "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"][month-1]
         branch_title = f" - فرع {branch_filter}" if branch_filter != "الكل" else ""
@@ -1771,8 +1805,10 @@ elif st.session_state.page == "reports":
             <p style="text-align:center; margin-top:30px;">تم إنشاؤه بواسطة تطبيق Orange Lab Home Visit</p>
         </div>
         """
+
         st.components.v1.html(printable_html, height=600, scrolling=True)
 
+        # CSV Export
         csv = df.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
             label="📥 تحميل التقرير CSV",
