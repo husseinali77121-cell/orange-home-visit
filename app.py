@@ -1295,6 +1295,10 @@ for k, v in [("page", "home"), ("prefill", {}), ("selected_id", None), ("search_
         st.session_state[k] = v
 
 def go(page, prefill=None, visit_id=None):
+    # عند بدء زيارة جديدة (prefill فارغ أو لا يحتوي على _edit)، نمسح أي تحاليل سابقة
+    if page == "new" and (prefill is None or not prefill.get("_edit")):
+        # إزالة مفتاح التحاليل الخاص بالزيارة الجديدة لضمان صفحة نظيفة
+        st.session_state.pop("added_labs_new_visit", None)
     st.session_state.page = page
     if prefill is not None:
         st.session_state.prefill = prefill
@@ -1791,4 +1795,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-        )
+)
