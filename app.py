@@ -1,7 +1,5 @@
 import streamlit as st
 
-st.set_page_config(page_title="...")
-
 # إخفاء GitHub وعناصر Streamlit
 st.markdown("""
     <style>
@@ -11,7 +9,7 @@ st.markdown("""
     header[data-testid="stHeader"] {display: none !important;}
     </style>
 """, unsafe_allow_html=True)
-import sqlite3
+
 import json
 import os
 import urllib.parse
@@ -27,182 +25,121 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ─── Auto-migration from JSON to SQLite (runs once on startup) ───────────────
-DB_FILE = "visits.db"
+# ─── Migration from old JSON to Excel ─────────────────────────────────────────
+EXCEL_FILE = "visits.xlsx"
 OLD_JSON = "visits.json"
 MIGRATED_FLAG = "visits_migrated.txt"
 
-def run_migration_if_needed():
-    if os.path.exists(OLD_JSON) and not os.path.exists(MIGRATED_FLAG):
-        conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS visits (
-                id TEXT PRIMARY KEY,
-                created_at TEXT,
-                name TEXT NOT NULL,
-                age INTEGER,
-                phone TEXT NOT NULL,
-                visit_date TEXT NOT NULL,
-                visit_time TEXT,
-                doctor_name TEXT,
-                branch TEXT DEFAULT 'La Cite',
-                address TEXT NOT NULL,
-                location_link TEXT,
-                selected_labs_text TEXT,
-                notes TEXT,
-                labs_price_before REAL DEFAULT 0,
-                labs_price_after REAL DEFAULT 0,
-                transport_fee REAL DEFAULT 0,
-                total_price REAL DEFAULT 0
-            )
-        """)
-        existing = conn.execute("SELECT COUNT(*) FROM visits").fetchone()[0]
-        if existing == 0:
-            with open(OLD_JSON, "r", encoding="utf-8") as f:
-                old_visits = json.load(f)
-            for v in old_visits:
-                conn.execute("""
-                    INSERT OR REPLACE INTO visits (
-                        id, created_at, name, age, phone, visit_date, visit_time,
-                        doctor_name, branch, address, location_link,
-                        selected_labs_text, notes, labs_price_before,
-                        labs_price_after, transport_fee, total_price
-                    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """, (
-                    v.get("id"), v.get("created_at"), v.get("name"), v.get("age"),
-                    v.get("phone"), v.get("visit_date"), v.get("visit_time"),
-                    v.get("doctor_name", ""), v.get("branch", "La Cite"),
-                    v.get("address"), v.get("location_link"),
-                    v.get("selected_labs_text", ""), v.get("notes"),
-                    v.get("labs_price_before", v.get("labs_price", 0)),
-                    v.get("labs_price_after", v.get("labs_price", 0)),
-                    v.get("transport_fee", v.get("visit_price", 0)),
-                    v.get("total_price", 0)
-                ))
-            conn.commit()
-            with open(MIGRATED_FLAG, "w") as f:
-                f.write("done")
-        conn.close()
+# Expected columns (no birth_date, age is integer)
+COLUMNS = [
+    "id", "created_at", "name", "age", "phone", "visit_date", "visit_time",
+    "doctor_name", "branch", "address", "location_link",
+    "selected_labs_text", "notes", "labs_price_before",
+    "labs_price_after", "transport_fee", "total_price"
+]
 
-run_migration_if_needed()
+def run_excel_migration():
+    """One-time migration from old JSON to Excel."""
+    if os.path.exists(MIGRATED_FLAG):
+        return
 
-# ─── Database Setup ──────────────────────────────────────────────────────────
-def init_db():
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS visits (
-            id TEXT PRIMARY KEY,
-            created_at TEXT,
-            name TEXT NOT NULL,
-            age INTEGER,
-            phone TEXT NOT NULL,
-            visit_date TEXT NOT NULL,
-            visit_time TEXT,
-            doctor_name TEXT,
-            branch TEXT DEFAULT 'La Cite',
-            address TEXT NOT NULL,
-            location_link TEXT,
-            selected_labs_text TEXT,
-            notes TEXT,
-            labs_price_before REAL DEFAULT 0,
-            labs_price_after REAL DEFAULT 0,
-            transport_fee REAL DEFAULT 0,
-            total_price REAL DEFAULT 0
-        )
-    """)
-    conn.commit()
-    conn.close()
+    # If Excel already exists, assume migration done
+    if os.path.exists(EXCEL_FILE):
+        with open(MIGRATED_FLAG, "w") as f:
+            f.write("done")
+        return
 
-if not os.path.exists(DB_FILE):
-    init_db()
-else:
-    try:
-        init_db()
-    except:
-        pass
+    records = []
+    if os.path.exists(OLD_JSON):
+        with open(OLD_JSON, "r", encoding="utf-8") as f:
+            old_visits = json.load(f)
+        for v in old_visits:
+            rec = {
+                "id": v.get("id"),
+                "created_at": v.get("created_at"),
+                "name": v.get("name"),
+                "age": v.get("age"),
+                "phone": v.get("phone"),
+                "visit_date": v.get("visit_date"),
+                "visit_time": v.get("visit_time"),
+                "doctor_name": v.get("doctor_name", ""),
+                "branch": v.get("branch", "La Cite"),
+                "address": v.get("address"),
+                "location_link": v.get("location_link"),
+                "selected_labs_text": v.get("selected_labs_text", ""),
+                "notes": v.get("notes"),
+                "labs_price_before": v.get("labs_price_before", v.get("labs_price", 0)),
+                "labs_price_after": v.get("labs_price_after", v.get("labs_price", 0)),
+                "transport_fee": v.get("transport_fee", v.get("visit_price", 0)),
+                "total_price": v.get("total_price", 0),
+            }
+            records.append(rec)
 
-@st.cache_resource
-def get_connection():
-    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL;")
-    return conn
+    if records:
+        df = pd.DataFrame(records, columns=COLUMNS)
+        df.to_excel(EXCEL_FILE, index=False, engine="openpyxl")
+
+    with open(MIGRATED_FLAG, "w") as f:
+        f.write("done")
+
+run_excel_migration()
+
+# ─── Excel Storage Functions ─────────────────────────────────────────────────
+def load_visits_df():
+    if not os.path.exists(EXCEL_FILE):
+        return pd.DataFrame(columns=COLUMNS)
+    df = pd.read_excel(EXCEL_FILE, engine="openpyxl")
+    for col in COLUMNS:
+        if col not in df.columns:
+            df[col] = None
+    return df
+
+def save_visits_df(df):
+    df.to_excel(EXCEL_FILE, index=False, engine="openpyxl")
 
 def fetch_visits(filters=None):
-    conn = get_connection()
-    query = "SELECT * FROM visits"
-    params = []
-    conditions = []
+    df = load_visits_df()
     if filters:
         if filters.get("search"):
-            s = f"%{filters['search']}%"
-            conditions.append("(name LIKE ? OR phone LIKE ?)")
-            params.extend([s, s])
+            s = filters["search"].strip()
+            mask = df["name"].str.contains(s, na=False) | df["phone"].str.contains(s, na=False)
+            df = df[mask]
         if filters.get("branch"):
-            conditions.append("branch = ?")
-            params.append(filters["branch"])
+            df = df[df["branch"] == filters["branch"]]
         if filters.get("doctor"):
-            conditions.append("doctor_name = ?")
-            params.append(filters["doctor"])
+            df = df[df["doctor_name"] == filters["doctor"]]
         if filters.get("month") and filters.get("year"):
             y, m = filters["year"], filters["month"]
-            conditions.append("strftime('%Y', visit_date) = ? AND strftime('%m', visit_date) = ?")
-            params.extend([str(y), f"{m:02d}"])
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-    query += " ORDER BY created_at DESC"
-    rows = conn.execute(query, params).fetchall()
-    return [dict(r) for r in rows]
+            df = df[df["visit_date"].str.startswith(f"{y}-{m:02d}", na=False)]
+    df = df.sort_values("created_at", ascending=False, na_position="last")
+    return df.to_dict("records")
 
 def fetch_visit_by_id(visit_id):
-    conn = get_connection()
-    row = conn.execute("SELECT * FROM visits WHERE id = ?", (visit_id,)).fetchone()
-    return dict(row) if row else None
+    df = load_visits_df()
+    row = df[df["id"] == visit_id]
+    if row.empty:
+        return None
+    return row.iloc[0].to_dict()
 
 def insert_visit(record):
-    conn = get_connection()
-    conn.execute("""
-        INSERT INTO visits (
-            id, created_at, name, age, phone, visit_date, visit_time,
-            doctor_name, branch, address, location_link,
-            selected_labs_text, notes, labs_price_before,
-            labs_price_after, transport_fee, total_price
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    """, (
-        record["id"], record["created_at"], record["name"], record["age"],
-        record["phone"], record["visit_date"], record["visit_time"],
-        record["doctor_name"], record.get("branch", "La Cite"),
-        record["address"], record["location_link"],
-        record["selected_labs_text"], record["notes"],
-        record["labs_price_before"], record["labs_price_after"],
-        record["transport_fee"], record["total_price"]
-    ))
-    conn.commit()
+    df = load_visits_df()
+    new_row = {col: record.get(col) for col in COLUMNS}
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    save_visits_df(df)
 
 def update_visit(record):
-    conn = get_connection()
-    conn.execute("""
-        UPDATE visits SET
-            name = ?, age = ?, phone = ?, visit_date = ?, visit_time = ?,
-            doctor_name = ?, branch = ?, address = ?, location_link = ?,
-            selected_labs_text = ?, notes = ?, labs_price_before = ?,
-            labs_price_after = ?, transport_fee = ?, total_price = ?
-        WHERE id = ?
-    """, (
-        record["name"], record["age"], record["phone"], record["visit_date"],
-        record["visit_time"], record["doctor_name"], record.get("branch", "La Cite"),
-        record["address"], record["location_link"], record["selected_labs_text"],
-        record["notes"], record["labs_price_before"], record["labs_price_after"],
-        record["transport_fee"], record["total_price"], record["id"]
-    ))
-    conn.commit()
+    df = load_visits_df()
+    idx = df.index[df["id"] == record["id"]].tolist()
+    if idx:
+        for col in COLUMNS:
+            if col in record:
+                df.at[idx[0], col] = record[col]
+        save_visits_df(df)
 
 def delete_visit(visit_id):
-    conn = get_connection()
-    conn.execute("DELETE FROM visits WHERE id = ?", (visit_id,))
-    conn.commit()
+    df = load_visits_df()
+    df = df[df["id"] != visit_id]
+    save_visits_df(df)
 
 # ─── Inject CSS ────────────────────────────────────────────────────────────────
 def inject_css():
@@ -241,7 +178,6 @@ def inject_css():
       .lab-chip { display:inline-flex; align-items:center; gap:6px; margin:3px; background:#fff3e6; color:#FF6B00; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; border:1px solid #ffd4a8; }
       .repeat-banner { background:#fff8f0; border:2px dashed #FF9A3C; border-radius:14px; padding:12px; text-align:center; margin-top:12px; color:#FF6B00; font-weight:700; font-size:14px; }
       .section-title { font-size:14px; font-weight:700; color:#FF6B00; border-right:4px solid #FF6B00; padding-right:10px; margin-bottom:10px; }
-      /* Quick Panels */
       .panels-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
       .panel-card {
         background:#fff; border:2px solid #ffe8d1; border-radius:14px;
@@ -310,13 +246,15 @@ QUICK_PANELS = [
 ]
 
 # ─── استيراد قائمة الأسعار ─────────────────────────────────────────────────
-from labs_price_list import LABS_DB
-
-ALL_LABS = [{"name": t["name"], "price": t["price"], "category": cat}
-            for cat, tests in LABS_DB.items() for t in tests]
-
-# Build a lookup: test name → price (for panels)
-LABS_PRICE_LOOKUP = {t["name"]: t["price"] for t in ALL_LABS}
+try:
+    from labs_price_list import LABS_DB
+    ALL_LABS = [{"name": t["name"], "price": t["price"], "category": cat}
+                for cat, tests in LABS_DB.items() for t in tests]
+    LABS_PRICE_LOOKUP = {t["name"]: t["price"] for t in ALL_LABS}
+except Exception as e:
+    st.error(f"خطأ في استيراد labs_price_list: {e}")
+    ALL_LABS = []
+    LABS_PRICE_LOOKUP = {}
 
 # ─── Helper functions ────────────────────────────────────────────────────────
 def format_date_ar(d):
@@ -344,6 +282,8 @@ def make_whatsapp_msg(v, target="internal"):
     location          = v.get("location_link", "")
     branch            = v.get("branch", "")
     client_name       = v.get("name", "")
+    age               = v.get("age", "")
+    age_str           = f"🎂 *السن:* {age} سنة\n" if age else ""
 
     labs_text = v.get("selected_labs_text", "")
     if labs_text.strip():
@@ -392,7 +332,7 @@ def make_whatsapp_msg(v, target="internal"):
             f"🟠 *Orange Lab Home Visit*\n"
             f"━━━━━━━━━━━━━━\n"
             f"👤 *الاسم:* {v['name']}\n"
-            f"🎂 *السن:* {v.get('age','')} سنة\n"
+            f"{age_str}"
             f"📞 *التليفون:* {v.get('phone','')}\n"
             f"📅 *الموعد:* {datetime_str}\n"
             f"👨‍⚕️ *دكتور الزيارة:* {doc_name}\n"
@@ -428,9 +368,7 @@ for k, v in [("page", "home"), ("prefill", {}), ("selected_id", None), ("search_
         st.session_state[k] = v
 
 def go(page, prefill=None, visit_id=None):
-    # عند بدء زيارة جديدة (prefill فارغ أو لا يحتوي على _edit)، نمسح أي تحاليل سابقة
     if page == "new" and (prefill is None or not prefill.get("_edit")):
-        # إزالة مفتاح التحاليل الخاص بالزيارة الجديدة لضمان صفحة نظيفة
         st.session_state.pop("added_labs_new_visit", None)
     st.session_state.page = page
     if prefill is not None:
@@ -462,9 +400,9 @@ st.markdown("---")
 # HOME
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.page == "home":
-    conn = get_connection()
-    all_doctors = [row[0] for row in conn.execute("SELECT DISTINCT doctor_name FROM visits WHERE doctor_name != ''").fetchall()]
-    all_branches = [row[0] for row in conn.execute("SELECT DISTINCT branch FROM visits").fetchall()]
+    df = load_visits_df()
+    all_doctors = sorted(df[df["doctor_name"] != ""]["doctor_name"].dropna().unique().tolist())
+    all_branches = sorted(df["branch"].dropna().unique().tolist())
     if "الكل" not in all_branches:
         all_branches.insert(0, "الكل")
     if "الكل" not in all_doctors:
@@ -490,7 +428,7 @@ if st.session_state.page == "home":
 
     visits = fetch_visits(filters)
     today = date.today().isoformat()
-    all_visits = fetch_visits()
+    all_visits = load_visits_df().to_dict("records")
     t_today = sum(1 for v in all_visits if v.get("visit_date") == today)
     t_rev = sum(v.get("total_price", 0) for v in all_visits)
 
@@ -511,11 +449,13 @@ if st.session_state.page == "home":
             labs_count = len(v.get("selected_labs_text", "").splitlines()) if v.get("selected_labs_text") else 0
             doctor_show = f" | 👨‍⚕️ {v.get('doctor_name','')}" if v.get("doctor_name") else ""
             branch_show = f" | 🏥 {v.get('branch','')}" if v.get("branch") else ""
+            age = v.get("age", "")
+            age_display = f"🎂 {age} سنة" if age else ""
             st.markdown(f'''
             <div class="visit-card">
               <span class="visit-badge">{total:,} جنيه</span>
               <div class="visit-name">👤 {v["name"]}</div>
-              <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate}</div>
+              <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate} &nbsp; {age_display}</div>
               <div class="visit-meta">📍 {addr}</div>
               <div class="visit-meta" style="margin-top:5px">🧪 {labs_count} تحليل{doctor_show}{branch_show}</div>
             </div>''', unsafe_allow_html=True)
@@ -587,14 +527,12 @@ elif st.session_state.page == "new":
                 added = 0
                 for test_name in panel["tests"]:
                     entry = test_name
-                    # check not already in list (by name)
                     existing_names = [e.split(" — ")[0].strip() for e in st.session_state[labs_ss_key]]
                     if test_name not in existing_names:
                         st.session_state[labs_ss_key].append(entry)
                         added += 1
                 st.rerun()
 
-    # Show panel contents on hover via caption
     with st.expander("👁️ شاهد محتوى الـ Panels"):
         for panel in QUICK_PANELS:
             tests_str = " • ".join(panel["tests"])
@@ -625,7 +563,6 @@ elif st.session_state.page == "new":
     else:
         st.markdown('<div style="color:#aaa;font-size:13px;padding:8px 0">لا توجد تحاليل — اختر panel من فوق أو أضف يدوياً</div>', unsafe_allow_html=True)
 
-    # Manual add
     col_m1, col_m2 = st.columns([8, 2])
     with col_m1:
         manual_entry = st.text_input("أضف تحليل يدوياً", placeholder="CBC — 400 جنيه  أو  سكر صائم", key=f"manual_{visit_id_key}")
@@ -718,11 +655,13 @@ elif st.session_state.page == "detail":
         total_price       = v.get("total_price", 0)
         visit_time        = v.get("visit_time", "")
         datetime_display  = format_date_ar(v.get("visit_date", "")) + (f" — {visit_time}" if visit_time else "")
+        age               = v.get("age", "")
+        age_str           = f"🎂 {age} سنة" if age else "🎂 غير محدد"
 
         st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
         st.markdown(f'''
         <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v["name"]}</span></div>
-        <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{v.get("age","")} سنة</span></div>
+        <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{age_str}</span></div>
         <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get("phone","")}</span></div>
         <div class="detail-row"><span class="detail-label">📅 الموعد</span><span class="detail-value">{datetime_display}</span></div>
         <div class="detail-row"><span class="detail-label">👨‍⚕️ الدكتور</span><span class="detail-value">{v.get("doctor_name","")}</span></div>
@@ -790,11 +729,20 @@ elif st.session_state.page == "detail":
         st.markdown(f'<div class="repeat-banner">🔄 هتروح لـ {v["name"]} مرة تانية؟</div>', unsafe_allow_html=True)
         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
             go("new", prefill={
-                "name": v["name"], "age": v.get("age", ""), "phone": v.get("phone", ""),
-                "address": v.get("address", ""), "location_link": v.get("location_link", ""),
-                "doctor_name": v.get("doctor_name", ""), "branch": v.get("branch", "La Cite"),
-                "selected_labs": [], "selected_labs_text": "", "visit_time": "",
-                "notes": "", "labs_price_before": 0, "labs_price_after": 0, "transport_fee": 100
+                "name": v["name"],
+                "age": v.get("age", ""),
+                "phone": v.get("phone", ""),
+                "address": v.get("address", ""),
+                "location_link": v.get("location_link", ""),
+                "doctor_name": v.get("doctor_name", ""),
+                "branch": v.get("branch", "La Cite"),
+                "selected_labs": [],
+                "selected_labs_text": "",
+                "visit_time": "",
+                "notes": "",
+                "labs_price_before": 0,
+                "labs_price_after": 0,
+                "transport_fee": 100,
             })
         if st.button("← رجوع للقائمة", use_container_width=True):
             go("home")
@@ -811,11 +759,13 @@ elif st.session_state.page == "search":
         for v in visits:
             total = v.get("total_price", 0)
             vdate = format_date_ar(v.get("visit_date", ""))
+            age = v.get("age", "")
+            age_display = f"🎂 {age} سنة" if age else ""
             st.markdown(f'''
             <div class="visit-card">
               <span class="visit-badge">{total:,} جنيه</span>
               <div class="visit-name">👤 {v["name"]}</div>
-              <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate}</div>
+              <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate} &nbsp; {age_display}</div>
             </div>''', unsafe_allow_html=True)
             if st.button(f"📂 فتح {v['name']}", key=f"s_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
