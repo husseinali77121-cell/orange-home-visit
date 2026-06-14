@@ -10,6 +10,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+import sqlite3
 import json
 import os
 import urllib.parse
@@ -25,121 +26,165 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# ─── Migration from old JSON to Excel ─────────────────────────────────────────
-EXCEL_FILE = "visits.xlsx"
-OLD_JSON = "visits.json"
-MIGRATED_FLAG = "visits_migrated.txt"
+# ─── Database File (SQLite) ──────────────────────────────────────────────────
+DB_FILE = "visits.db"
+BACKUP_EXCEL = "visits_export.xlsx"
 
-# Expected columns (no birth_date, age is integer)
-COLUMNS = [
-    "id", "created_at", "name", "age", "phone", "visit_date", "visit_time",
-    "doctor_name", "branch", "address", "location_link",
-    "selected_labs_text", "notes", "labs_price_before",
-    "labs_price_after", "transport_fee", "total_price"
-]
+@st.cache_resource
+def get_connection():
+    conn = sqlite3.connect(DB_FILE, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL;")
+    return conn
 
-def run_excel_migration():
-    """One-time migration from old JSON to Excel."""
-    if os.path.exists(MIGRATED_FLAG):
-        return
+def init_db():
+    conn = get_connection()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS visits (
+            id TEXT PRIMARY KEY,
+            created_at TEXT,
+            name TEXT NOT NULL,
+            age INTEGER,
+            phone TEXT NOT NULL,
+            visit_date TEXT NOT NULL,
+            visit_time TEXT,
+            doctor_name TEXT,
+            branch TEXT DEFAULT 'La Cite',
+            address TEXT NOT NULL,
+            location_link TEXT,
+            selected_labs_text TEXT,
+            notes TEXT,
+            labs_price_before REAL DEFAULT 0,
+            labs_price_after REAL DEFAULT 0,
+            transport_fee REAL DEFAULT 0,
+            total_price REAL DEFAULT 0
+        )
+    """)
+    conn.commit()
 
-    # If Excel already exists, assume migration done
-    if os.path.exists(EXCEL_FILE):
-        with open(MIGRATED_FLAG, "w") as f:
-            f.write("done")
-        return
+init_db()
 
-    records = []
-    if os.path.exists(OLD_JSON):
-        with open(OLD_JSON, "r", encoding="utf-8") as f:
-            old_visits = json.load(f)
-        for v in old_visits:
-            rec = {
-                "id": v.get("id"),
-                "created_at": v.get("created_at"),
-                "name": v.get("name"),
-                "age": v.get("age"),
-                "phone": v.get("phone"),
-                "visit_date": v.get("visit_date"),
-                "visit_time": v.get("visit_time"),
-                "doctor_name": v.get("doctor_name", ""),
-                "branch": v.get("branch", "La Cite"),
-                "address": v.get("address"),
-                "location_link": v.get("location_link"),
-                "selected_labs_text": v.get("selected_labs_text", ""),
-                "notes": v.get("notes"),
-                "labs_price_before": v.get("labs_price_before", v.get("labs_price", 0)),
-                "labs_price_after": v.get("labs_price_after", v.get("labs_price", 0)),
-                "transport_fee": v.get("transport_fee", v.get("visit_price", 0)),
-                "total_price": v.get("total_price", 0),
-            }
-            records.append(rec)
-
-    if records:
-        df = pd.DataFrame(records, columns=COLUMNS)
-        df.to_excel(EXCEL_FILE, index=False, engine="openpyxl")
-
-    with open(MIGRATED_FLAG, "w") as f:
-        f.write("done")
-
-run_excel_migration()
-
-# ─── Excel Storage Functions ─────────────────────────────────────────────────
-def load_visits_df():
-    if not os.path.exists(EXCEL_FILE):
-        return pd.DataFrame(columns=COLUMNS)
-    df = pd.read_excel(EXCEL_FILE, engine="openpyxl")
-    for col in COLUMNS:
-        if col not in df.columns:
-            df[col] = None
-    return df
-
-def save_visits_df(df):
-    df.to_excel(EXCEL_FILE, index=False, engine="openpyxl")
-
+# ─── Database CRUD functions ──────────────────────────────────────────────────
 def fetch_visits(filters=None):
-    df = load_visits_df()
+    conn = get_connection()
+    query = "SELECT * FROM visits"
+    params = []
+    conditions = []
     if filters:
         if filters.get("search"):
-            s = filters["search"].strip()
-            mask = df["name"].str.contains(s, na=False) | df["phone"].str.contains(s, na=False)
-            df = df[mask]
+            s = f"%{filters['search']}%"
+            conditions.append("(name LIKE ? OR phone LIKE ?)")
+            params.extend([s, s])
         if filters.get("branch"):
-            df = df[df["branch"] == filters["branch"]]
+            conditions.append("branch = ?")
+            params.append(filters["branch"])
         if filters.get("doctor"):
-            df = df[df["doctor_name"] == filters["doctor"]]
+            conditions.append("doctor_name = ?")
+            params.append(filters["doctor"])
         if filters.get("month") and filters.get("year"):
             y, m = filters["year"], filters["month"]
-            df = df[df["visit_date"].str.startswith(f"{y}-{m:02d}", na=False)]
-    df = df.sort_values("created_at", ascending=False, na_position="last")
-    return df.to_dict("records")
+            conditions.append("strftime('%Y', visit_date) = ? AND strftime('%m', visit_date) = ?")
+            params.extend([str(y), f"{m:02d}"])
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+    query += " ORDER BY created_at DESC"
+    rows = conn.execute(query, params).fetchall()
+    return [dict(r) for r in rows]
 
 def fetch_visit_by_id(visit_id):
-    df = load_visits_df()
-    row = df[df["id"] == visit_id]
-    if row.empty:
-        return None
-    return row.iloc[0].to_dict()
+    conn = get_connection()
+    row = conn.execute("SELECT * FROM visits WHERE id = ?", (visit_id,)).fetchone()
+    return dict(row) if row else None
 
 def insert_visit(record):
-    df = load_visits_df()
-    new_row = {col: record.get(col) for col in COLUMNS}
-    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
-    save_visits_df(df)
+    conn = get_connection()
+    conn.execute("""
+        INSERT INTO visits (
+            id, created_at, name, age, phone, visit_date, visit_time,
+            doctor_name, branch, address, location_link,
+            selected_labs_text, notes, labs_price_before,
+            labs_price_after, transport_fee, total_price
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        record["id"], record["created_at"], record["name"], record["age"],
+        record["phone"], record["visit_date"], record["visit_time"],
+        record["doctor_name"], record.get("branch", "La Cite"),
+        record["address"], record["location_link"],
+        record["selected_labs_text"], record["notes"],
+        record["labs_price_before"], record["labs_price_after"],
+        record["transport_fee"], record["total_price"]
+    ))
+    conn.commit()
 
 def update_visit(record):
-    df = load_visits_df()
-    idx = df.index[df["id"] == record["id"]].tolist()
-    if idx:
-        for col in COLUMNS:
-            if col in record:
-                df.at[idx[0], col] = record[col]
-        save_visits_df(df)
+    conn = get_connection()
+    conn.execute("""
+        UPDATE visits SET
+            name = ?, age = ?, phone = ?, visit_date = ?, visit_time = ?,
+            doctor_name = ?, branch = ?, address = ?, location_link = ?,
+            selected_labs_text = ?, notes = ?, labs_price_before = ?,
+            labs_price_after = ?, transport_fee = ?, total_price = ?
+        WHERE id = ?
+    """, (
+        record["name"], record["age"], record["phone"], record["visit_date"],
+        record["visit_time"], record["doctor_name"], record.get("branch", "La Cite"),
+        record["address"], record["location_link"], record["selected_labs_text"],
+        record["notes"], record["labs_price_before"], record["labs_price_after"],
+        record["transport_fee"], record["total_price"], record["id"]
+    ))
+    conn.commit()
 
 def delete_visit(visit_id):
-    df = load_visits_df()
-    df = df[df["id"] != visit_id]
-    save_visits_df(df)
+    conn = get_connection()
+    conn.execute("DELETE FROM visits WHERE id = ?", (visit_id,))
+    conn.commit()
+
+# ─── Export/Import Excel (manual backup/transfer) ──────────────────────────
+def export_to_excel():
+    """Save all visits to an Excel file and return the DataFrame + path."""
+    visits = fetch_visits()
+    df = pd.DataFrame(visits)
+    # Reorder columns nicely (optional)
+    cols = ["id", "created_at", "name", "age", "phone", "visit_date", "visit_time",
+            "doctor_name", "branch", "address", "location_link",
+            "selected_labs_text", "notes", "labs_price_before",
+            "labs_price_after", "transport_fee", "total_price"]
+    df = df[cols]
+    df.to_excel(BACKUP_EXCEL, index=False, engine="openpyxl")
+    return df, BACKUP_EXCEL
+
+def import_from_excel(uploaded_file):
+    """Read an Excel file and insert/update records into SQLite."""
+    df = pd.read_excel(uploaded_file, engine="openpyxl")
+    required_cols = {"id", "name", "phone", "visit_date", "address"}
+    if not required_cols.issubset(df.columns):
+        st.error("ملف Excel غير صالح: ينقصه أعمدة أساسية (id, name, phone, visit_date, address)")
+        return 0
+    count = 0
+    for _, row in df.iterrows():
+        record = row.to_dict()
+        # Ensure all keys exist, fill missing with defaults
+        record.setdefault("created_at", datetime.now().isoformat())
+        record.setdefault("visit_time", "")
+        record.setdefault("doctor_name", "")
+        record.setdefault("branch", "La Cite")
+        record.setdefault("location_link", "")
+        record.setdefault("selected_labs_text", "")
+        record.setdefault("notes", "")
+        record.setdefault("labs_price_before", 0)
+        record.setdefault("labs_price_after", 0)
+        record.setdefault("transport_fee", 0)
+        record.setdefault("total_price", 0)
+        if "age" not in record or pd.isna(record["age"]):
+            record["age"] = 0
+        # Upsert: delete if exists then insert
+        existing = fetch_visit_by_id(record["id"])
+        if existing:
+            update_visit(record)
+        else:
+            insert_visit(record)
+        count += 1
+    return count
 
 # ─── Inject CSS ────────────────────────────────────────────────────────────────
 def inject_css():
@@ -175,18 +220,8 @@ def inject_css():
       .detail-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f5f5f5; font-size:13px; }
       .detail-label { color:#888; }
       .detail-value { font-weight:600; color:#222; max-width:58%; text-align:left; }
-      .lab-chip { display:inline-flex; align-items:center; gap:6px; margin:3px; background:#fff3e6; color:#FF6B00; border-radius:20px; padding:4px 12px; font-size:12px; font-weight:600; border:1px solid #ffd4a8; }
       .repeat-banner { background:#fff8f0; border:2px dashed #FF9A3C; border-radius:14px; padding:12px; text-align:center; margin-top:12px; color:#FF6B00; font-weight:700; font-size:14px; }
       .section-title { font-size:14px; font-weight:700; color:#FF6B00; border-right:4px solid #FF6B00; padding-right:10px; margin-bottom:10px; }
-      .panels-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
-      .panel-card {
-        background:#fff; border:2px solid #ffe8d1; border-radius:14px;
-        padding:10px 14px; cursor:pointer; transition:all 0.2s;
-        flex: 1 1 calc(50% - 8px); min-width:140px;
-      }
-      .panel-card:hover { border-color:#FF6B00; background:#fff8f0; }
-      .panel-title { font-size:13px; font-weight:700; color:#FF6B00; }
-      .panel-count { font-size:11px; color:#aaa; margin-top:2px; }
       div[data-testid="stButton"] button { font-family:'Cairo',sans-serif !important; font-weight:700 !important; border-radius:12px !important; }
       div[data-testid="stTextInput"] label, div[data-testid="stNumberInput"] label,
       div[data-testid="stDateInput"] label, div[data-testid="stTextArea"] label,
@@ -210,39 +245,15 @@ inject_css()
 
 # ─── QUICK PANELS ────────────────────────────────────────────────────────────
 QUICK_PANELS = [
-    {
-        "name": "🩸 CBC",
-        "tests": ["CBC"]
-    },
-    {
-        "name": "🍬 Diabetes",
-        "tests": ["HbA1C", "Urea", "Creatinine (Serum)", "Uric Acid", "ALT (SGPT)", "AST (SGOT)", "Urine Examination"]
-    },
-    {
-        "name": "❤️ Cardiac Risk",
-        "tests": ["Cholesterol", "HDL", "LDL", "Triglycerides", "ALT (SGPT)", "AST (SGOT)", "Uric Acid"]
-    },
-    {
-        "name": "🦋 Thyroid",
-        "tests": ["TSH", "FT3", "FT4"]
-    },
-    {
-        "name": "🔋 Fatigue",
-        "tests": ["CBC", "Ferritin", "Vitamin D3(25 Hydroxy Cholecal.)", "TSH"]
-    },
-    {
-        "name": "🧪 Kidney",
-        "tests": ["Urea", "Creatinine (Serum)", "Uric Acid", "Urine Examination"]
-    },
-    {
-        "name": "🫀 Liver",
-        "tests": ["ALT (SGPT)", "AST (SGOT)", "Albumin (ALB)", "Bilirubin Total", "Alkaline Phosphatase (ALP)"]
-    },
-    {
-        "name": "🌟 General",
-        "tests": ["CBC", "Cholesterol", "HDL", "LDL", "Triglycerides", "HbA1C", "TSH",
-                  "ALT (SGPT)", "AST (SGOT)", "Urea", "Creatinine (Serum)", "Urine Examination"]
-    },
+    {"name": "🩸 CBC", "tests": ["CBC"]},
+    {"name": "🍬 Diabetes", "tests": ["HbA1C", "Urea", "Creatinine (Serum)", "Uric Acid", "ALT (SGPT)", "AST (SGOT)", "Urine Examination"]},
+    {"name": "❤️ Cardiac Risk", "tests": ["Cholesterol", "HDL", "LDL", "Triglycerides", "ALT (SGPT)", "AST (SGOT)", "Uric Acid"]},
+    {"name": "🦋 Thyroid", "tests": ["TSH", "FT3", "FT4"]},
+    {"name": "🔋 Fatigue", "tests": ["CBC", "Ferritin", "Vitamin D3(25 Hydroxy Cholecal.)", "TSH"]},
+    {"name": "🧪 Kidney", "tests": ["Urea", "Creatinine (Serum)", "Uric Acid", "Urine Examination"]},
+    {"name": "🫀 Liver", "tests": ["ALT (SGPT)", "AST (SGOT)", "Albumin (ALB)", "Bilirubin Total", "Alkaline Phosphatase (ALP)"]},
+    {"name": "🌟 General", "tests": ["CBC", "Cholesterol", "HDL", "LDL", "Triglycerides", "HbA1C", "TSH",
+                                   "ALT (SGPT)", "AST (SGOT)", "Urea", "Creatinine (Serum)", "Urine Examination"]},
 ]
 
 # ─── استيراد قائمة الأسعار ─────────────────────────────────────────────────
@@ -400,9 +411,9 @@ st.markdown("---")
 # HOME
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.page == "home":
-    df = load_visits_df()
-    all_doctors = sorted(df[df["doctor_name"] != ""]["doctor_name"].dropna().unique().tolist())
-    all_branches = sorted(df["branch"].dropna().unique().tolist())
+    conn = get_connection()
+    all_doctors = [row[0] for row in conn.execute("SELECT DISTINCT doctor_name FROM visits WHERE doctor_name != ''").fetchall()]
+    all_branches = [row[0] for row in conn.execute("SELECT DISTINCT branch FROM visits").fetchall()]
     if "الكل" not in all_branches:
         all_branches.insert(0, "الكل")
     if "الكل" not in all_doctors:
@@ -428,7 +439,7 @@ if st.session_state.page == "home":
 
     visits = fetch_visits(filters)
     today = date.today().isoformat()
-    all_visits = load_visits_df().to_dict("records")
+    all_visits = fetch_visits()
     t_today = sum(1 for v in all_visits if v.get("visit_date") == today)
     t_rev = sum(v.get("total_price", 0) for v in all_visits)
 
@@ -438,6 +449,27 @@ if st.session_state.page == "home":
       <div class="stat-box"><div class="stat-num">{t_today}</div><div class="stat-label">زيارات اليوم</div></div>
       <div class="stat-box"><div class="stat-num" style="font-size:17px">{t_rev:,}</div><div class="stat-label">الإيراد (جنيه)</div></div>
     </div>''', unsafe_allow_html=True)
+
+    # Export / Import buttons
+    col_exp, col_imp = st.columns(2)
+    with col_exp:
+        if st.button("📤 تصدير إلى Excel", use_container_width=True):
+            df, path = export_to_excel()
+            with open(path, "rb") as f:
+                st.download_button(
+                    label="📥 تحميل الملف",
+                    data=f,
+                    file_name="visits_export.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+    with col_imp:
+        uploaded_file = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
+        if uploaded_file is not None:
+            count = import_from_excel(uploaded_file)
+            st.success(f"تم استيراد {count} زيارة بنجاح!")
+            st.rerun()
+
+    st.markdown("---")
 
     if not visits:
         st.info("لا توجد زيارات تطابق التصفية.")
@@ -516,21 +548,17 @@ elif st.session_state.page == "new":
         else:
             st.session_state[labs_ss_key] = []
 
-    # ── QUICK PANELS ──────────────────────────────────────────────────────────
+    # Quick Panels
     st.markdown('<div class="section-title">⚡ Quick Panels</div>', unsafe_allow_html=True)
     st.caption("اضغط على panel لإضافة تحاليله فوراً — التحاليل المكررة لن تُضاف مجدداً")
-
     cols = st.columns(4)
     for i, panel in enumerate(QUICK_PANELS):
         with cols[i % 4]:
             if st.button(panel["name"], key=f"panel_{visit_id_key}_{i}", use_container_width=True):
-                added = 0
                 for test_name in panel["tests"]:
-                    entry = test_name
                     existing_names = [e.split(" — ")[0].strip() for e in st.session_state[labs_ss_key]]
                     if test_name not in existing_names:
-                        st.session_state[labs_ss_key].append(entry)
-                        added += 1
+                        st.session_state[labs_ss_key].append(test_name)
                 st.rerun()
 
     with st.expander("👁️ شاهد محتوى الـ Panels"):
@@ -540,7 +568,7 @@ elif st.session_state.page == "new":
 
     st.markdown("---")
 
-    # ── ADDED LABS ─────────────────────────────────────────────────────────
+    # Added labs
     st.markdown('<div class="section-title">🧪 التحاليل المضافة</div>', unsafe_allow_html=True)
     if st.session_state[labs_ss_key]:
         import re as _re
@@ -565,7 +593,7 @@ elif st.session_state.page == "new":
 
     col_m1, col_m2 = st.columns([8, 2])
     with col_m1:
-        manual_entry = st.text_input("أضف تحليل يدوياً", placeholder="CBC — 400 جنيه  أو  سكر صائم", key=f"manual_{visit_id_key}")
+        manual_entry = st.text_input("أضف تحليل يدوياً", placeholder="CBC — 400 جنيه", key=f"manual_{visit_id_key}")
     with col_m2:
         st.markdown('<div style="margin-top:28px"></div>', unsafe_allow_html=True)
         if st.button("➕ أضف", key=f"manual_btn_{visit_id_key}", use_container_width=True):
@@ -729,20 +757,11 @@ elif st.session_state.page == "detail":
         st.markdown(f'<div class="repeat-banner">🔄 هتروح لـ {v["name"]} مرة تانية؟</div>', unsafe_allow_html=True)
         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
             go("new", prefill={
-                "name": v["name"],
-                "age": v.get("age", ""),
-                "phone": v.get("phone", ""),
-                "address": v.get("address", ""),
-                "location_link": v.get("location_link", ""),
-                "doctor_name": v.get("doctor_name", ""),
-                "branch": v.get("branch", "La Cite"),
-                "selected_labs": [],
-                "selected_labs_text": "",
-                "visit_time": "",
-                "notes": "",
-                "labs_price_before": 0,
-                "labs_price_after": 0,
-                "transport_fee": 100,
+                "name": v["name"], "age": v.get("age", ""), "phone": v.get("phone", ""),
+                "address": v.get("address", ""), "location_link": v.get("location_link", ""),
+                "doctor_name": v.get("doctor_name", ""), "branch": v.get("branch", "La Cite"),
+                "selected_labs": [], "selected_labs_text": "", "visit_time": "",
+                "notes": "", "labs_price_before": 0, "labs_price_after": 0, "transport_fee": 100
             })
         if st.button("← رجوع للقائمة", use_container_width=True):
             go("home")
@@ -878,4 +897,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-    )
+        )
