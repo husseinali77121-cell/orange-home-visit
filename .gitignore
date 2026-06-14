@@ -1,0 +1,4 @@
+# قاعدة البيانات
+*.db
+visits.db
+visits_export.xlsx
