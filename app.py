@@ -22,11 +22,12 @@ if not st.session_state.authenticated:
     if st.button("دخول"):
         allowed_emails = st.secrets.get("allowed_emails", [])
         if email.strip() in allowed_emails:
+            st.success("صلِّ على رسول الله ﷺ")
             st.session_state.authenticated = True
             st.session_state.user_email = email.strip()
             st.rerun()
         else:
-            st.error("❌ هذا البريد الإلكتروني غير مسموح له بالدخول. يرجى التواصل مع المسؤول.")
+            st.error("اتقِ الله")
     st.stop()  # لا تعرض أي شيء آخر حتى يتم التحقق
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -540,9 +541,13 @@ if st.session_state.page == "home":
             if st.button(f"📂 فتح {v['name']}", key=f"o_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
+    # تذييل الصفحة الرئيسية ببيانات التواصل (تم التعديل)
     st.markdown("""
-    <div style="text-align:center;margin-top:50px;padding-top:20px;border-top:1px solid #ffe8d1;color:#aaa;font-size:13px;font-weight:600;">
-      Developed with <span style="color:#FF6B00;">❤️</span> by <b>Dr. Hussein Ali</b> — 2026
+    <div style="text-align:center;margin-top:40px;padding-top:16px;border-top:2px solid #FF6B00;color:#333;font-size:13px;line-height:1.8;">
+      <div style="color:#FF6B00; font-weight:800; font-size:15px; margin-bottom:6px;">📞 للتواصل Contact</div>
+      <div><b>Dr / Hussein Ali</b></div>
+      <div style="direction: ltr; unicode-bidi: embed;">📱 T: <a href="tel:+201016872801" style="color:#333; text-decoration:none;">01016872801</a></div>
+      <div style="direction: ltr; unicode-bidi: embed;">📧 Email: <a href="mailto:hussein.ali77121@gmail.com" style="color:#333; text-decoration:none;">hussein.ali77121@gmail.com</a></div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -950,4 +955,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-        )
+                                                            )
