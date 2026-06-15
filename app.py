@@ -1,6 +1,37 @@
 import streamlit as st
 
-# إخفاء GitHub وعناصر Streamlit
+# ══════════════════════════════════════════════════════════════════════════════
+# إعدادات الصفحة (يجب أن تكون أول أوامر Streamlit)
+# ══════════════════════════════════════════════════════════════════════════════
+st.set_page_config(
+    page_title="Orange Lab Home Visit",
+    page_icon="🟠",
+    layout="centered",
+    initial_sidebar_state="collapsed",
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# نظام تسجيل الدخول بالبريد الإلكتروني فقط (باستخدام st.secrets)
+# ══════════════════════════════════════════════════════════════════════════════
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.title("🔒 تسجيل الدخول")
+    email = st.text_input("📧 أدخل بريدك الإلكتروني للدخول")
+    if st.button("دخول"):
+        allowed_emails = st.secrets.get("allowed_emails", [])
+        if email.strip() in allowed_emails:
+            st.session_state.authenticated = True
+            st.session_state.user_email = email.strip()
+            st.rerun()
+        else:
+            st.error("❌ هذا البريد الإلكتروني غير مسموح له بالدخول. يرجى التواصل مع المسؤول.")
+    st.stop()  # لا تعرض أي شيء آخر حتى يتم التحقق
+
+# ══════════════════════════════════════════════════════════════════════════════
+# بعد تسجيل الدخول بنجاح - إخفاء عناصر Streamlit و GitHub
+# ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
     <style>
     .stActionButton {display: none !important;}
@@ -10,6 +41,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# الاستيرادات المتبقية (بعد المصادقة لتجنب تحميل غير ضروري)
+# ══════════════════════════════════════════════════════════════════════════════
 import sqlite3
 import json
 import os
@@ -18,15 +52,9 @@ from datetime import date, datetime
 import pandas as pd
 import re
 
-# ─── Page Config ───────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="Orange Lab Home Visit",
-    page_icon="🟠",
-    layout="centered",
-    initial_sidebar_state="collapsed",
-)
-
-# ─── Database File (SQLite) ──────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# إعداد قاعدة البيانات
+# ══════════════════════════════════════════════════════════════════════════════
 DB_FILE = "visits.db"
 BACKUP_EXCEL = "visits_export.xlsx"
 
@@ -64,7 +92,9 @@ def init_db():
 
 init_db()
 
-# ─── Database CRUD functions ──────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# دوال CRUD
+# ══════════════════════════════════════════════════════════════════════════════
 def fetch_visits(filters=None):
     conn = get_connection()
     query = "SELECT * FROM visits"
@@ -139,12 +169,12 @@ def delete_visit(visit_id):
     conn.execute("DELETE FROM visits WHERE id = ?", (visit_id,))
     conn.commit()
 
-# ─── Export/Import Excel (manual backup/transfer) ──────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# دوال التصدير والاستيراد
+# ══════════════════════════════════════════════════════════════════════════════
 def export_to_excel():
-    """Save all visits to an Excel file and return the DataFrame + path."""
     visits = fetch_visits()
     df = pd.DataFrame(visits)
-    # Reorder columns nicely (optional)
     cols = ["id", "created_at", "name", "age", "phone", "visit_date", "visit_time",
             "doctor_name", "branch", "address", "location_link",
             "selected_labs_text", "notes", "labs_price_before",
@@ -154,7 +184,6 @@ def export_to_excel():
     return df, BACKUP_EXCEL
 
 def import_from_excel(uploaded_file):
-    """Read an Excel file and insert/update records into SQLite."""
     df = pd.read_excel(uploaded_file, engine="openpyxl")
     required_cols = {"id", "name", "phone", "visit_date", "address"}
     if not required_cols.issubset(df.columns):
@@ -163,7 +192,6 @@ def import_from_excel(uploaded_file):
     count = 0
     for _, row in df.iterrows():
         record = row.to_dict()
-        # Ensure all keys exist, fill missing with defaults
         record.setdefault("created_at", datetime.now().isoformat())
         record.setdefault("visit_time", "")
         record.setdefault("doctor_name", "")
@@ -177,7 +205,6 @@ def import_from_excel(uploaded_file):
         record.setdefault("total_price", 0)
         if "age" not in record or pd.isna(record["age"]):
             record["age"] = 0
-        # Upsert: delete if exists then insert
         existing = fetch_visit_by_id(record["id"])
         if existing:
             update_visit(record)
@@ -186,7 +213,9 @@ def import_from_excel(uploaded_file):
         count += 1
     return count
 
-# ─── Inject CSS ────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# تنسيق CSS وخطوط
+# ══════════════════════════════════════════════════════════════════════════════
 def inject_css():
     css = """
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -243,7 +272,9 @@ def inject_css():
 
 inject_css()
 
-# ─── QUICK PANELS ────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# الألواح السريعة (Quick Panels)
+# ══════════════════════════════════════════════════════════════════════════════
 QUICK_PANELS = [
     {"name": "🩸 CBC", "tests": ["CBC"]},
     {"name": "🍬 Diabetes", "tests": ["HbA1C", "Urea", "Creatinine (Serum)", "Uric Acid", "ALT (SGPT)", "AST (SGOT)", "Urine Examination"]},
@@ -256,7 +287,9 @@ QUICK_PANELS = [
                                    "ALT (SGPT)", "AST (SGOT)", "Urea", "Creatinine (Serum)", "Urine Examination"]},
 ]
 
-# ─── استيراد قائمة الأسعار ─────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# استيراد قائمة الأسعار (إن وجدت)
+# ══════════════════════════════════════════════════════════════════════════════
 try:
     from labs_price_list import LABS_DB
     ALL_LABS = [{"name": t["name"], "price": t["price"], "category": cat}
@@ -267,7 +300,9 @@ except Exception as e:
     ALL_LABS = []
     LABS_PRICE_LOOKUP = {}
 
-# ─── Helper functions ────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# دوال مساعدة
+# ══════════════════════════════════════════════════════════════════════════════
 def format_date_ar(d):
     if not d:
         return ""
@@ -373,7 +408,9 @@ def whatsapp_link(msg, phone=None):
         return f"https://wa.me/{p}?text={encoded}"
     return f"https://wa.me/?text={encoded}"
 
-# ─── Session State ──────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# إعداد حالة الجلسة (Session State)
+# ══════════════════════════════════════════════════════════════════════════════
 for k, v in [("page", "home"), ("prefill", {}), ("selected_id", None), ("search_q", "")]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -388,7 +425,9 @@ def go(page, prefill=None, visit_id=None):
         st.session_state.selected_id = visit_id
     st.rerun()
 
-# ─── Header ─────────────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# الشريط العلوي
+# ══════════════════════════════════════════════════════════════════════════════
 st.markdown(f'''
 <div class="ohv-header">
   <h1>🟠 Orange Lab Home Visit</h1>
@@ -396,7 +435,7 @@ st.markdown(f'''
 </div>
 ''', unsafe_allow_html=True)
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns([2,2,2,2,1])
 with col1:
     if st.button("🏠 الرئيسية", use_container_width=True): go("home")
 with col2:
@@ -405,11 +444,18 @@ with col3:
     if st.button("🔍 بحث", use_container_width=True): go("search")
 with col4:
     if st.button("📊 التقارير", use_container_width=True): go("reports")
+with col5:
+    if st.button("🚪", help="تسجيل الخروج", use_container_width=True):
+        st.session_state.authenticated = False
+        st.rerun()
+
 st.markdown("---")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# HOME
+# الصفحات المختلفة
 # ══════════════════════════════════════════════════════════════════════════════
+
+# --- الصفحة الرئيسية ---
 if st.session_state.page == "home":
     conn = get_connection()
     all_doctors = [row[0] for row in conn.execute("SELECT DISTINCT doctor_name FROM visits WHERE doctor_name != ''").fetchall()]
@@ -450,7 +496,7 @@ if st.session_state.page == "home":
       <div class="stat-box"><div class="stat-num" style="font-size:17px">{t_rev:,}</div><div class="stat-label">الإيراد (جنيه)</div></div>
     </div>''', unsafe_allow_html=True)
 
-    # Export / Import buttons
+    # أزرار التصدير والاستيراد
     col_exp, col_imp = st.columns(2)
     with col_exp:
         if st.button("📤 تصدير إلى Excel", use_container_width=True):
@@ -500,9 +546,7 @@ if st.session_state.page == "home":
     </div>
     """, unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════════════════════
-# NEW VISIT
-# ══════════════════════════════════════════════════════════════════════════════
+# --- صفحة زيارة جديدة / تعديل ---
 elif st.session_state.page == "new":
     pf = st.session_state.prefill or {}
     is_edit = pf.get("_edit", False)
@@ -568,7 +612,7 @@ elif st.session_state.page == "new":
 
     st.markdown("---")
 
-    # ─── NEW: Add analysis from price list ─────────────────────────────────
+    # إضافة من قائمة الأسعار
     if ALL_LABS:
         st.markdown('<div class="section-title">📋 إضافة تحليل من قائمة الأسعار</div>', unsafe_allow_html=True)
         lab_options = [f"{lab['name']} — {lab['price']} جنيه" for lab in ALL_LABS]
@@ -582,7 +626,7 @@ elif st.session_state.page == "new":
 
     st.markdown("---")
 
-    # Added labs
+    # التحاليل المضافة
     st.markdown('<div class="section-title">🧪 التحاليل المضافة</div>', unsafe_allow_html=True)
     if st.session_state[labs_ss_key]:
         import re as _re
@@ -681,9 +725,7 @@ elif st.session_state.page == "new":
         if st.button("← رجوع بدون حفظ", use_container_width=True):
             go("detail", visit_id=pf.get("id"))
 
-# ══════════════════════════════════════════════════════════════════════════════
-# DETAIL
-# ══════════════════════════════════════════════════════════════════════════════
+# --- صفحة التفاصيل ---
 elif st.session_state.page == "detail":
     vid = st.session_state.selected_id
     v = fetch_visit_by_id(vid) if vid else None
@@ -780,9 +822,7 @@ elif st.session_state.page == "detail":
         if st.button("← رجوع للقائمة", use_container_width=True):
             go("home")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# SEARCH
-# ══════════════════════════════════════════════════════════════════════════════
+# --- صفحة البحث ---
 elif st.session_state.page == "search":
     st.markdown("### 🔍 البحث عن عميل")
     query = st.text_input("اكتب الاسم أو التليفون", placeholder="مثال: محمد أو 01012345678")
@@ -803,9 +843,7 @@ elif st.session_state.page == "search":
             if st.button(f"📂 فتح {v['name']}", key=f"s_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
-# ══════════════════════════════════════════════════════════════════════════════
-# REPORTS
-# ══════════════════════════════════════════════════════════════════════════════
+# --- صفحة التقارير ---
 elif st.session_state.page == "reports":
     st.markdown("### 📊 تقارير نهاية الشهر")
     col_y, col_m, col_b = st.columns(3)
@@ -860,6 +898,7 @@ elif st.session_state.page == "reports":
             "الإجمالي": "{:,} جنيه"
         }), use_container_width=True)
 
+        # تقرير قابل للطباعة
         st.markdown("---")
         month_name = ["يناير","فبراير","مارس","أبريل","مايو","يونيو",
                       "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"][month-1]
@@ -911,4 +950,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-    )
+        )
