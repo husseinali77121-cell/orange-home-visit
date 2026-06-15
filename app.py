@@ -5,9 +5,7 @@ import os
 import urllib.parse
 from datetime import date, datetime
 import pandas as pd
-import re
-from PIL import Image
-import uuid
+import re as re_module
 
 # ══════════════════════════════════════════════════════════════════════════════
 # إعدادات الصفحة
@@ -20,57 +18,68 @@ st.set_page_config(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# دوال مساعدة للملفات
-# ══════════════════════════════════════════════════════════════════════════════
-def ensure_prescriptions_dir():
-    if not os.path.exists("prescriptions"):
-        os.makedirs("prescriptions")
-
-# ══════════════════════════════════════════════════════════════════════════════
-# نظام تسجيل الدخول
+# نظام تسجيل الدخول - فقط الإيميلات المصرح بها في secrets
 # ══════════════════════════════════════════════════════════════════════════════
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "user_email" not in st.session_state:
     st.session_state.user_email = None
 if "user_type" not in st.session_state:
-    st.session_state.user_type = None   # admin, diamond, other
+    st.session_state.user_type = None   # admin, diamond
 
-# تعريف الأدمن وفرع دايموند
-ADMIN_EMAIL = "Hussein.ali77121@gmail.com"
-DIAMOND_EMAIL = "Orangelab511@gmail.com"
+# جلب القوائم من secrets (يجب تعريفها في .streamlit/secrets.toml)
+ALLOWED_EMAILS = st.secrets.get("allowed_emails", [])
+ADMIN_EMAIL = "Hussein.ali77121@gmail.com"   # الأدمن الثابت (يطلب كلمة مرور)
+DIAMOND_EMAIL = "Orangelab511@gmail.com"     # حساب فرع دايموند (ضمن المسموحين)
 
 if not st.session_state.authenticated:
     st.title("🔒 تسجيل الدخول")
     email = st.text_input("📧 أدخل بريدك الإلكتروني للدخول")
-    
-    # إذا كان الأدمن، يظهر حقل كلمة المرور
-    if email.strip().lower() == ADMIN_EMAIL.lower():
-        # الحصول على كلمة المرور من secrets أو استخدام افتراضية (للتطوير فقط)
-        try:
-            correct_password = st.secrets["admin_password"]
-        except:
-            correct_password = "123456"  # يمكن تغييرها مباشرة هنا إن لم تستخدم secrets
+
+    if st.button("دخول"):
+        email_clean = email.strip()
+        if email_clean not in ALLOWED_EMAILS:
+            st.error("هذا البريد غير مصرح له بالدخول. راجع الأدمن.")
+        else:
+            # إذا كان الأدمن يحتاج كلمة مرور
+            if email_clean.lower() == ADMIN_EMAIL.lower():
+                # نطلب كلمة المرور في واجهة منفصلة أو ننتقل لحقل كلمة المرور
+                # لتبسيط التجربة: يمكننا طلب كلمة المرور قبل الضغط على دخول (كما في النسخة السابقة)
+                # لكن هنا نعيد تصميم صغير: نعرض حقل كلمة المرور عند الحاجة
+                # سنضيف حقل كلمة المرور في صفحة جديدة صغيرة
+                st.session_state.login_email = email_clean
+                st.session_state.need_password = True
+                st.rerun()
+            else:
+                # باقي الإيميلات تدخل مباشرة
+                st.session_state.authenticated = True
+                st.session_state.user_email = email_clean
+                # نحدد نوع المستخدم (دايموند إذا كان مطابقًا)
+                if email_clean.lower() == DIAMOND_EMAIL.lower():
+                    st.session_state.user_type = "diamond"
+                else:
+                    st.session_state.user_type = "other"
+                st.rerun()
+
+    # إذا طلب كلمة المرور للأدمن نعرض حقل الإدخال
+    if st.session_state.get("need_password"):
+        # إخفاء حقل البريد الأصلي وعرض حقل كلمة المرور
+        st.markdown("---")
+        st.markdown(f"البريد: **{st.session_state.login_email}**")
         password = st.text_input("🔑 كلمة المرور", type="password")
-        login_button = st.button("دخول (أدمن)")
-        if login_button:
+        if st.button("تأكيد كلمة المرور"):
+            correct_password = st.secrets.get("admin_password", "123456")
             if password == correct_password:
                 st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن")
                 st.session_state.authenticated = True
-                st.session_state.user_email = ADMIN_EMAIL
+                st.session_state.user_email = st.session_state.login_email
                 st.session_state.user_type = "admin"
+                st.session_state.need_password = False
                 st.rerun()
             else:
                 st.error("كلمة مرور خاطئة")
-    else:
-        # أي بريد آخر (بما فيه الدايموند) لا يطلب كلمة مرور
-        if st.button("دخول"):
-            st.session_state.authenticated = True
-            st.session_state.user_email = email.strip()
-            if email.strip().lower() == DIAMOND_EMAIL.lower():
-                st.session_state.user_type = "diamond"
-            else:
-                st.session_state.user_type = "other"
+        if st.button("رجوع"):
+            st.session_state.need_password = False
             st.rerun()
 
     # تذييل صفحة الدخول
@@ -98,13 +107,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# الاستيرادات المتبقية
-# ══════════════════════════════════════════════════════════════════════════════
-# تمت إعادة تعريف re هنا لتجنب التعارض
-import re as re_module
-
-# ══════════════════════════════════════════════════════════════════════════════
-# إعداد قاعدة البيانات
+# إعداد قاعدة البيانات (بدون عمود الصورة)
 # ══════════════════════════════════════════════════════════════════════════════
 DB_FILE = "visits.db"
 BACKUP_EXCEL = "visits_export.xlsx"
@@ -118,13 +121,9 @@ def get_connection():
 
 def init_db():
     conn = get_connection()
-    # إضافة العمودين الجديدين إذا لم يكونا موجودين
+    # إضافة عمود age_unit إذا لم يكن موجوداً (تمت إضافته في التعديل السابق)
     try:
         conn.execute("ALTER TABLE visits ADD COLUMN age_unit TEXT DEFAULT 'سنة'")
-    except sqlite3.OperationalError:
-        pass  # العمود موجود مسبقاً
-    try:
-        conn.execute("ALTER TABLE visits ADD COLUMN prescription_image TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass
 
@@ -147,8 +146,7 @@ def init_db():
             labs_price_before REAL DEFAULT 0,
             labs_price_after REAL DEFAULT 0,
             transport_fee REAL DEFAULT 0,
-            total_price REAL DEFAULT 0,
-            prescription_image TEXT DEFAULT ''
+            total_price REAL DEFAULT 0
         )
     """)
     conn.commit()
@@ -196,9 +194,8 @@ def insert_visit(record):
             id, created_at, name, age, age_unit, phone, visit_date, visit_time,
             doctor_name, branch, address, location_link,
             selected_labs_text, notes, labs_price_before,
-            labs_price_after, transport_fee, total_price,
-            prescription_image
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            labs_price_after, transport_fee, total_price
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         record["id"], record["created_at"], record["name"], record["age"],
         record.get("age_unit", "سنة"),
@@ -207,8 +204,7 @@ def insert_visit(record):
         record["address"], record["location_link"],
         record["selected_labs_text"], record["notes"],
         record["labs_price_before"], record["labs_price_after"],
-        record["transport_fee"], record["total_price"],
-        record.get("prescription_image", "")
+        record["transport_fee"], record["total_price"]
     ))
     conn.commit()
 
@@ -219,8 +215,7 @@ def update_visit(record):
             name = ?, age = ?, age_unit = ?, phone = ?, visit_date = ?, visit_time = ?,
             doctor_name = ?, branch = ?, address = ?, location_link = ?,
             selected_labs_text = ?, notes = ?, labs_price_before = ?,
-            labs_price_after = ?, transport_fee = ?, total_price = ?,
-            prescription_image = ?
+            labs_price_after = ?, transport_fee = ?, total_price = ?
         WHERE id = ?
     """, (
         record["name"], record["age"], record.get("age_unit", "سنة"),
@@ -229,7 +224,6 @@ def update_visit(record):
         record["address"], record["location_link"], record["selected_labs_text"],
         record["notes"], record["labs_price_before"], record["labs_price_after"],
         record["transport_fee"], record["total_price"],
-        record.get("prescription_image", ""),
         record["id"]
     ))
     conn.commit()
@@ -248,7 +242,7 @@ def export_to_excel():
     cols = ["id", "created_at", "name", "age", "age_unit", "phone", "visit_date", "visit_time",
             "doctor_name", "branch", "address", "location_link",
             "selected_labs_text", "notes", "labs_price_before",
-            "labs_price_after", "transport_fee", "total_price", "prescription_image"]
+            "labs_price_after", "transport_fee", "total_price"]
     df = df[cols]
     df.to_excel(BACKUP_EXCEL, index=False, engine="openpyxl")
     return df, BACKUP_EXCEL
@@ -274,7 +268,6 @@ def import_from_excel(uploaded_file):
         record.setdefault("transport_fee", 0)
         record.setdefault("total_price", 0)
         record.setdefault("age_unit", "سنة")
-        record.setdefault("prescription_image", "")
         if "age" not in record or pd.isna(record["age"]):
             record["age"] = 0
         existing = fetch_visit_by_id(record["id"])
@@ -413,12 +406,8 @@ def make_whatsapp_msg(v, target="internal"):
     loc_line = f"📍 *الموقع:* {location}\n" if location else ""
     branch_line = f"🏥 *الفرع:* {branch}\n" if branch else ""
 
-    # إشعار الصورة: تضاف للعميل والملخص الداخلي فقط
-    has_image = bool(v.get("prescription_image", ""))
-    image_note = "📸 صورة الروشتة مرفقة\n" if has_image else ""
-
     if target == "client":
-        msg = (
+        return (
             f"🟠 *Orange Lab Home Visit*\n"
             f"🏠 أهلاً بك {client_name}\n"
             f"━━━━━━━━━━━━━━\n"
@@ -436,7 +425,6 @@ def make_whatsapp_msg(v, target="internal"):
             f"🚗 *بدل الانتقال:* {transport_fee} جنيه\n"
             f"💵 *الإجمالي المطلوب:* {total} جنيه\n"
             f"━━━━━━━━━━━━━━\n"
-            f"{image_note}"
             f"✏️ *برجاء تأكيد حجزك بالرد برقم:*\n"
             f"  1 - تأكيد الزيارة\n"
             f"  2 - تأجيل الزيارة\n"
@@ -444,16 +432,15 @@ def make_whatsapp_msg(v, target="internal"):
             f"شكراً لثقتكم 🧡 *معمل أورانج لاب*"
         )
     elif target == "group":
-        # لا تظهر الصورة في الجروب
-        msg = (
+        return (
             f"🟠 *زيارة منزلية*\n"
             f"━━━━━━━━━━━━━━\n"
             f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doc_name}\n"
             f"📅 *الموعد:* {datetime_str}"
         )
-    else:   # internal (للقائم بالزيارة)
+    else:   # internal
         notes = f"📝 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
-        msg = (
+        return (
             f"🟠 *Orange Lab Home Visit*\n"
             f"━━━━━━━━━━━━━━\n"
             f"👤 *الاسم:* {v['name']}\n"
@@ -473,10 +460,8 @@ def make_whatsapp_msg(v, target="internal"):
             f"🚗 *بدل الانتقال:* {transport_fee} جنيه\n"
             f"💵 *الإجمالي:* {total} جنيه\n"
             f"━━━━━━━━━━━━━━\n"
-            f"{image_note}"
             f"{notes}"
         )
-    return msg
 
 def whatsapp_link(msg, phone=None):
     encoded = urllib.parse.quote(msg, encoding='utf-8')
@@ -538,10 +523,10 @@ st.markdown("---")
 
 # --- الصفحة الرئيسية ---
 if st.session_state.page == "home":
-    # السماح بالمشاهدة للأدمن وفرع دايموند فقط
+    # السماح بالمشاهدة للأدمن وفرع دايموند فقط (أو أي نوع مصرح)
+    # لكن عملياً: الأدمن يرى الكل، والدايموند يرى Diamond فقط
     if st.session_state.user_type not in ["admin", "diamond"]:
         st.info("ليس لديك صلاحية عرض بيانات الزيارات.")
-        # يظل باقي الصفحة (إحصائيات مثلاً) ظاهراً للجميع
         conn = get_connection()
         all_visits = fetch_visits()
         today = date.today().isoformat()
@@ -555,7 +540,6 @@ if st.session_state.page == "home":
         </div>''', unsafe_allow_html=True)
         st.stop()
 
-    # المستخدم المسموح (أدمن أو دايموند)
     conn = get_connection()
     all_doctors = [row[0] for row in conn.execute("SELECT DISTINCT doctor_name FROM visits WHERE doctor_name != ''").fetchall()]
     all_branches = [row[0] for row in conn.execute("SELECT DISTINCT branch FROM visits").fetchall()]
@@ -568,7 +552,6 @@ if st.session_state.page == "home":
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
         if st.session_state.user_type == "diamond":
-            # إجبار فرع دايموند فقط، وعدم إظهار خيار فرع آخر
             selected_branch = "Diamond"
             st.selectbox("الفرع", options=["Diamond"], disabled=True)
         else:
@@ -589,7 +572,6 @@ if st.session_state.page == "home":
 
     visits = fetch_visits(filters)
     today = date.today().isoformat()
-    # للإحصائيات الكلية بدون فلتر (لكن الأدمن يرى الكل، والدايموند يرى فرع دايموند فقط)
     if st.session_state.user_type == "diamond":
         all_visits = fetch_visits({"branch": "Diamond"})
     else:
@@ -604,7 +586,6 @@ if st.session_state.page == "home":
       <div class="stat-box"><div class="stat-num" style="font-size:17px">{t_rev:,}</div><div class="stat-label">الإيراد (جنيه)</div></div>
     </div>''', unsafe_allow_html=True)
 
-    # أزرار التصدير والاستيراد (فقط للأدمن)
     if st.session_state.user_type == "admin":
         col_exp, col_imp = st.columns(2)
         with col_exp:
@@ -650,7 +631,6 @@ if st.session_state.page == "home":
             if st.button(f"📂 فتح {v['name']}", key=f"o_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
-    # تذييل الصفحة الرئيسية
     st.markdown("""
     <div style="text-align:center; margin-top:50px; padding-top:20px; border-top:2px solid #FF6B00; color:#333; font-size:14px; font-weight:600;">
       Developed by <b>Dr / Hussein Ali</b> 2026 For <span style="color:#FF6B00;">Orange Lab 🍊</span>
@@ -667,10 +647,8 @@ elif st.session_state.page == "new":
     name = st.text_input("الاسم الكامل *", value=pf.get("name", ""))
     c1, c2 = st.columns(2)
     with c1:
-        # العمر مع اختيار الوحدة
         age = st.number_input("العمر *", 0, 120, int(pf.get("age", 0) or 0))
     with c2:
-        # اختيار الوحدة
         age_unit_options = ["سنة", "شهر"]
         current_age_unit = pf.get("age_unit", "سنة")
         if current_age_unit not in age_unit_options:
@@ -693,10 +671,8 @@ elif st.session_state.page == "new":
                 pass
         visit_date = st.date_input("📅 تاريخ الزيارة *", value=default_date)
     with d2:
-        # وقت الزيارة مع AM/PM
         st.markdown("🕐 وقت الزيارة")
         t_col1, t_col2, t_col3 = st.columns([2,2,3])
-        # تحليل الوقت المخزن إن وجد لملء الاختيارات
         old_time = pf.get("visit_time", "")
         parsed_hour = 12
         parsed_minute = 0
@@ -707,16 +683,6 @@ elif st.session_state.page == "new":
                 parsed_hour = int(match.group(1))
                 parsed_minute = int(match.group(2))
                 parsed_ampm = match.group(3).upper()
-            else:
-                # محاولة تخمين
-                parts = old_time.split(":")
-                if len(parts) == 2:
-                    parsed_hour = int(parts[0])
-                    parsed_minute = int(parts[1].split()[0])
-                    if "pm" in old_time.lower():
-                        parsed_ampm = "PM"
-                    elif "am" in old_time.lower():
-                        parsed_ampm = "AM"
         with t_col1:
             hour = st.selectbox("ساعة", list(range(1,13)), index=parsed_hour-1 if 1<=parsed_hour<=12 else 11, key="hour_select")
         with t_col2:
@@ -732,32 +698,7 @@ elif st.session_state.page == "new":
     location_link = st.text_input("🗺️ رابط الموقع (Google Maps)", value=pf.get("location_link", ""))
     st.markdown("---")
 
-    # صورة الروشتة
-    st.markdown('<div class="section-title">📸 صورة الروشتة</div>', unsafe_allow_html=True)
-    ensure_prescriptions_dir()
-    uploaded_image = st.file_uploader("ارفع صورة الروشتة (اختياري)", type=["png", "jpg", "jpeg"], key="prescription_upload")
-    prescription_image_filename = pf.get("prescription_image", "")
-    if uploaded_image is not None:
-        # حفظ الصورة
-        img = Image.open(uploaded_image)
-        # إنشاء اسم فريد
-        ext = uploaded_image.name.split(".")[-1]
-        new_filename = f"{uuid.uuid4().hex}.{ext}"
-        img.save(os.path.join("prescriptions", new_filename))
-        prescription_image_filename = new_filename
-        st.success("تم رفع الصورة بنجاح")
-    elif prescription_image_filename:
-        # عرض الصورة الحالية إن وجدت
-        if os.path.exists(os.path.join("prescriptions", prescription_image_filename)):
-            st.image(os.path.join("prescriptions", prescription_image_filename), caption="الصورة الحالية", width=200)
-            if st.button("حذف الصورة الحالية"):
-                try:
-                    os.remove(os.path.join("prescriptions", prescription_image_filename))
-                except:
-                    pass
-                prescription_image_filename = ""
-                st.rerun()
-    st.markdown("---")
+    # تم إلغاء خانة الصورة
 
     visit_id_key = pf.get("id", "new_visit")
     labs_ss_key = f"added_labs_{visit_id_key}"
@@ -788,7 +729,6 @@ elif st.session_state.page == "new":
 
     st.markdown("---")
 
-    # إضافة من قائمة الأسعار
     if ALL_LABS:
         st.markdown('<div class="section-title">📋 إضافة تحليل من قائمة الأسعار</div>', unsafe_allow_html=True)
         lab_options = [f"{lab['name']} — {lab['price']} جنيه" for lab in ALL_LABS]
@@ -802,7 +742,6 @@ elif st.session_state.page == "new":
 
     st.markdown("---")
 
-    # التحاليل المضافة
     st.markdown('<div class="section-title">🧪 التحاليل المضافة</div>', unsafe_allow_html=True)
     if st.session_state[labs_ss_key]:
         auto_total = sum(int(m.group(1)) for e in st.session_state[labs_ss_key] for m in [re_module.search(r'(\d+)\s*جنيه', e)] if m)
@@ -886,8 +825,7 @@ elif st.session_state.page == "new":
                 "labs_price_before": labs_price_before,
                 "labs_price_after": labs_price_after,
                 "transport_fee": transport_fee,
-                "total_price": total_price,
-                "prescription_image": prescription_image_filename,
+                "total_price": total_price
             }
             if is_edit:
                 update_visit(record)
@@ -935,13 +873,6 @@ elif st.session_state.page == "detail":
         if v.get("location_link"):
             st.markdown(f'<a href="{v["location_link"]}" target="_blank" style="color:#FF6B00;font-weight:700;">🗺️ فتح الموقع على الخريطة</a>', unsafe_allow_html=True)
         st.markdown("---")
-
-        # عرض صورة الروشتة إن وجدت
-        prescription_image = v.get("prescription_image", "")
-        if prescription_image and os.path.exists(os.path.join("prescriptions", prescription_image)):
-            st.markdown('<div class="section-title">📸 صورة الروشتة</div>', unsafe_allow_html=True)
-            st.image(os.path.join("prescriptions", prescription_image), width=300)
-            st.markdown("---")
 
         labs_text = v.get("selected_labs_text", "")
         if labs_text.strip():
@@ -1002,13 +933,12 @@ elif st.session_state.page == "detail":
                 "address": v.get("address", ""), "location_link": v.get("location_link", ""),
                 "doctor_name": v.get("doctor_name", ""), "branch": v.get("branch", "La Cite"),
                 "selected_labs": [], "selected_labs_text": "", "visit_time": "",
-                "notes": "", "labs_price_before": 0, "labs_price_after": 0, "transport_fee": 100,
-                "prescription_image": ""
+                "notes": "", "labs_price_before": 0, "labs_price_after": 0, "transport_fee": 100
             })
         if st.button("← رجوع للقائمة", use_container_width=True):
             go("home")
 
-# --- صفحة البحث (محظورة على غير المسموح لهم) ---
+# --- صفحة البحث ---
 elif st.session_state.page == "search":
     if st.session_state.user_type not in ["admin", "diamond"]:
         st.error("غير مصرح لك بالبحث.")
@@ -1016,7 +946,6 @@ elif st.session_state.page == "search":
     st.markdown("### 🔍 البحث عن عميل")
     query = st.text_input("اكتب الاسم أو التليفون", placeholder="مثال: محمد أو 01012345678")
     if query:
-        # في حالة الدايموند يفرض الفلتر
         if st.session_state.user_type == "diamond":
             visits = fetch_visits({"search": query, "branch": "Diamond"})
         else:
@@ -1037,7 +966,7 @@ elif st.session_state.page == "search":
             if st.button(f"📂 فتح {v['name']}", key=f"s_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
-# --- صفحة التقارير (محظورة على غير المسموح لهم) ---
+# --- صفحة التقارير ---
 elif st.session_state.page == "reports":
     if st.session_state.user_type not in ["admin", "diamond"]:
         st.error("غير مصرح لك بعرض التقارير.")
@@ -1099,7 +1028,6 @@ elif st.session_state.page == "reports":
             "الإجمالي": "{:,} جنيه"
         }), use_container_width=True)
 
-        # تقرير قابل للطباعة
         st.markdown("---")
         month_name = ["يناير","فبراير","مارس","أبريل","مايو","يونيو",
                       "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"][month-1]
@@ -1151,4 +1079,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-        )
+    )
