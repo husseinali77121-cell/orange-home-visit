@@ -1,4 +1,13 @@
 import streamlit as st
+import sqlite3
+import json
+import os
+import urllib.parse
+from datetime import date, datetime
+import pandas as pd
+import re
+from PIL import Image
+import uuid
 
 # ══════════════════════════════════════════════════════════════════════════════
 # إعدادات الصفحة
@@ -11,25 +20,60 @@ st.set_page_config(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# نظام تسجيل الدخول بالبريد الإلكتروني فقط
+# دوال مساعدة للملفات
+# ══════════════════════════════════════════════════════════════════════════════
+def ensure_prescriptions_dir():
+    if not os.path.exists("prescriptions"):
+        os.makedirs("prescriptions")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# نظام تسجيل الدخول
 # ══════════════════════════════════════════════════════════════════════════════
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
+if "user_type" not in st.session_state:
+    st.session_state.user_type = None   # admin, diamond, other
+
+# تعريف الأدمن وفرع دايموند
+ADMIN_EMAIL = "Hussein.ali77121@gmail.com"
+DIAMOND_EMAIL = "Orangelab511@gmail.com"
 
 if not st.session_state.authenticated:
     st.title("🔒 تسجيل الدخول")
     email = st.text_input("📧 أدخل بريدك الإلكتروني للدخول")
-    if st.button("دخول"):
-        allowed_emails = st.secrets.get("allowed_emails", [])
-        if email.strip() in allowed_emails:
-            st.success("صلِّ على رسول الله ﷺ")
+    
+    # إذا كان الأدمن، يظهر حقل كلمة المرور
+    if email.strip().lower() == ADMIN_EMAIL.lower():
+        # الحصول على كلمة المرور من secrets أو استخدام افتراضية (للتطوير فقط)
+        try:
+            correct_password = st.secrets["admin_password"]
+        except:
+            correct_password = "123456"  # يمكن تغييرها مباشرة هنا إن لم تستخدم secrets
+        password = st.text_input("🔑 كلمة المرور", type="password")
+        login_button = st.button("دخول (أدمن)")
+        if login_button:
+            if password == correct_password:
+                st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن")
+                st.session_state.authenticated = True
+                st.session_state.user_email = ADMIN_EMAIL
+                st.session_state.user_type = "admin"
+                st.rerun()
+            else:
+                st.error("كلمة مرور خاطئة")
+    else:
+        # أي بريد آخر (بما فيه الدايموند) لا يطلب كلمة مرور
+        if st.button("دخول"):
             st.session_state.authenticated = True
             st.session_state.user_email = email.strip()
+            if email.strip().lower() == DIAMOND_EMAIL.lower():
+                st.session_state.user_type = "diamond"
+            else:
+                st.session_state.user_type = "other"
             st.rerun()
-        else:
-            st.error("اتقِ الله")
 
-    # تذييل صفحة الدخول - بيانات التواصل
+    # تذييل صفحة الدخول
     st.markdown("---")
     st.markdown("""
     <div style="text-align:center; margin-top:40px; color:#333; font-size:13px; line-height:1.8;">
@@ -42,7 +86,7 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# بعد تسجيل الدخول بنجاح - إخفاء عناصر Streamlit و GitHub
+# إخفاء عناصر Streamlit و GitHub
 # ══════════════════════════════════════════════════════════════════════════════
 st.markdown("""
     <style>
@@ -56,13 +100,8 @@ st.markdown("""
 # ══════════════════════════════════════════════════════════════════════════════
 # الاستيرادات المتبقية
 # ══════════════════════════════════════════════════════════════════════════════
-import sqlite3
-import json
-import os
-import urllib.parse
-from datetime import date, datetime
-import pandas as pd
-import re
+# تمت إعادة تعريف re هنا لتجنب التعارض
+import re as re_module
 
 # ══════════════════════════════════════════════════════════════════════════════
 # إعداد قاعدة البيانات
@@ -79,12 +118,23 @@ def get_connection():
 
 def init_db():
     conn = get_connection()
+    # إضافة العمودين الجديدين إذا لم يكونا موجودين
+    try:
+        conn.execute("ALTER TABLE visits ADD COLUMN age_unit TEXT DEFAULT 'سنة'")
+    except sqlite3.OperationalError:
+        pass  # العمود موجود مسبقاً
+    try:
+        conn.execute("ALTER TABLE visits ADD COLUMN prescription_image TEXT DEFAULT ''")
+    except sqlite3.OperationalError:
+        pass
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS visits (
             id TEXT PRIMARY KEY,
             created_at TEXT,
             name TEXT NOT NULL,
             age INTEGER,
+            age_unit TEXT DEFAULT 'سنة',
             phone TEXT NOT NULL,
             visit_date TEXT NOT NULL,
             visit_time TEXT,
@@ -97,7 +147,8 @@ def init_db():
             labs_price_before REAL DEFAULT 0,
             labs_price_after REAL DEFAULT 0,
             transport_fee REAL DEFAULT 0,
-            total_price REAL DEFAULT 0
+            total_price REAL DEFAULT 0,
+            prescription_image TEXT DEFAULT ''
         )
     """)
     conn.commit()
@@ -142,19 +193,22 @@ def insert_visit(record):
     conn = get_connection()
     conn.execute("""
         INSERT INTO visits (
-            id, created_at, name, age, phone, visit_date, visit_time,
+            id, created_at, name, age, age_unit, phone, visit_date, visit_time,
             doctor_name, branch, address, location_link,
             selected_labs_text, notes, labs_price_before,
-            labs_price_after, transport_fee, total_price
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            labs_price_after, transport_fee, total_price,
+            prescription_image
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         record["id"], record["created_at"], record["name"], record["age"],
+        record.get("age_unit", "سنة"),
         record["phone"], record["visit_date"], record["visit_time"],
         record["doctor_name"], record.get("branch", "La Cite"),
         record["address"], record["location_link"],
         record["selected_labs_text"], record["notes"],
         record["labs_price_before"], record["labs_price_after"],
-        record["transport_fee"], record["total_price"]
+        record["transport_fee"], record["total_price"],
+        record.get("prescription_image", "")
     ))
     conn.commit()
 
@@ -162,17 +216,21 @@ def update_visit(record):
     conn = get_connection()
     conn.execute("""
         UPDATE visits SET
-            name = ?, age = ?, phone = ?, visit_date = ?, visit_time = ?,
+            name = ?, age = ?, age_unit = ?, phone = ?, visit_date = ?, visit_time = ?,
             doctor_name = ?, branch = ?, address = ?, location_link = ?,
             selected_labs_text = ?, notes = ?, labs_price_before = ?,
-            labs_price_after = ?, transport_fee = ?, total_price = ?
+            labs_price_after = ?, transport_fee = ?, total_price = ?,
+            prescription_image = ?
         WHERE id = ?
     """, (
-        record["name"], record["age"], record["phone"], record["visit_date"],
-        record["visit_time"], record["doctor_name"], record.get("branch", "La Cite"),
+        record["name"], record["age"], record.get("age_unit", "سنة"),
+        record["phone"], record["visit_date"], record["visit_time"],
+        record["doctor_name"], record.get("branch", "La Cite"),
         record["address"], record["location_link"], record["selected_labs_text"],
         record["notes"], record["labs_price_before"], record["labs_price_after"],
-        record["transport_fee"], record["total_price"], record["id"]
+        record["transport_fee"], record["total_price"],
+        record.get("prescription_image", ""),
+        record["id"]
     ))
     conn.commit()
 
@@ -187,10 +245,10 @@ def delete_visit(visit_id):
 def export_to_excel():
     visits = fetch_visits()
     df = pd.DataFrame(visits)
-    cols = ["id", "created_at", "name", "age", "phone", "visit_date", "visit_time",
+    cols = ["id", "created_at", "name", "age", "age_unit", "phone", "visit_date", "visit_time",
             "doctor_name", "branch", "address", "location_link",
             "selected_labs_text", "notes", "labs_price_before",
-            "labs_price_after", "transport_fee", "total_price"]
+            "labs_price_after", "transport_fee", "total_price", "prescription_image"]
     df = df[cols]
     df.to_excel(BACKUP_EXCEL, index=False, engine="openpyxl")
     return df, BACKUP_EXCEL
@@ -215,6 +273,8 @@ def import_from_excel(uploaded_file):
         record.setdefault("labs_price_after", 0)
         record.setdefault("transport_fee", 0)
         record.setdefault("total_price", 0)
+        record.setdefault("age_unit", "سنة")
+        record.setdefault("prescription_image", "")
         if "age" not in record or pd.isna(record["age"]):
             record["age"] = 0
         existing = fetch_visit_by_id(record["id"])
@@ -285,7 +345,7 @@ def inject_css():
 inject_css()
 
 # ══════════════════════════════════════════════════════════════════════════════
-# الألواح السريعة (Quick Panels)
+# الألواح السريعة
 # ══════════════════════════════════════════════════════════════════════════════
 QUICK_PANELS = [
     {"name": "🩸 CBC", "tests": ["CBC"]},
@@ -300,7 +360,7 @@ QUICK_PANELS = [
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════
-# استيراد قائمة الأسعار (إن وجدت)
+# استيراد قائمة الأسعار
 # ══════════════════════════════════════════════════════════════════════════════
 try:
     from labs_price_list import LABS_DB
@@ -341,7 +401,8 @@ def make_whatsapp_msg(v, target="internal"):
     branch            = v.get("branch", "")
     client_name       = v.get("name", "")
     age               = v.get("age", "")
-    age_str           = f"🎂 *السن:* {age} سنة\n" if age else ""
+    age_unit          = v.get("age_unit", "سنة")
+    age_str           = f"🎂 *العمر:* {age} {age_unit}\n" if age else ""
 
     labs_text = v.get("selected_labs_text", "")
     if labs_text.strip():
@@ -352,8 +413,12 @@ def make_whatsapp_msg(v, target="internal"):
     loc_line = f"📍 *الموقع:* {location}\n" if location else ""
     branch_line = f"🏥 *الفرع:* {branch}\n" if branch else ""
 
+    # إشعار الصورة: تضاف للعميل والملخص الداخلي فقط
+    has_image = bool(v.get("prescription_image", ""))
+    image_note = "📸 صورة الروشتة مرفقة\n" if has_image else ""
+
     if target == "client":
-        return (
+        msg = (
             f"🟠 *Orange Lab Home Visit*\n"
             f"🏠 أهلاً بك {client_name}\n"
             f"━━━━━━━━━━━━━━\n"
@@ -371,6 +436,7 @@ def make_whatsapp_msg(v, target="internal"):
             f"🚗 *بدل الانتقال:* {transport_fee} جنيه\n"
             f"💵 *الإجمالي المطلوب:* {total} جنيه\n"
             f"━━━━━━━━━━━━━━\n"
+            f"{image_note}"
             f"✏️ *برجاء تأكيد حجزك بالرد برقم:*\n"
             f"  1 - تأكيد الزيارة\n"
             f"  2 - تأجيل الزيارة\n"
@@ -378,15 +444,16 @@ def make_whatsapp_msg(v, target="internal"):
             f"شكراً لثقتكم 🧡 *معمل أورانج لاب*"
         )
     elif target == "group":
-        return (
+        # لا تظهر الصورة في الجروب
+        msg = (
             f"🟠 *زيارة منزلية*\n"
             f"━━━━━━━━━━━━━━\n"
             f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doc_name}\n"
             f"📅 *الموعد:* {datetime_str}"
         )
-    else:   # internal
+    else:   # internal (للقائم بالزيارة)
         notes = f"📝 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
-        return (
+        msg = (
             f"🟠 *Orange Lab Home Visit*\n"
             f"━━━━━━━━━━━━━━\n"
             f"👤 *الاسم:* {v['name']}\n"
@@ -406,8 +473,10 @@ def make_whatsapp_msg(v, target="internal"):
             f"🚗 *بدل الانتقال:* {transport_fee} جنيه\n"
             f"💵 *الإجمالي:* {total} جنيه\n"
             f"━━━━━━━━━━━━━━\n"
+            f"{image_note}"
             f"{notes}"
         )
+    return msg
 
 def whatsapp_link(msg, phone=None):
     encoded = urllib.parse.quote(msg, encoding='utf-8')
@@ -421,7 +490,7 @@ def whatsapp_link(msg, phone=None):
     return f"https://wa.me/?text={encoded}"
 
 # ══════════════════════════════════════════════════════════════════════════════
-# إعداد حالة الجلسة (Session State)
+# إعداد حالة الجلسة
 # ══════════════════════════════════════════════════════════════════════════════
 for k, v in [("page", "home"), ("prefill", {}), ("selected_id", None), ("search_q", "")]:
     if k not in st.session_state:
@@ -464,11 +533,29 @@ with col5:
 st.markdown("---")
 
 # ══════════════════════════════════════════════════════════════════════════════
-# الصفحات المختلفة
+# الصفحات
 # ══════════════════════════════════════════════════════════════════════════════
 
 # --- الصفحة الرئيسية ---
 if st.session_state.page == "home":
+    # السماح بالمشاهدة للأدمن وفرع دايموند فقط
+    if st.session_state.user_type not in ["admin", "diamond"]:
+        st.info("ليس لديك صلاحية عرض بيانات الزيارات.")
+        # يظل باقي الصفحة (إحصائيات مثلاً) ظاهراً للجميع
+        conn = get_connection()
+        all_visits = fetch_visits()
+        today = date.today().isoformat()
+        t_today = sum(1 for v in all_visits if v.get("visit_date") == today)
+        t_rev = sum(v.get("total_price", 0) for v in all_visits)
+        st.markdown(f'''
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-num">{len(all_visits)}</div><div class="stat-label">إجمالي الزيارات</div></div>
+          <div class="stat-box"><div class="stat-num">{t_today}</div><div class="stat-label">زيارات اليوم</div></div>
+          <div class="stat-box"><div class="stat-num" style="font-size:17px">{t_rev:,}</div><div class="stat-label">الإيراد (جنيه)</div></div>
+        </div>''', unsafe_allow_html=True)
+        st.stop()
+
+    # المستخدم المسموح (أدمن أو دايموند)
     conn = get_connection()
     all_doctors = [row[0] for row in conn.execute("SELECT DISTINCT doctor_name FROM visits WHERE doctor_name != ''").fetchall()]
     all_branches = [row[0] for row in conn.execute("SELECT DISTINCT branch FROM visits").fetchall()]
@@ -480,7 +567,12 @@ if st.session_state.page == "home":
     st.markdown("### تصفية الزيارات")
     col_f1, col_f2, col_f3 = st.columns(3)
     with col_f1:
-        selected_branch = st.selectbox("الفرع", options=all_branches, index=0)
+        if st.session_state.user_type == "diamond":
+            # إجبار فرع دايموند فقط، وعدم إظهار خيار فرع آخر
+            selected_branch = "Diamond"
+            st.selectbox("الفرع", options=["Diamond"], disabled=True)
+        else:
+            selected_branch = st.selectbox("الفرع", options=all_branches, index=0)
     with col_f2:
         selected_doctor = st.selectbox("الدكتور", options=all_doctors, index=0)
     with col_f3:
@@ -497,7 +589,11 @@ if st.session_state.page == "home":
 
     visits = fetch_visits(filters)
     today = date.today().isoformat()
-    all_visits = fetch_visits()
+    # للإحصائيات الكلية بدون فلتر (لكن الأدمن يرى الكل، والدايموند يرى فرع دايموند فقط)
+    if st.session_state.user_type == "diamond":
+        all_visits = fetch_visits({"branch": "Diamond"})
+    else:
+        all_visits = fetch_visits()
     t_today = sum(1 for v in all_visits if v.get("visit_date") == today)
     t_rev = sum(v.get("total_price", 0) for v in all_visits)
 
@@ -508,24 +604,25 @@ if st.session_state.page == "home":
       <div class="stat-box"><div class="stat-num" style="font-size:17px">{t_rev:,}</div><div class="stat-label">الإيراد (جنيه)</div></div>
     </div>''', unsafe_allow_html=True)
 
-    # أزرار التصدير والاستيراد
-    col_exp, col_imp = st.columns(2)
-    with col_exp:
-        if st.button("📤 تصدير إلى Excel", use_container_width=True):
-            df, path = export_to_excel()
-            with open(path, "rb") as f:
-                st.download_button(
-                    label="📥 تحميل الملف",
-                    data=f,
-                    file_name="visits_export.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-    with col_imp:
-        uploaded_file = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
-        if uploaded_file is not None:
-            count = import_from_excel(uploaded_file)
-            st.success(f"تم استيراد {count} زيارة بنجاح!")
-            st.rerun()
+    # أزرار التصدير والاستيراد (فقط للأدمن)
+    if st.session_state.user_type == "admin":
+        col_exp, col_imp = st.columns(2)
+        with col_exp:
+            if st.button("📤 تصدير إلى Excel", use_container_width=True):
+                df, path = export_to_excel()
+                with open(path, "rb") as f:
+                    st.download_button(
+                        label="📥 تحميل الملف",
+                        data=f,
+                        file_name="visits_export.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+        with col_imp:
+            uploaded_file = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
+            if uploaded_file is not None:
+                count = import_from_excel(uploaded_file)
+                st.success(f"تم استيراد {count} زيارة بنجاح!")
+                st.rerun()
 
     st.markdown("---")
 
@@ -540,7 +637,8 @@ if st.session_state.page == "home":
             doctor_show = f" | 👨‍⚕️ {v.get('doctor_name','')}" if v.get("doctor_name") else ""
             branch_show = f" | 🏥 {v.get('branch','')}" if v.get("branch") else ""
             age = v.get("age", "")
-            age_display = f"🎂 {age} سنة" if age else ""
+            age_unit = v.get("age_unit", "سنة")
+            age_display = f"🎂 {age} {age_unit}" if age else ""
             st.markdown(f'''
             <div class="visit-card">
               <span class="visit-badge">{total:,} جنيه</span>
@@ -552,7 +650,7 @@ if st.session_state.page == "home":
             if st.button(f"📂 فتح {v['name']}", key=f"o_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
-    # تذييل الصفحة الرئيسية - تم التعديل حسب الطلب
+    # تذييل الصفحة الرئيسية
     st.markdown("""
     <div style="text-align:center; margin-top:50px; padding-top:20px; border-top:2px solid #FF6B00; color:#333; font-size:14px; font-weight:600;">
       Developed by <b>Dr / Hussein Ali</b> 2026 For <span style="color:#FF6B00;">Orange Lab 🍊</span>
@@ -569,8 +667,16 @@ elif st.session_state.page == "new":
     name = st.text_input("الاسم الكامل *", value=pf.get("name", ""))
     c1, c2 = st.columns(2)
     with c1:
-        age = st.number_input("السن *", 0, 120, int(pf.get("age", 0) or 0))
+        # العمر مع اختيار الوحدة
+        age = st.number_input("العمر *", 0, 120, int(pf.get("age", 0) or 0))
     with c2:
+        # اختيار الوحدة
+        age_unit_options = ["سنة", "شهر"]
+        current_age_unit = pf.get("age_unit", "سنة")
+        if current_age_unit not in age_unit_options:
+            current_age_unit = "سنة"
+        age_unit = st.radio("الوحدة", age_unit_options, index=0 if current_age_unit == "سنة" else 1, horizontal=True)
+    with st.columns(1)[0]:
         phone = st.text_input("رقم التليفون *", value=pf.get("phone", ""), placeholder="01xxxxxxxxx")
 
     doctor_name = st.text_input("👨‍⚕️ الدكتور القائم بالزيارة", value=pf.get("doctor_name", ""))
@@ -587,13 +693,70 @@ elif st.session_state.page == "new":
                 pass
         visit_date = st.date_input("📅 تاريخ الزيارة *", value=default_date)
     with d2:
-        visit_time = st.text_input("🕐 وقت الزيارة", value=pf.get("visit_time", ""), placeholder="مثال: 2:00 PM")
+        # وقت الزيارة مع AM/PM
+        st.markdown("🕐 وقت الزيارة")
+        t_col1, t_col2, t_col3 = st.columns([2,2,3])
+        # تحليل الوقت المخزن إن وجد لملء الاختيارات
+        old_time = pf.get("visit_time", "")
+        parsed_hour = 12
+        parsed_minute = 0
+        parsed_ampm = "PM"
+        if old_time:
+            match = re_module.match(r'(\d{1,2}):(\d{2})\s*(AM|PM)', old_time, re.IGNORECASE)
+            if match:
+                parsed_hour = int(match.group(1))
+                parsed_minute = int(match.group(2))
+                parsed_ampm = match.group(3).upper()
+            else:
+                # محاولة تخمين
+                parts = old_time.split(":")
+                if len(parts) == 2:
+                    parsed_hour = int(parts[0])
+                    parsed_minute = int(parts[1].split()[0])
+                    if "pm" in old_time.lower():
+                        parsed_ampm = "PM"
+                    elif "am" in old_time.lower():
+                        parsed_ampm = "AM"
+        with t_col1:
+            hour = st.selectbox("ساعة", list(range(1,13)), index=parsed_hour-1 if 1<=parsed_hour<=12 else 11, key="hour_select")
+        with t_col2:
+            minute = st.selectbox("دقيقة", [0, 15, 30, 45], index=[0,15,30,45].index(parsed_minute) if parsed_minute in [0,15,30,45] else 0, key="minute_select")
+        with t_col3:
+            ampm = st.radio("", ["AM", "PM"], index=0 if parsed_ampm == "AM" else 1, horizontal=True, key="ampm_select")
+        visit_time = f"{hour}:{minute:02d} {ampm}"
     st.markdown("---")
 
     st.markdown('<div class="section-title">📍 العنوان</div>', unsafe_allow_html=True)
     address = st.text_area("العنوان بالتفصيل *", value=pf.get("address", ""),
                            placeholder="المحافظة - المدينة - الشارع - رقم المبنى - الدور - الشقة...", height=90)
     location_link = st.text_input("🗺️ رابط الموقع (Google Maps)", value=pf.get("location_link", ""))
+    st.markdown("---")
+
+    # صورة الروشتة
+    st.markdown('<div class="section-title">📸 صورة الروشتة</div>', unsafe_allow_html=True)
+    ensure_prescriptions_dir()
+    uploaded_image = st.file_uploader("ارفع صورة الروشتة (اختياري)", type=["png", "jpg", "jpeg"], key="prescription_upload")
+    prescription_image_filename = pf.get("prescription_image", "")
+    if uploaded_image is not None:
+        # حفظ الصورة
+        img = Image.open(uploaded_image)
+        # إنشاء اسم فريد
+        ext = uploaded_image.name.split(".")[-1]
+        new_filename = f"{uuid.uuid4().hex}.{ext}"
+        img.save(os.path.join("prescriptions", new_filename))
+        prescription_image_filename = new_filename
+        st.success("تم رفع الصورة بنجاح")
+    elif prescription_image_filename:
+        # عرض الصورة الحالية إن وجدت
+        if os.path.exists(os.path.join("prescriptions", prescription_image_filename)):
+            st.image(os.path.join("prescriptions", prescription_image_filename), caption="الصورة الحالية", width=200)
+            if st.button("حذف الصورة الحالية"):
+                try:
+                    os.remove(os.path.join("prescriptions", prescription_image_filename))
+                except:
+                    pass
+                prescription_image_filename = ""
+                st.rerun()
     st.markdown("---")
 
     visit_id_key = pf.get("id", "new_visit")
@@ -642,8 +805,7 @@ elif st.session_state.page == "new":
     # التحاليل المضافة
     st.markdown('<div class="section-title">🧪 التحاليل المضافة</div>', unsafe_allow_html=True)
     if st.session_state[labs_ss_key]:
-        import re as _re
-        auto_total = sum(int(m.group(1)) for e in st.session_state[labs_ss_key] for m in [_re.search(r'(\d+)\s*جنيه', e)] if m)
+        auto_total = sum(int(m.group(1)) for e in st.session_state[labs_ss_key] for m in [re_module.search(r'(\d+)\s*جنيه', e)] if m)
         st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-bottom:8px">✅ {len(st.session_state[labs_ss_key])} تحليل{"  —  إجمالي: " + f"{auto_total:,} جنيه" if auto_total else ""}</div>', unsafe_allow_html=True)
         to_remove = None
         for i, entry in enumerate(st.session_state[labs_ss_key]):
@@ -681,8 +843,7 @@ elif st.session_state.page == "new":
     st.markdown("---")
 
     st.markdown('<div class="section-title">💰 الأسعار</div>', unsafe_allow_html=True)
-    import re as _re2
-    auto_labs_total = sum(int(m.group(1)) for e in selected_labs for m in [_re2.search(r'(\d+)\s*جنيه', e)] if m)
+    auto_labs_total = sum(int(m.group(1)) for e in selected_labs for m in [re_module.search(r'(\d+)\s*جنيه', e)] if m)
 
     p1, p2, p3 = st.columns(3)
     with p1:
@@ -712,6 +873,7 @@ elif st.session_state.page == "new":
                 "created_at": pf.get("created_at", datetime.now().isoformat()),
                 "name": name,
                 "age": age,
+                "age_unit": age_unit,
                 "phone": phone,
                 "visit_date": visit_date.isoformat(),
                 "visit_time": visit_time,
@@ -725,6 +887,7 @@ elif st.session_state.page == "new":
                 "labs_price_after": labs_price_after,
                 "transport_fee": transport_fee,
                 "total_price": total_price,
+                "prescription_image": prescription_image_filename,
             }
             if is_edit:
                 update_visit(record)
@@ -753,7 +916,8 @@ elif st.session_state.page == "detail":
         visit_time        = v.get("visit_time", "")
         datetime_display  = format_date_ar(v.get("visit_date", "")) + (f" — {visit_time}" if visit_time else "")
         age               = v.get("age", "")
-        age_str           = f"🎂 {age} سنة" if age else "🎂 غير محدد"
+        age_unit          = v.get("age_unit", "سنة")
+        age_str           = f"🎂 {age} {age_unit}" if age else "🎂 غير محدد"
 
         st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
         st.markdown(f'''
@@ -771,6 +935,13 @@ elif st.session_state.page == "detail":
         if v.get("location_link"):
             st.markdown(f'<a href="{v["location_link"]}" target="_blank" style="color:#FF6B00;font-weight:700;">🗺️ فتح الموقع على الخريطة</a>', unsafe_allow_html=True)
         st.markdown("---")
+
+        # عرض صورة الروشتة إن وجدت
+        prescription_image = v.get("prescription_image", "")
+        if prescription_image and os.path.exists(os.path.join("prescriptions", prescription_image)):
+            st.markdown('<div class="section-title">📸 صورة الروشتة</div>', unsafe_allow_html=True)
+            st.image(os.path.join("prescriptions", prescription_image), width=300)
+            st.markdown("---")
 
         labs_text = v.get("selected_labs_text", "")
         if labs_text.strip():
@@ -826,27 +997,37 @@ elif st.session_state.page == "detail":
         st.markdown(f'<div class="repeat-banner">🔄 هتروح لـ {v["name"]} مرة تانية؟</div>', unsafe_allow_html=True)
         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
             go("new", prefill={
-                "name": v["name"], "age": v.get("age", ""), "phone": v.get("phone", ""),
+                "name": v["name"], "age": v.get("age", ""), "age_unit": v.get("age_unit", "سنة"),
+                "phone": v.get("phone", ""),
                 "address": v.get("address", ""), "location_link": v.get("location_link", ""),
                 "doctor_name": v.get("doctor_name", ""), "branch": v.get("branch", "La Cite"),
                 "selected_labs": [], "selected_labs_text": "", "visit_time": "",
-                "notes": "", "labs_price_before": 0, "labs_price_after": 0, "transport_fee": 100
+                "notes": "", "labs_price_before": 0, "labs_price_after": 0, "transport_fee": 100,
+                "prescription_image": ""
             })
         if st.button("← رجوع للقائمة", use_container_width=True):
             go("home")
 
-# --- صفحة البحث ---
+# --- صفحة البحث (محظورة على غير المسموح لهم) ---
 elif st.session_state.page == "search":
+    if st.session_state.user_type not in ["admin", "diamond"]:
+        st.error("غير مصرح لك بالبحث.")
+        st.stop()
     st.markdown("### 🔍 البحث عن عميل")
     query = st.text_input("اكتب الاسم أو التليفون", placeholder="مثال: محمد أو 01012345678")
     if query:
-        visits = fetch_visits({"search": query})
+        # في حالة الدايموند يفرض الفلتر
+        if st.session_state.user_type == "diamond":
+            visits = fetch_visits({"search": query, "branch": "Diamond"})
+        else:
+            visits = fetch_visits({"search": query})
         st.markdown(f"**{len(visits)} نتيجة**")
         for v in visits:
             total = v.get("total_price", 0)
             vdate = format_date_ar(v.get("visit_date", ""))
             age = v.get("age", "")
-            age_display = f"🎂 {age} سنة" if age else ""
+            age_unit = v.get("age_unit", "سنة")
+            age_display = f"🎂 {age} {age_unit}" if age else ""
             st.markdown(f'''
             <div class="visit-card">
               <span class="visit-badge">{total:,} جنيه</span>
@@ -856,8 +1037,11 @@ elif st.session_state.page == "search":
             if st.button(f"📂 فتح {v['name']}", key=f"s_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
-# --- صفحة التقارير ---
+# --- صفحة التقارير (محظورة على غير المسموح لهم) ---
 elif st.session_state.page == "reports":
+    if st.session_state.user_type not in ["admin", "diamond"]:
+        st.error("غير مصرح لك بعرض التقارير.")
+        st.stop()
     st.markdown("### 📊 تقارير نهاية الشهر")
     col_y, col_m, col_b = st.columns(3)
     with col_y:
@@ -868,7 +1052,11 @@ elif st.session_state.page == "reports":
                                                      "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"][m-1],
                              index=date.today().month - 1)
     with col_b:
-        branch_filter = st.selectbox("الفرع", options=["الكل", "La Cite", "Diamond"])
+        if st.session_state.user_type == "diamond":
+            branch_filter = "Diamond"
+            st.selectbox("الفرع", options=["Diamond"], disabled=True)
+        else:
+            branch_filter = st.selectbox("الفرع", options=["الكل", "La Cite", "Diamond"])
 
     filters = {"year": year, "month": month}
     if branch_filter != "الكل":
@@ -963,4 +1151,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-                                           )
+        )
