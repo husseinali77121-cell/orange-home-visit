@@ -1,7 +1,7 @@
 import streamlit as st
 
 # ══════════════════════════════════════════════════════════════════════════════
-# إعدادات الصفحة (يجب أن تكون أول أوامر Streamlit)
+# إعدادات الصفحة
 # ══════════════════════════════════════════════════════════════════════════════
 st.set_page_config(
     page_title="Orange Lab Home Visit",
@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
-# نظام تسجيل الدخول بالبريد الإلكتروني فقط (باستخدام st.secrets)
+# نظام تسجيل الدخول بالبريد الإلكتروني فقط
 # ══════════════════════════════════════════════════════════════════════════════
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
@@ -28,7 +28,18 @@ if not st.session_state.authenticated:
             st.rerun()
         else:
             st.error("اتقِ الله")
-    st.stop()  # لا تعرض أي شيء آخر حتى يتم التحقق
+
+    # تذييل صفحة الدخول - بيانات التواصل
+    st.markdown("---")
+    st.markdown("""
+    <div style="text-align:center; margin-top:40px; color:#333; font-size:13px; line-height:1.8;">
+      <div style="color:#FF6B00; font-weight:800; font-size:15px; margin-bottom:6px;">📞 للتواصل Contact</div>
+      <div><b>Dr / Hussein Ali</b></div>
+      <div style="direction: ltr; unicode-bidi: embed;">📱 T: 01016872801</div>
+      <div style="direction: ltr; unicode-bidi: embed;">📧 Email: hussein.ali77121@gmail.com</div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # بعد تسجيل الدخول بنجاح - إخفاء عناصر Streamlit و GitHub
@@ -43,7 +54,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# الاستيرادات المتبقية (بعد المصادقة لتجنب تحميل غير ضروري)
+# الاستيرادات المتبقية
 # ══════════════════════════════════════════════════════════════════════════════
 import sqlite3
 import json
@@ -541,13 +552,10 @@ if st.session_state.page == "home":
             if st.button(f"📂 فتح {v['name']}", key=f"o_{v['id']}", use_container_width=True):
                 go("detail", visit_id=v["id"])
 
-    # تذييل الصفحة الرئيسية ببيانات التواصل (تم التعديل)
+    # تذييل الصفحة الرئيسية - تم التعديل حسب الطلب
     st.markdown("""
-    <div style="text-align:center;margin-top:40px;padding-top:16px;border-top:2px solid #FF6B00;color:#333;font-size:13px;line-height:1.8;">
-      <div style="color:#FF6B00; font-weight:800; font-size:15px; margin-bottom:6px;">📞 للتواصل Contact</div>
-      <div><b>Dr / Hussein Ali</b></div>
-      <div style="direction: ltr; unicode-bidi: embed;">📱 T: <a href="tel:+201016872801" style="color:#333; text-decoration:none;">01016872801</a></div>
-      <div style="direction: ltr; unicode-bidi: embed;">📧 Email: <a href="mailto:hussein.ali77121@gmail.com" style="color:#333; text-decoration:none;">hussein.ali77121@gmail.com</a></div>
+    <div style="text-align:center; margin-top:50px; padding-top:20px; border-top:2px solid #FF6B00; color:#333; font-size:14px; font-weight:600;">
+      Developed by <b>Dr / Hussein Ali</b> 2026 For <span style="color:#FF6B00;">Orange Lab 🍊</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -955,4 +963,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-                                                            )
+                                           )
