@@ -325,9 +325,9 @@ def make_whatsapp_msg(v, target="internal"):
             f"💵 *الإجمالي المطلوب:* {total} جنيه\n"
             f"━━━━━━━━━━━━━━\n"
             f"✏️ *برجاء تأكيد حجزك بالرد برقم:*\n"
-            f"  1️⃣ - تأكيد الزيارة\n"
-            f"  2️⃣ - تأجيل الزيارة\n"
-            f"  3️⃣ - إلغاء الزيارة\n\n"
+            f"  1 - تأكيد الزيارة\n"
+            f"  2 - تأجيل الزيارة\n"
+            f"  3 - إلغاء الزيارة\n\n"
             f"شكراً لثقتكم 🧡 *معمل أورانج لاب*"
         )
     elif target == "group":
@@ -565,6 +565,20 @@ elif st.session_state.page == "new":
         for panel in QUICK_PANELS:
             tests_str = " • ".join(panel["tests"])
             st.markdown(f'<div style="font-size:12px;margin-bottom:6px"><b style="color:#FF6B00">{panel["name"]}</b> — {tests_str}</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ─── NEW: Add analysis from price list ─────────────────────────────────
+    if ALL_LABS:
+        st.markdown('<div class="section-title">📋 إضافة تحليل من قائمة الأسعار</div>', unsafe_allow_html=True)
+        lab_options = [f"{lab['name']} — {lab['price']} جنيه" for lab in ALL_LABS]
+        selected_lab_price = st.selectbox("اختر التحليل", options=lab_options, key=f"lab_price_select_{visit_id_key}")
+        if st.button("➕ أضف من القائمة", key=f"add_lab_price_{visit_id_key}", use_container_width=True):
+            if selected_lab_price not in st.session_state[labs_ss_key]:
+                st.session_state[labs_ss_key].append(selected_lab_price)
+            st.rerun()
+    else:
+        st.warning("قائمة الأسعار غير متاحة حالياً")
 
     st.markdown("---")
 
@@ -897,4 +911,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-        )
+    )
