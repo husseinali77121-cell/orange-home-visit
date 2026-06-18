@@ -41,36 +41,27 @@ if not st.session_state.authenticated:
         if email_clean not in ALLOWED_EMAILS:
             st.error("هذا البريد غير مصرح له بالدخول. راجع الأدمن.")
         else:
-            # إذا كان الأدمن يحتاج كلمة مرور
             if email_clean.lower() == ADMIN_EMAIL.lower():
-                # نطلب كلمة المرور في واجهة منفصلة أو ننتقل لحقل كلمة المرور
-                # لتبسيط التجربة: يمكننا طلب كلمة المرور قبل الضغط على دخول (كما في النسخة السابقة)
-                # لكن هنا نعيد تصميم صغير: نعرض حقل كلمة المرور عند الحاجة
-                # سنضيف حقل كلمة المرور في صفحة جديدة صغيرة
                 st.session_state.login_email = email_clean
                 st.session_state.need_password = True
                 st.rerun()
             else:
-                # باقي الإيميلات تدخل مباشرة
                 st.session_state.authenticated = True
                 st.session_state.user_email = email_clean
-                # نحدد نوع المستخدم (دايموند إذا كان مطابقًا)
                 if email_clean.lower() == DIAMOND_EMAIL.lower():
                     st.session_state.user_type = "diamond"
                 else:
                     st.session_state.user_type = "other"
                 st.rerun()
 
-    # إذا طلب كلمة المرور للأدمن نعرض حقل الإدخال
     if st.session_state.get("need_password"):
-        # إخفاء حقل البريد الأصلي وعرض حقل كلمة المرور
         st.markdown("---")
         st.markdown(f"البريد: **{st.session_state.login_email}**")
         password = st.text_input("🔑 كلمة المرور", type="password")
         if st.button("تأكيد كلمة المرور"):
             correct_password = st.secrets.get("admin_password", "123456")
             if password == correct_password:
-                st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن")
+                st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن")
                 st.session_state.authenticated = True
                 st.session_state.user_email = st.session_state.login_email
                 st.session_state.user_type = "admin"
@@ -82,7 +73,6 @@ if not st.session_state.authenticated:
             st.session_state.need_password = False
             st.rerun()
 
-    # تذييل صفحة الدخول
     st.markdown("---")
     st.markdown("""
     <div style="text-align:center; margin-top:40px; color:#333; font-size:13px; line-height:1.8;">
@@ -107,7 +97,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# إعداد قاعدة البيانات (بدون عمود الصورة)
+# إعداد قاعدة البيانات
 # ══════════════════════════════════════════════════════════════════════════════
 DB_FILE = "visits.db"
 BACKUP_EXCEL = "visits_export.xlsx"
@@ -121,7 +111,6 @@ def get_connection():
 
 def init_db():
     conn = get_connection()
-    # إضافة عمود age_unit إذا لم يكن موجوداً (تمت إضافته في التعديل السابق)
     try:
         conn.execute("ALTER TABLE visits ADD COLUMN age_unit TEXT DEFAULT 'سنة'")
     except sqlite3.OperationalError:
@@ -322,6 +311,33 @@ def inject_css():
       div[data-testid="stMultiSelect"] label, div[data-testid="stSelectbox"] label {
         font-family:'Cairo',sans-serif !important; font-weight:600 !important; color:#555 !important;
       }
+
+      /* ── تمييز حقول الإدخال ── */
+      div[data-testid="stTextInput"] input,
+      div[data-testid="stNumberInput"] input,
+      div[data-testid="stTextArea"] textarea,
+      div[data-testid="stDateInput"] input {
+        background-color: #FFF3E8 !important;
+        border: 1.5px solid #FFBB80 !important;
+        border-radius: 8px !important;
+        color: #222 !important;
+      }
+      div[data-testid="stTextInput"] input:focus,
+      div[data-testid="stNumberInput"] input:focus,
+      div[data-testid="stTextArea"] textarea:focus,
+      div[data-testid="stDateInput"] input:focus {
+        background-color: #FFE8CC !important;
+        border: 2px solid #FF6B00 !important;
+        box-shadow: 0 0 0 3px rgba(255,107,0,0.15) !important;
+        outline: none !important;
+      }
+      div[data-testid="stSelectbox"] > div > div {
+        background-color: #FFF3E8 !important;
+        border: 1.5px solid #FFBB80 !important;
+        border-radius: 8px !important;
+      }
+      /* ── نهاية تمييز حقول الإدخال ── */
+
       #MainMenu { visibility: hidden; }
       footer { visibility: hidden; }
       header { visibility: hidden; }
@@ -523,8 +539,6 @@ st.markdown("---")
 
 # --- الصفحة الرئيسية ---
 if st.session_state.page == "home":
-    # السماح بالمشاهدة للأدمن وفرع دايموند فقط (أو أي نوع مصرح)
-    # لكن عملياً: الأدمن يرى الكل، والدايموند يرى Diamond فقط
     if st.session_state.user_type not in ["admin", "diamond"]:
         st.info("ليس لديك صلاحية عرض بيانات الزيارات.")
         conn = get_connection()
@@ -697,8 +711,6 @@ elif st.session_state.page == "new":
                            placeholder="المحافظة - المدينة - الشارع - رقم المبنى - الدور - الشقة...", height=90)
     location_link = st.text_input("🗺️ رابط الموقع (Google Maps)", value=pf.get("location_link", ""))
     st.markdown("---")
-
-    # تم إلغاء خانة الصورة
 
     visit_id_key = pf.get("id", "new_visit")
     labs_ss_key = f"added_labs_{visit_id_key}"
@@ -1079,4 +1091,4 @@ elif st.session_state.page == "reports":
             data=csv,
             file_name=f"تقرير_زيارات_{month_name}_{year}.csv",
             mime="text/csv",
-    )
+        )
