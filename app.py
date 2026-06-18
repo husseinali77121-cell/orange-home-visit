@@ -846,7 +846,14 @@ elif st.session_state.page == "new":
         if cur_au not in au_opts: cur_au = "سنة"
         age_unit = st.radio("الوحدة", au_opts, index=au_opts.index(cur_au), horizontal=True)
     phone       = st.text_input("رقم التليفون *", value=pf.get("phone",""), placeholder="01xxxxxxxxx")
-    doctor_name = st.text_input("👨‍⚕️ الدكتور القائم بالزيارة", value=pf.get("doctor_name",""))
+    DOCTOR_LIST = ["حسين علي","ايه جمال","محمد شفيق","شيرين احمد","محمد","عطيه","ضي","طارق الشافعي","أخرى..."]
+    saved_doc   = pf.get("doctor_name","")
+    doc_index   = DOCTOR_LIST.index(saved_doc) if saved_doc in DOCTOR_LIST else (len(DOCTOR_LIST)-1 if saved_doc else 0)
+    doc_select  = st.selectbox("👨‍⚕️ الدكتور القائم بالزيارة", DOCTOR_LIST, index=doc_index)
+    if doc_select == "أخرى...":
+        doctor_name = st.text_input("اكتب اسم الدكتور", value=saved_doc if saved_doc not in DOCTOR_LIST else "", placeholder="اسم الدكتور...")
+    else:
+        doctor_name = doc_select
     branch      = st.selectbox("🏥 الفرع", ["La Cite","Diamond"],
                                index=0 if pf.get("branch","La Cite")=="La Cite" else 1)
     cur_status  = pf.get("status","مجدولة")
