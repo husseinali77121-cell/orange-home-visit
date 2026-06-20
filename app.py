@@ -32,21 +32,33 @@ DIAMOND_EMAIL  = "Orangelab511@gmail.com"
 
 if not st.session_state.authenticated:
     st.title("🔒 تسجيل الدخول")
-    email = st.text_input("📧 أدخل بريدك الإلكتروني للدخول")
+
+    # ── استرجاع الإيميل المحفوظ من query params ──
+    params     = st.query_params
+    saved_mail = params.get("remember", "")
+
+    email = st.text_input("📧 أدخل بريدك الإلكتروني للدخول", value=saved_mail)
+    remember_me = st.checkbox("تذكرني في هذا الجهاز", value=bool(saved_mail))
 
     if st.button("دخول"):
         email_clean = email.strip()
         if email_clean not in ALLOWED_EMAILS:
             st.error("هذا البريد غير مصرح له بالدخول. راجع الأدمن.")
         else:
+            # حفظ الإيميل في URL إذا اختار المستخدم "تذكرني"
+            if remember_me:
+                st.query_params["remember"] = email_clean
+            else:
+                st.query_params.clear()
+
             if email_clean.lower() == ADMIN_EMAIL.lower():
-                st.session_state.login_email = email_clean
+                st.session_state.login_email  = email_clean
                 st.session_state.need_password = True
                 st.rerun()
             else:
                 st.session_state.authenticated = True
-                st.session_state.user_email = email_clean
-                st.session_state.user_type = "diamond" if email_clean.lower() == DIAMOND_EMAIL.lower() else "other"
+                st.session_state.user_email    = email_clean
+                st.session_state.user_type     = "diamond" if email_clean.lower() == DIAMOND_EMAIL.lower() else "other"
                 st.rerun()
 
     if st.session_state.get("need_password"):
@@ -57,10 +69,10 @@ if not st.session_state.authenticated:
             correct_password = st.secrets.get("admin_password", "123456")
             if password == correct_password:
                 st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن")
-                st.session_state.authenticated = True
-                st.session_state.user_email = st.session_state.login_email
-                st.session_state.user_type = "admin"
-                st.session_state.need_password = False
+                st.session_state.authenticated  = True
+                st.session_state.user_email     = st.session_state.login_email
+                st.session_state.user_type      = "admin"
+                st.session_state.need_password  = False
                 st.rerun()
             else:
                 st.error("كلمة مرور خاطئة")
@@ -129,7 +141,6 @@ def init_db():
             status TEXT DEFAULT 'مجدولة'
         )
     """)
-    # إضافة أعمدة جديدة بأمان بدون مسح البيانات القديمة
     safe_cols = [
         ("age_unit", "TEXT DEFAULT 'سنة'"),
         ("status",   "TEXT DEFAULT 'مجدولة'"),
@@ -270,16 +281,179 @@ def delete_visit(visit_id):
 # ══════════════════════════════════════════════════════════════════════════════
 # تصدير / استيراد
 # ══════════════════════════════════════════════════════════════════════════════
-def export_to_excel():
-    visits = fetch_visits()
+def export_to_excel(branch_filter=None, month=None, year=None):
+    """تصدير الزيارات إلى Excel مع تنسيق احترافي وصف إجمالي"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    filters = {}
+    if branch_filter:
+        filters["branch"] = branch_filter
+    if month and year:
+        filters["month"] = month
+        filters["year"]  = year
+    visits = fetch_visits(filters if filters else None)
     df = pd.DataFrame(visits)
-    cols = ["id","created_at","name","age","age_unit","phone","visit_date","visit_time",
-            "doctor_name","branch","address","location_link","selected_labs_text","notes",
-            "labs_price_before","labs_price_after","transport_fee","total_price","status"]
-    existing = [c for c in cols if c in df.columns]
-    df = df[existing]
-    df.to_excel(BACKUP_EXCEL, index=False, engine="openpyxl")
-    return df, BACKUP_EXCEL
+
+    COLS_ORDER = ["id","created_at","name","age","age_unit","phone","visit_date","visit_time",
+                  "doctor_name","branch","address","location_link","selected_labs_text","notes",
+                  "labs_price_before","labs_price_after","transport_fee","total_price","status"]
+    COL_NAMES_AR = {
+        'id': 'رقم الزيارة', 'created_at': 'تاريخ الإنشاء', 'name': 'الاسم',
+        'age': 'السن', 'age_unit': 'الوحدة', 'phone': 'التليفون',
+        'visit_date': 'تاريخ الزيارة', 'visit_time': 'الوقت', 'doctor_name': 'الدكتور',
+        'branch': 'الفرع', 'address': 'العنوان', 'location_link': 'رابط الموقع',
+        'selected_labs_text': 'التحاليل', 'notes': 'ملاحظات',
+        'labs_price_before': 'السعر قبل الخصم', 'labs_price_after': 'السعر بعد الخصم',
+        'transport_fee': 'بدل الانتقال', 'total_price': 'الإجمالي', 'status': 'الحالة',
+    }
+    COL_WIDTHS = {
+        'id': 18, 'created_at': 20, 'name': 22, 'age': 8, 'age_unit': 8,
+        'phone': 16, 'visit_date': 14, 'visit_time': 10, 'doctor_name': 16,
+        'branch': 12, 'address': 30, 'location_link': 22,
+        'selected_labs_text': 28, 'notes': 20,
+        'labs_price_before': 16, 'labs_price_after': 16,
+        'transport_fee': 14, 'total_price': 14, 'status': 12,
+    }
+    PRICE_COLS   = ['labs_price_before','labs_price_after','transport_fee','total_price']
+    STATUS_LIST  = ['تمت','مجدولة','في الطريق','ملغية']
+    STATUS_ROW_COLORS = {
+        'تمت': 'D5F5E3', 'ملغية': 'FADBD8',
+        'في الطريق': 'FEF9E7', 'مجدولة': 'D6EAF8',
+    }
+    ORANGE = "FF6B00"; ORANGE_LIGHT = "FFF3E8"; TOTAL_BG = "FFE0C0"; WHITE = "FFFFFF"
+
+    thin   = Side(style="thin", color="FFBB80")
+    BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
+    CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    RIGHT  = Alignment(horizontal="right",  vertical="center", wrap_text=True)
+
+    if df.empty:
+        # ملف فارغ لو مفيش بيانات
+        fname = f"diamond_{date.today()}.xlsx" if branch_filter=="Diamond" else BACKUP_EXCEL
+        pd.DataFrame(columns=COLS_ORDER).to_excel(fname, index=False, engine="openpyxl")
+        return df, fname
+
+    cols = [c for c in COLS_ORDER if c in df.columns]
+    df   = df[cols]
+    n_cols = len(cols)
+    n_rows = len(df)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "الزيارات"
+    ws.sheet_view.rightToLeft = True
+
+    # ── صف العنوان ──
+    branch_label = f"فرع {branch_filter}" if branch_filter else "كل الفروع"
+    if month and year:
+        branch_label += f" — {MONTHS_AR[month-1]} {year}"
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
+    c = ws.cell(row=1, column=1, value=f"🟠 Orange Lab Home Visit — {branch_label}")
+    c.font      = Font(name="Cairo", bold=True, color=WHITE, size=14)
+    c.fill      = PatternFill("solid", fgColor=ORANGE)
+    c.alignment = CENTER
+    ws.row_dimensions[1].height = 36
+
+    # ── صف ملخص الحالات ──
+    status_parts = "  |  ".join(
+        f"{s}: {(df['status']==s).sum()}"
+        for s in STATUS_LIST if (df['status']==s).sum() > 0
+    )
+    summary_txt = f"إجمالي: {n_rows} زيارة  |  {status_parts}  |  تاريخ التصدير: {date.today()}"
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_cols)
+    c = ws.cell(row=2, column=1, value=summary_txt)
+    c.font      = Font(name="Cairo", bold=True, color=ORANGE, size=10)
+    c.fill      = PatternFill("solid", fgColor=ORANGE_LIGHT)
+    c.alignment = CENTER
+    ws.row_dimensions[2].height = 22
+
+    # ── رؤوس الأعمدة (row 3) ──
+    for ci, col in enumerate(cols, 1):
+        c = ws.cell(row=3, column=ci, value=COL_NAMES_AR.get(col, col))
+        c.font      = Font(name="Cairo", bold=True, color=WHITE, size=11)
+        c.fill      = PatternFill("solid", fgColor=ORANGE)
+        c.alignment = CENTER
+        c.border    = BORDER
+    ws.row_dimensions[3].height = 28
+
+    # ── بيانات ──
+    for ri, (_, row) in enumerate(df.iterrows(), start=4):
+        row_color = STATUS_ROW_COLORS.get(str(row.get('status','')), WHITE)
+        for ci, col in enumerate(cols, 1):
+            val = row[col]
+            if pd.isna(val): val = ""
+            c = ws.cell(row=ri, column=ci, value=val)
+            c.font   = Font(name="Cairo", size=10)
+            c.fill   = PatternFill("solid", fgColor=row_color)
+            c.border = BORDER
+            if col in PRICE_COLS:
+                c.number_format = '#,##0 "ج"'
+                c.alignment     = Alignment(horizontal="center", vertical="center")
+            else:
+                c.alignment = RIGHT
+        ws.row_dimensions[ri].height = 20
+
+    # ── صف الإجمالي ──
+    total_row = 4 + n_rows
+
+    # label
+    ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=3)
+    c = ws.cell(row=total_row, column=1, value="📊 الإجمالي الكلي")
+    c.font = Font(name="Cairo", bold=True, color=ORANGE, size=11)
+    c.fill = PatternFill("solid", fgColor=TOTAL_BG)
+    c.alignment = CENTER; c.border = BORDER
+
+    # ملخص الحالات (عمود 4 → 13)
+    end_merge = min(13, n_cols - len(PRICE_COLS) - 1)
+    ws.merge_cells(start_row=total_row, start_column=4, end_row=total_row, end_column=end_merge)
+    c = ws.cell(row=total_row, column=4, value=status_parts)
+    c.font = Font(name="Cairo", bold=True, size=10, color="333333")
+    c.fill = PatternFill("solid", fgColor=TOTAL_BG)
+    c.alignment = CENTER; c.border = BORDER
+
+    # مجموع كل عمود سعر
+    for col in PRICE_COLS:
+        if col not in cols: continue
+        ci = cols.index(col) + 1
+        c = ws.cell(
+            row=total_row, column=ci,
+            value=f"=SUM({get_column_letter(ci)}4:{get_column_letter(ci)}{3+n_rows})"
+        )
+        c.font          = Font(name="Cairo", bold=True, color=ORANGE, size=11)
+        c.fill          = PatternFill("solid", fgColor=TOTAL_BG)
+        c.alignment     = Alignment(horizontal="center", vertical="center")
+        c.border        = BORDER
+        c.number_format = '#,##0 "ج"'
+
+    # خانة الحالة
+    if 'status' in cols:
+        ci = cols.index('status') + 1
+        c = ws.cell(row=total_row, column=ci, value=f"{n_rows} زيارة")
+        c.font = Font(name="Cairo", bold=True, color=ORANGE, size=11)
+        c.fill = PatternFill("solid", fgColor=TOTAL_BG)
+        c.alignment = CENTER; c.border = BORDER
+
+    ws.row_dimensions[total_row].height = 26
+
+    # ── عرض الأعمدة ──
+    for ci, col in enumerate(cols, 1):
+        ws.column_dimensions[get_column_letter(ci)].width = COL_WIDTHS.get(col, 15)
+
+    ws.freeze_panes = "A4"
+
+    # ── اسم الملف ──
+    if branch_filter == "Diamond":
+        if month and year:
+            fname = f"diamond_{MONTHS_AR[month-1]}_{year}.xlsx"
+        else:
+            fname = f"diamond_visits_{date.today()}.xlsx"
+    else:
+        fname = BACKUP_EXCEL
+
+    wb.save(fname)
+    return df, fname
 
 def import_from_excel(uploaded_file):
     df = pd.read_excel(uploaded_file, engine="openpyxl")
@@ -354,7 +528,6 @@ def inject_css():
       .wa-client { background:#25D366; }
       .wa-share  { background:#128C7E; }
       .wa-group  { background:#075E54; }
-      .wa-remind { background:#FF6B00; }
       .detail-row { display:flex; justify-content:space-between; padding:8px 0;
                     border-bottom:1px solid #f5f5f5; font-size:13px; }
       .detail-label { color:#888; }
@@ -493,21 +666,6 @@ def make_whatsapp_msg(v, target="internal"):
             f"  1 - تأكيد الزيارة\n"
             f"  2 - تأجيل الزيارة\n"
             f"  3 - إلغاء الزيارة\n\n"
-            f"شكراً لثقتكم 🧡 *معمل أورانج لاب*"
-        )
-    elif target == "remind":
-        return (
-            f"🔔 *تذكير بموعد زيارتك*\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"أهلاً {cname} 🌟\n"
-            f"نذكّرك بموعد زيارة معمل أورانج لاب\n"
-            f"📅 *الموعد:* {dt_str}\n"
-            f"👨‍⚕️ *الدكتور:* {doc}\n"
-            f"━━━━━━━━━━━━━━\n"
-            f"⚠️ *تعليمات مهمة قبل التحليل:*\n"
-            f"🔸 صيام 8-12 ساعة إن وجد تحليل سكر أو دهون\n"
-            f"🔸 إحضار نتائج سابقة إن وجدت\n"
-            f"━━━━━━━━━━━━━━\n"
             f"شكراً لثقتكم 🧡 *معمل أورانج لاب*"
         )
     elif target == "group":
@@ -753,20 +911,37 @@ if st.session_state.page == "home":
       <div class="stat-box"><div class="stat-num" style="font-size:16px">{t_rev:,.0f}</div><div class="stat-label">الإيراد (جنيه)</div></div>
     </div>''', unsafe_allow_html=True)
 
+    # ── أزرار التصدير / الاستيراد حسب نوع المستخدم ──
     if st.session_state.user_type == "admin":
-        col_exp,col_imp = st.columns(2)
+        col_exp, col_imp = st.columns(2)
         with col_exp:
-            if st.button("📤 تصدير إلى Excel", use_container_width=True):
-                df, path = export_to_excel()
-                with open(path,"rb") as f:
-                    st.download_button("📥 تحميل الملف", data=f,
-                        file_name="visits_export.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            if st.button("📤 تصدير إلى Excel (كل الفروع)", use_container_width=True):
+                df_ex, path_ex = export_to_excel()
+                with open(path_ex,"rb") as fh:
+                    st.download_button("📥 تحميل الملف", data=fh,
+                        file_name=f"visits_all_{date.today().isoformat()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_admin_home")
         with col_imp:
             uf = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
             if uf:
                 count = import_from_excel(uf)
                 st.success(f"تم استيراد {count} زيارة!"); st.rerun()
+
+    elif st.session_state.user_type == "diamond":
+        if st.button("📤 تصدير زيارات Diamond إلى Excel", use_container_width=True):
+            df_ex, path_ex = export_to_excel(branch_filter="Diamond")
+            if df_ex.empty:
+                st.warning("لا توجد زيارات Diamond للتصدير.")
+            else:
+                with open(path_ex,"rb") as fh:
+                    st.download_button(
+                        "📥 تحميل ملف Diamond",
+                        data=fh,
+                        file_name=f"diamond_visits_{date.today().isoformat()}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_diamond_home"
+                    )
 
     st.markdown("---")
     if not visits:
@@ -1104,19 +1279,16 @@ elif st.session_state.page == "detail":
                         go("detail", visit_id=hv["id"])
             st.markdown("---")
 
-        # واتساب
+        # واتساب — بدون زرار التذكير
         st.markdown('<div class="section-title">📱 إرسال على واتساب</div>', unsafe_allow_html=True)
-        wc1,wc2,wc3,wc4 = st.columns(4)
+        wc1, wc2, wc3 = st.columns(3)
         with wc1:
             st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,"client"),v.get("phone"))}" target="_blank" class="wa-btn wa-client">📱 للعميل</a>',
                         unsafe_allow_html=True)
         with wc2:
-            st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,"remind"),v.get("phone"))}" target="_blank" class="wa-btn wa-remind">🔔 تذكير</a>',
-                        unsafe_allow_html=True)
-        with wc3:
             st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,"group"))}" target="_blank" class="wa-btn wa-group">👥 جروب</a>',
                         unsafe_allow_html=True)
-        with wc4:
+        with wc3:
             st.markdown(f'<a href="{whatsapp_link(make_whatsapp_msg(v,"internal"))}" target="_blank" class="wa-btn wa-share">📋 ملخص</a>',
                         unsafe_allow_html=True)
         st.markdown("---")
@@ -1186,6 +1358,40 @@ elif st.session_state.page == "reports":
     if branch_filter!="الكل": filters["branch"]=branch_filter
     visits = fetch_visits(filters)
 
+    # زر تصدير في صفحة التقارير
+    st.markdown("---")
+    if st.session_state.user_type == "diamond":
+        if st.button("📤 تصدير زيارات Diamond لهذا الشهر إلى Excel", use_container_width=True):
+            df_rep, path_rep = export_to_excel(branch_filter="Diamond", month=month, year=year)
+            if df_rep.empty:
+                st.warning("لا توجد زيارات لتصديرها.")
+            else:
+                with open(path_rep,"rb") as fh:
+                    st.download_button(
+                        f"📥 تحميل ملف {MONTHS_AR[month-1]} {year}",
+                        data=fh,
+                        file_name=f"diamond_{MONTHS_AR[month-1]}_{year}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_diamond_reports"
+                    )
+    elif st.session_state.user_type == "admin":
+        if st.button("📤 تصدير هذا الشهر إلى Excel", use_container_width=True):
+            bf = None if branch_filter=="الكل" else branch_filter
+            df_rep, path_rep = export_to_excel(branch_filter=bf, month=month, year=year)
+            if df_rep.empty:
+                st.warning("لا توجد زيارات لتصديرها.")
+            else:
+                fname_rep = f"visits_{MONTHS_AR[month-1]}_{year}{'_'+bf if bf else ''}.xlsx"
+                with open(path_rep,"rb") as fh:
+                    st.download_button(
+                        f"📥 تحميل ملف {MONTHS_AR[month-1]} {year}",
+                        data=fh,
+                        file_name=fname_rep,
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_admin_reports"
+                    )
+    st.markdown("---")
+
     if not visits:
         st.info("لا توجد زيارات في هذا الشهر / الفرع.")
     else:
@@ -1201,7 +1407,6 @@ elif st.session_state.page == "reports":
           <div class="stat-box"><div class="stat-num" style="font-size:15px">{t_rev:,.0f}</div><div class="stat-label">الإيراد (جنيه)</div></div>
         </div>''', unsafe_allow_html=True)
 
-        # الإيراد اليومي
         st.markdown("#### 📊 الإيراد اليومي")
         daily = {}
         for v in visits:
@@ -1212,7 +1417,6 @@ elif st.session_state.page == "reports":
             df_daily = pd.DataFrame(sorted(daily.items()), columns=["التاريخ","الإيراد"])
             st.bar_chart(df_daily.set_index("التاريخ"))
 
-        # توزيع الأطباء
         st.markdown("#### 👨‍⚕️ توزيع الزيارات على الأطباء")
         doc_counts = {}
         for v in visits:
@@ -1222,7 +1426,6 @@ elif st.session_state.page == "reports":
             df_dc = pd.DataFrame(doc_counts.items(), columns=["الدكتور","عدد الزيارات"])
             st.bar_chart(df_dc.set_index("الدكتور"))
 
-        # جدول ملخص
         st.markdown("#### 📋 ملخص تفصيلي")
         summary = {}
         for v in visits:
@@ -1251,7 +1454,6 @@ elif st.session_state.page == "reports":
             "الانتقال":"{:,.0f} ج","الإجمالي":"{:,.0f} ج"
         }), use_container_width=True)
 
-        # تقرير HTML
         month_name   = MONTHS_AR[month-1]
         branch_title = f" - فرع {branch_filter}" if branch_filter!="الكل" else ""
         report_title = f"تقرير زيارات {month_name} {year}{branch_title}"
@@ -1284,9 +1486,12 @@ elif st.session_state.page == "reports":
             <p style="text-align:center;margin-top:30px;">تم إنشاؤه بواسطة Orange Lab Home Visit</p>
         </div>"""
         st.components.v1.html(printable_html, height=500, scrolling=True)
-        csv = df.to_csv(index=False).encode("utf-8-sig")
-        st.download_button("📥 تحميل CSV", data=csv,
-                           file_name=f"تقرير_زيارات_{month_name}_{year}.csv", mime="text/csv")
+
+        # زر تصدير CSV للأدمن فقط
+        if st.session_state.user_type == "admin":
+            csv = df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button("📥 تحميل CSV", data=csv,
+                               file_name=f"تقرير_زيارات_{month_name}_{year}.csv", mime="text/csv")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Dashboard (أدمن فقط)
@@ -1318,7 +1523,6 @@ elif st.session_state.page == "dashboard":
 
     st.markdown("---")
 
-    # الإيراد الشهري آخر 6 شهور
     st.markdown("#### 📅 الإيراد الشهري — آخر 6 شهور")
     monthly = {}
     for v in all_vs:
@@ -1337,7 +1541,6 @@ elif st.session_state.page == "dashboard":
 
     st.markdown("---")
 
-    # مقارنة الفروع
     st.markdown("#### 🏥 مقارنة الفروع")
     branch_data = {}
     for v in all_vs:
@@ -1356,7 +1559,6 @@ elif st.session_state.page == "dashboard":
 
     st.markdown("---")
 
-    # أكثر التحاليل طلباً
     st.markdown("#### 🧪 أكثر التحاليل طلباً (Top 10)")
     labs_counter = {}
     for v in all_vs:
@@ -1372,7 +1574,6 @@ elif st.session_state.page == "dashboard":
 
     st.markdown("---")
 
-    # توزيع الحالات
     st.markdown("#### 🔖 توزيع حالات الزيارات")
     status_counts = {}
     for v in all_vs:
@@ -1386,7 +1587,6 @@ elif st.session_state.page == "dashboard":
 
     st.markdown("---")
 
-    # أكثر الأطباء نشاطاً
     st.markdown("#### 👨‍⚕️ أكثر الأطباء نشاطاً")
     doc_stats = {}
     for v in all_vs:
