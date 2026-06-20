@@ -142,8 +142,10 @@ def init_db():
         )
     """)
     safe_cols = [
-        ("age_unit", "TEXT DEFAULT 'سنة'"),
-        ("status",   "TEXT DEFAULT 'مجدولة'"),
+        ("age_unit",  "TEXT DEFAULT 'سنة'"),
+        ("status",    "TEXT DEFAULT 'مجدولة'"),
+        ("rating",    "INTEGER DEFAULT 0"),
+        ("tag",       "TEXT DEFAULT ''"),
     ]
     for col, definition in safe_cols:
         try:
@@ -283,6 +285,36 @@ def delete_visit(visit_id):
     conn = get_connection()
     conn.execute("DELETE FROM visits WHERE id=?", (visit_id,))
     conn.commit()
+
+def update_rating(visit_id, rating):
+    conn = get_connection()
+    conn.execute("UPDATE visits SET rating=? WHERE id=?", (rating, visit_id))
+    conn.commit()
+
+def update_tag(visit_id, tag):
+    conn = get_connection()
+    conn.execute("UPDATE visits SET tag=? WHERE id=?", (tag, visit_id))
+    conn.commit()
+
+def get_client_tag(phone):
+    """تصنيف العميل تلقائياً بناءً على عدد زياراته المكتملة"""
+    conn  = get_connection()
+    count = conn.execute(
+        "SELECT COUNT(*) FROM visits WHERE phone=? AND status='تمت'", (phone,)
+    ).fetchone()[0]
+    if count == 0:
+        return "🆕 عميل جديد"
+    elif count <= 2:
+        return "⭐ عميل منتظم"
+    elif count <= 5:
+        return "🌟 عميل متكرر"
+    else:
+        return "👑 VIP"
+
+def get_client_tag_color(tag):
+    return {"🆕 عميل جديد":"#3498DB","⭐ عميل منتظم":"#27AE60",
+            "🌟 عميل متكرر":"#F39C12","👑 VIP":"#9B59B6",
+            "🏢 Corporate":"#E74C3C"}.get(tag,"#888")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # تصدير / استيراد
@@ -673,6 +705,194 @@ QUICK_PANELS = [
 ]
 
 # ══════════════════════════════════════════════════════════════════════════════
+# محرك الاقتراحات الذكي
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── قواعد الـ Bundles (عروض التوفير) ──
+# لو العميل اختار واحد من القائمة → يُقترح البديل الأوفر
+BUNDLE_RULES = [
+    {
+        "trigger":  ["Vitamin D3(25 Hydroxy Cholecal.)"],
+        "bundle":   "Vitamin D3 Couple",          # الاسم في السيستم لو موجود
+        "note":     "💡 عرض الفردين بسعر أوفر — وفّر فلوس!",
+        "saving_fn": lambda price_lookup: (
+            price_lookup.get("Vitamin D3(25 Hydroxy Cholecal.)", 400) * 2
+            - price_lookup.get("Vitamin D3 Couple",
+              price_lookup.get("Vitamin D3(25 Hydroxy Cholecal.)", 400) + 200)
+        ),
+        # لو مفيش bundle في السيستم، يقترح إضافة تحليل ثاني بخصم
+        "fallback_add": "Vitamin D3(25 Hydroxy Cholecal.)",
+        "fallback_note": "💡 إضافة فيتامين د ثاني للفردين بخصم خاص — راجع السعر مع الإدارة",
+    },
+]
+
+# ── قواعد Panel Completion ──
+# لو العميل اختار X% من panel معين → اقترح الباقي
+PANEL_SUGGEST_RULES = [
+    {
+        "panel":       "🍬 Diabetes",
+        "core":        ["HbA1C"],
+        "suggest":     ["Urea","Creatinine (Serum)","ALT (SGPT)","Urine Examination","Uric Acid","AST (SGOT)"],
+        "reason":      "متابعة مريض السكر — يُنصح بقياس وظائف الكلى والكبد",
+    },
+    {
+        "panel":       "❤️ Cardiac",
+        "core":        ["Cholesterol","Triglycerides"],
+        "suggest":     ["HDL","LDL","ALT (SGPT)","Uric Acid"],
+        "reason":      "تقييم القلب والأوعية الدموية الكامل",
+    },
+    {
+        "panel":       "🦋 Thyroid",
+        "core":        ["TSH"],
+        "suggest":     ["FT3","FT4"],
+        "reason":      "TSH وحده غير كافٍ — يُنصح بالثلاثي الكامل",
+    },
+    {
+        "panel":       "🧪 Kidney",
+        "core":        ["Urea","Creatinine (Serum)"],
+        "suggest":     ["Uric Acid","Urine Examination"],
+        "reason":      "تقييم وظائف الكلى الكامل",
+    },
+    {
+        "panel":       "🫀 Liver",
+        "core":        ["ALT (SGPT)","AST (SGOT)"],
+        "suggest":     ["Albumin (ALB)","Bilirubin Total","Alkaline Phosphatase (ALP)","GGT"],
+        "reason":      "تقييم وظائف الكبد الكامل",
+    },
+    {
+        "panel":       "🔋 Fatigue",
+        "core":        ["CBC","Ferritin"],
+        "suggest":     ["Vitamin D3(25 Hydroxy Cholecal.)","TSH","B12"],
+        "reason":      "الإجهاد المزمن — شيّك على الفيتامينات والغدة",
+    },
+    {
+        "panel":       "🩸 Anemia",
+        "core":        ["CBC"],
+        "suggest":     ["Ferritin","Iron (Serum)","TIBC","B12","Folic Acid"],
+        "reason":      "CBC وحده لا يكفي لتشخيص الأنيميا — أضف مؤشرات الحديد",
+    },
+    {
+        "panel":       "🌟 General",
+        "core":        ["CBC","Cholesterol","HbA1C"],
+        "suggest":     ["TSH","Vitamin D3(25 Hydroxy Cholecal.)","Ferritin"],
+        "reason":      "فحص شامل — أضف فيتامين د والغدة الدرقية لصورة أكتمل",
+    },
+]
+
+# ── قواعد Clinical (علاقات طبية ثابتة) ──
+CLINICAL_RULES = [
+    {
+        "if_present":  ["HbA1C","Cholesterol"],
+        "suggest":     ["Creatinine (Serum)","ALT (SGPT)"],
+        "reason":      "مريض سكر + دهون → وظائف كلى وكبد ضرورية",
+    },
+    {
+        "if_present":  ["TSH"],
+        "suggest":     ["Cholesterol","CBC"],
+        "reason":      "اضطراب الغدة الدرقية يؤثر على الدهون والدم",
+    },
+    {
+        "if_present":  ["Ferritin"],
+        "suggest":     ["CBC","Iron (Serum)"],
+        "reason":      "فيريتين بدون صورة دم ومخزون حديد غير مكتمل",
+    },
+    {
+        "if_present":  ["Creatinine (Serum)","Urea"],
+        "suggest":     ["Urine Examination","Uric Acid"],
+        "reason":      "وظائف كلى — أضف تحليل بول وحمض يوريك",
+    },
+    {
+        "if_present":  ["ALT (SGPT)","AST (SGOT)"],
+        "suggest":     ["Albumin (ALB)","Bilirubin Total"],
+        "reason":      "وظائف كبد جزئية — أضف الألبيومين والبيليروبين",
+    },
+    {
+        "if_present":  ["Vitamin D3(25 Hydroxy Cholecal.)"],
+        "suggest":     ["Calcium (Serum)","Phosphorus (Serum)"],
+        "reason":      "فيتامين د مع الكالسيوم والفوسفور للتقييم الكامل",
+    },
+    {
+        "if_present":  ["CBC","Ferritin","Vitamin D3(25 Hydroxy Cholecal.)"],
+        "suggest":     ["B12","Folic Acid"],
+        "reason":      "فحص إجهاد شامل — أضف ب12 وحمض الفوليك",
+    },
+]
+
+def get_smart_suggestions(selected_labs_list, price_lookup):
+    """
+    يحلل التحاليل المختارة ويرجع:
+    - panel_suggestions: اقتراحات إكمال Panels
+    - clinical_suggestions: اقتراحات طبية
+    - bundle_suggestions: عروض توفير
+    كل اقتراح: {name, reason, price, type}
+    """
+    # استخراج أسماء التحاليل النظيفة (بدون السعر)
+    clean_selected = set()
+    for entry in selected_labs_list:
+        name = entry.split(" — ")[0].strip()
+        clean_selected.add(name)
+
+    all_suggestions = {}
+
+    def add_suggestion(name, reason, stype):
+        if name not in clean_selected and name not in all_suggestions:
+            price = price_lookup.get(name, 0)
+            all_suggestions[name] = {
+                "name":   name,
+                "reason": reason,
+                "price":  price,
+                "type":   stype,
+            }
+
+    # ── Panel Completion ──
+    for rule in PANEL_SUGGEST_RULES:
+        matched_core = [t for t in rule["core"] if t in clean_selected]
+        if not matched_core:
+            continue
+        missing = [t for t in rule["suggest"] if t not in clean_selected]
+        if missing:
+            for t in missing:
+                add_suggestion(t, f"{rule['panel']} — {rule['reason']}", "panel")
+
+    # ── Clinical Rules ──
+    for rule in CLINICAL_RULES:
+        if all(t in clean_selected for t in rule["if_present"]):
+            for t in rule["suggest"]:
+                add_suggestion(t, rule["reason"], "clinical")
+
+    # ── Bundle Rules ──
+    bundle_suggestions = []
+    for rule in BUNDLE_RULES:
+        if any(t in clean_selected for t in rule["trigger"]):
+            # لو العميل اختار فيتامين د واحد بس
+            vd_count = sum(1 for e in selected_labs_list
+                           if "Vitamin D3(25 Hydroxy Cholecal.)" in e)
+            if vd_count == 1:
+                bundle_price = price_lookup.get("Vitamin D3 Couple", 0)
+                single_price = price_lookup.get("Vitamin D3(25 Hydroxy Cholecal.)", 400)
+                if bundle_price > 0:
+                    saving = single_price * 2 - bundle_price
+                    bundle_suggestions.append({
+                        "name":    "Vitamin D3 Couple",
+                        "note":    f"💡 استبدل بـ Couple وادفع {bundle_price} بدل {single_price*2} — توفير {saving} جنيه!",
+                        "action":  "replace",
+                        "remove":  "Vitamin D3(25 Hydroxy Cholecal.)",
+                        "price":   bundle_price,
+                        "saving":  saving,
+                    })
+                else:
+                    # مفيش bundle في السيستم — اقترح إضافة تاني بخصم
+                    bundle_suggestions.append({
+                        "name":    "Vitamin D3(25 Hydroxy Cholecal.)",
+                        "note":    f"💡 إضافة فيتامين د ثاني للفردين — السعر الإجمالي {single_price + 200} بدل {single_price * 2}",
+                        "action":  "add_discounted",
+                        "price":   200,
+                        "saving":  single_price - 200,
+                    })
+
+    return all_suggestions, bundle_suggestions
+
+# ══════════════════════════════════════════════════════════════════════════════
 # قائمة الأسعار
 # ══════════════════════════════════════════════════════════════════════════════
 try:
@@ -928,11 +1148,16 @@ def visit_card_html(v):
     status     = v.get("status","مجدولة")
     sc         = STATUS_COLORS.get(status,"#888")
     si         = STATUS_ICONS.get(status,"")
+    tag_auto   = get_client_tag(v.get("phone",""))
+    tag_color  = get_client_tag_color(tag_auto)
+    rating     = int(v.get("rating", 0) or 0)
+    stars      = "⭐" * rating if rating else ""
     return f'''
     <div class="visit-card">
       <span class="visit-badge">{total:,} جنيه</span>
       <span class="status-badge" style="background:{sc}">{si} {status}</span>
-      <div class="visit-name">👤 {v["name"]}</div>
+      <span style="background:{tag_color};color:#fff;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:700;margin-right:4px;">{tag_auto}</span>
+      <div class="visit-name">👤 {v["name"]} {stars}</div>
       <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate} {vtime} &nbsp; {age_disp}</div>
       <div class="visit-meta">📍 {addr_short}</div>
       <div class="visit-meta" style="margin-top:5px">🧪 {lc} تحليل{doc_show}{br_show}</div>
@@ -1117,7 +1342,64 @@ elif st.session_state.page == "new":
         cur_au   = pf.get("age_unit","سنة")
         if cur_au not in au_opts: cur_au = "سنة"
         age_unit = st.radio("الوحدة", au_opts, index=au_opts.index(cur_au), horizontal=True)
-    phone       = st.text_input("رقم التليفون *", value=pf.get("phone",""), placeholder="01xxxxxxxxx")
+    phone = st.text_input("رقم التليفون *", value=pf.get("phone",""), placeholder="01xxxxxxxxx")
+
+    # ── تحذير التكرار + تصنيف العميل (في الزيارات الجديدة فقط) ──
+    if phone and len(phone) >= 10 and not is_edit:
+        prev_visits = fetch_client_history(phone)
+        if prev_visits:
+            tag_auto  = get_client_tag(phone)
+            tag_color = get_client_tag_color(tag_auto)
+            last_v    = prev_visits[0]
+            last_date = format_date_ar(last_v.get("visit_date",""))
+            last_stat = last_v.get("status","")
+            n_total   = len(prev_visits)
+            st.markdown(f'''
+            <div style="background:#FFF3CD;border:2px solid #F39C12;border-radius:12px;
+                        padding:12px 16px;margin:8px 0;direction:rtl;">
+              <div style="font-weight:800;color:#E67E22;font-size:14px;margin-bottom:6px;">
+                ⚠️ هذا العميل موجود في النظام
+              </div>
+              <div style="font-size:13px;color:#333;line-height:1.8;">
+                👤 <b>{last_v.get("name","")}</b> &nbsp;|&nbsp;
+                <span style="background:{tag_color};color:#fff;border-radius:8px;
+                             padding:2px 8px;font-size:11px;">{tag_auto}</span><br>
+                📋 إجمالي الزيارات: <b>{n_total}</b><br>
+                📅 آخر زيارة: <b>{last_date}</b> — {last_stat}
+              </div>
+            </div>''', unsafe_allow_html=True)
+
+            col_use, col_ignore = st.columns(2)
+            with col_use:
+                if st.button("✅ استخدم بياناته السابقة", key="use_prev_data", use_container_width=True):
+                    st.session_state.prefill = {
+                        "name":        last_v.get("name",""),
+                        "age":         last_v.get("age",""),
+                        "age_unit":    last_v.get("age_unit","سنة"),
+                        "phone":       last_v.get("phone",""),
+                        "address":     last_v.get("address",""),
+                        "location_link": last_v.get("location_link",""),
+                        "doctor_name": last_v.get("doctor_name",""),
+                        "branch":      last_v.get("branch","La Cite"),
+                        "selected_labs_text": last_v.get("selected_labs_text",""),
+                        "labs_price_before":  last_v.get("labs_price_before",0),
+                        "labs_price_after":   last_v.get("labs_price_after",0),
+                        "transport_fee":      last_v.get("transport_fee",100),
+                        "visit_time":  "",
+                        "notes":       "",
+                    }
+                    st.rerun()
+            with col_ignore:
+                if "ignore_dup_warning" not in st.session_state:
+                    st.session_state.ignore_dup_warning = False
+                if st.button("➕ متابعة كزيارة جديدة", key="ignore_dup", use_container_width=True):
+                    st.session_state.ignore_dup_warning = True
+                    st.rerun()
+        else:
+            # عميل جديد
+            st.markdown('''<div style="background:#D5F5E3;border:1.5px solid #27AE60;border-radius:10px;
+                          padding:8px 14px;margin:6px 0;font-size:13px;color:#1E8449;">
+                          🆕 عميل جديد — لم يسبق له زيارة</div>''', unsafe_allow_html=True)
     DOCTOR_LIST = ["حسين علي","ايه جمال","محمد شفيق","شيرين احمد","محمد","عطيه","ضي","طارق الشافعي","أخرى..."]
     saved_doc   = pf.get("doctor_name","")
     doc_index   = DOCTOR_LIST.index(saved_doc) if saved_doc in DOCTOR_LIST else (len(DOCTOR_LIST)-1 if saved_doc else 0)
@@ -1231,10 +1513,99 @@ elif st.session_state.page == "new":
 
     selected_labs_text = "\n".join(st.session_state[labs_ss_key])
     selected_labs      = st.session_state[labs_ss_key][:]
+
+    # ─────────────────────────────────────────────────────────────────
+    # 🤖 اقتراحات ذكية
+    # ─────────────────────────────────────────────────────────────────
+    if st.session_state[labs_ss_key] and LABS_PRICE_LOOKUP:
+        sugg_all, bundle_sugg = get_smart_suggestions(
+            st.session_state[labs_ss_key], LABS_PRICE_LOOKUP
+        )
+        if sugg_all or bundle_sugg:
+            st.markdown(
+                '<div style="background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:14px;'
+                'padding:12px 16px;margin:12px 0;">'
+                '<div style="color:#FF6B00;font-weight:800;font-size:14px;margin-bottom:4px;">'
+                '🤖 اقتراحات ذكية</div></div>',
+                unsafe_allow_html=True
+            )
+
+            # ── Bundle Offers أولاً ──
+            for b in bundle_sugg:
+                st.markdown(
+                    f'<div style="background:#FFF9E6;border:2px solid #F39C12;border-radius:10px;'
+                    f'padding:10px 14px;margin-bottom:8px;">'
+                    f'<b style="color:#E67E22;">💰 عرض توفير</b><br>'
+                    f'<span style="font-size:12px;color:#333;">{b["note"]}</span></div>',
+                    unsafe_allow_html=True
+                )
+                if b["action"] == "replace":
+                    bc1, bc2 = st.columns(2)
+                    with bc1:
+                        if st.button(f'🔄 استبدل بـ {b["name"]}', key=f'bundle_rep_{b["name"]}_{vid_key}', use_container_width=True):
+                            st.session_state[labs_ss_key] = [
+                                e for e in st.session_state[labs_ss_key]
+                                if b["remove"] not in e
+                            ]
+                            price = LABS_PRICE_LOOKUP.get(b["name"], b["price"])
+                            entry = f'{b["name"]} — {price} جنيه' if price else b["name"]
+                            st.session_state[labs_ss_key].append(entry)
+                            st.rerun()
+                    with bc2:
+                        st.button("❌ تجاهل العرض", key=f'bundle_ign_{b["name"]}_{vid_key}', use_container_width=True)
+                elif b["action"] == "add_discounted":
+                    if st.button(f'➕ أضف فيتامين د ثاني بـ {b["price"]} جنيه', key=f'bundle_add_{vid_key}', use_container_width=True):
+                        st.session_state[labs_ss_key].append(
+                            f'Vitamin D3(25 Hydroxy Cholecal.) — {b["price"]} جنيه (سعر خاص - الفردين)'
+                        )
+                        st.rerun()
+
+            # ── Panel & Clinical Suggestions ──
+            if sugg_all:
+                shown_reasons = set()
+                for lab_name, info in sugg_all.items():
+                    if info["reason"] not in shown_reasons:
+                        shown_reasons.add(info["reason"])
+                        icon = "🔬" if info["type"] == "panel" else "⚕️"
+                        st.markdown(
+                            f'<div style="font-size:11px;color:#888;margin:8px 0 4px 0;'
+                            f'border-right:3px solid #FF6B00;padding-right:8px;">{icon} {info["reason"]}</div>',
+                            unsafe_allow_html=True
+                        )
+                    price_str = f' — {info["price"]} جنيه' if info["price"] else ""
+                    sc1, sc2 = st.columns([7, 3])
+                    with sc1:
+                        st.markdown(
+                            f'<div style="background:#F8F9FA;border-radius:8px;padding:7px 12px;'
+                            f'font-size:12px;color:#222;border-right:3px solid #27AE60;">'
+                            f'🧪 <b>{lab_name}</b>{price_str}</div>',
+                            unsafe_allow_html=True
+                        )
+                    with sc2:
+                        if st.button("➕ أضف", key=f'sugg_{lab_name}_{vid_key}', use_container_width=True):
+                            existing_names = [e.split(" — ")[0].strip() for e in st.session_state[labs_ss_key]]
+                            if lab_name not in existing_names:
+                                entry = f'{lab_name} — {info["price"]} جنيه' if info["price"] else lab_name
+                                st.session_state[labs_ss_key].append(entry)
+                            st.rerun()
+
+                st.markdown("---")
+                if st.button("📋 أضف كل الاقتراحات لملاحظات الدكتور", key=f"add_all_notes_{vid_key}", use_container_width=True):
+                    notes_text = "💡 اقتراحات النظام:\n"
+                    for lab_name, info in sugg_all.items():
+                        p = f' ({info["price"]} ج)' if info["price"] else ""
+                        notes_text += f'• {lab_name}{p} — {info["reason"]}\n'
+                    st.session_state[f"auto_notes_{vid_key}"] = notes_text
+                    st.rerun()
+
     st.markdown("---")
 
     st.markdown('<div class="section-title">📌 ملاحظات</div>', unsafe_allow_html=True)
-    notes = st.text_area("ملاحظات خاصة", value=pf.get("notes",""), height=75)
+    auto_notes_val = st.session_state.get(f"auto_notes_{vid_key}", "")
+    default_notes  = pf.get("notes","")
+    if auto_notes_val and auto_notes_val not in default_notes:
+        default_notes = (default_notes + "\n" + auto_notes_val).strip()
+    notes = st.text_area("ملاحظات خاصة", value=default_notes, height=75)
     st.markdown("---")
 
     st.markdown('<div class="section-title">💰 الأسعار</div>', unsafe_allow_html=True)
@@ -1376,7 +1747,76 @@ elif st.session_state.page == "detail":
                         go("detail", visit_id=hv["id"])
             st.markdown("---")
 
-        # واتساب — بدون زرار التذكير
+        # ── تصنيف العميل ──
+        client_tag   = get_client_tag(v.get("phone",""))
+        tag_clr      = get_client_tag_color(client_tag)
+        all_visits_c = fetch_client_history(v.get("phone",""))
+        done_count   = sum(1 for hv in all_visits_c if hv.get("status")=="تمت")
+        cur_rating   = int(v.get("rating", 0) or 0)
+
+        st.markdown(f'''
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+          <span style="background:{tag_clr};color:#fff;border-radius:20px;padding:5px 14px;
+                      font-weight:800;font-size:13px;">{client_tag}</span>
+          <span style="color:#888;font-size:12px;">زيارات مكتملة: <b style="color:#27AE60">{done_count}</b></span>
+          {f'<span style="font-size:16px;">{"⭐"*cur_rating}</span>' if cur_rating else ""}
+        </div>''', unsafe_allow_html=True)
+
+        # ── تغيير Tag يدوي ──
+        tag_options = ["🆕 عميل جديد","⭐ عميل منتظم","🌟 عميل متكرر","👑 VIP","🏢 Corporate"]
+        saved_tag   = v.get("tag","") or client_tag
+        if saved_tag not in tag_options: saved_tag = client_tag
+        new_tag = st.selectbox("🏷️ تصنيف العميل", tag_options,
+                               index=tag_options.index(saved_tag) if saved_tag in tag_options else 0,
+                               key=f"tag_sel_{v['id']}")
+        if new_tag != v.get("tag",""):
+            update_tag(v["id"], new_tag)
+
+        st.markdown("---")
+
+        # ── تقييم الزيارة ──
+        st.markdown('<div class="section-title">📊 تقييم الزيارة</div>', unsafe_allow_html=True)
+        if status == "تمت":
+            rating_cols = st.columns(6)
+            with rating_cols[0]:
+                st.markdown('<div style="font-size:13px;color:#888;padding-top:8px;">التقييم:</div>', unsafe_allow_html=True)
+            for star_n in range(1,6):
+                with rating_cols[star_n]:
+                    star_icon = "⭐" if star_n <= cur_rating else "☆"
+                    if st.button(f"{star_icon}{star_n}", key=f"star_{v['id']}_{star_n}", use_container_width=True):
+                        update_rating(v["id"], star_n); st.rerun()
+            if cur_rating:
+                st.markdown(f'<div style="text-align:center;font-size:13px;color:#FF6B00;font-weight:700;margin-top:4px;">التقييم الحالي: {"⭐"*cur_rating} ({cur_rating}/5)</div>', unsafe_allow_html=True)
+
+            # رسالة واتساب التقييم
+            cname_r = v.get('name','')
+            rating_msg = (
+                f"🟠 *Orange Lab Home Visit*\n"
+                f"━━━━━━━━━━━━━━\n"
+                f"أهلاً {cname_r} 🌟\n"
+                "شكراً لاختيارك معمل أورانج لاب للزيارة المنزلية!\n\n"
+                "نتمنى أن الخدمة كانت على مستوى توقعاتك 🧡\n\n"
+                "⭐ *قيّم خدمتنا من 1 إلى 5:*\n"
+                "  1️⃣ - ضعيف\n"
+                "  2️⃣ - مقبول\n"
+                "  3️⃣ - جيد\n"
+                "  4️⃣ - جيد جداً\n"
+                "  5️⃣ - ممتاز\n\n"
+                "رأيك يهمنا لتحسين خدماتنا 💛\n"
+                "━━━━━━━━━━━━━━\n"
+                "*معمل أورانج لاب*"
+            )
+            st.markdown(
+                f'<a href="{whatsapp_link(rating_msg, v.get("phone"))}" target="_blank" '
+                f'class="wa-btn" style="background:#9B59B6;margin-top:8px;">📊 إرسال طلب تقييم على واتساب</a>',
+                unsafe_allow_html=True
+            )
+        else:
+            st.info("التقييم متاح فقط بعد اكتمال الزيارة (حالة: تمت)")
+
+        st.markdown("---")
+
+        # واتساب
         st.markdown('<div class="section-title">📱 إرسال على واتساب</div>', unsafe_allow_html=True)
         wc1, wc2, wc3 = st.columns(3)
         with wc1:
@@ -1607,6 +2047,13 @@ elif st.session_state.page == "dashboard":
     if st.session_state.user_type != "admin":
         st.error("هذه الصفحة للأدمن فقط."); st.stop()
 
+    try:
+        import plotly.graph_objects as go_plt
+        import plotly.express as px
+        HAS_PLOTLY = True
+    except ImportError:
+        HAS_PLOTLY = False
+
     st.markdown("## 📊 Dashboard — نظرة عامة")
     all_vs   = fetch_visits()
     today_s  = date.today().isoformat()
@@ -1624,87 +2071,4 @@ elif st.session_state.page == "dashboard":
       <div class="stat-box"><div class="stat-num">{total_all}</div><div class="stat-label">إجمالي كل الزيارات</div></div>
       <div class="stat-box"><div class="stat-num" style="color:#27AE60">{done_all}</div><div class="stat-label">تمت بنجاح ✅</div></div>
       <div class="stat-box"><div class="stat-num">{today_cnt}</div><div class="stat-label">زيارات اليوم</div></div>
-      <div class="stat-box"><div class="stat-num" style="font-size:14px">{rev_all:,.0f}</div><div class="stat-label">إجمالي الإيراد</div></div>
-      <div class="stat-box"><div class="stat-num" style="font-size:14px">{week_rev:,.0f}</div><div class="stat-label">إيراد آخر 7 أيام</div></div>
-    </div>''', unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    st.markdown("#### 📅 الإيراد الشهري — آخر 6 شهور")
-    monthly = {}
-    for v in all_vs:
-        if v.get("status")=="ملغية": continue
-        try:
-            d  = datetime.strptime(v.get("visit_date",""), "%Y-%m-%d")
-            mk = f"{MONTHS_AR[d.month-1]} {d.year}"
-            if mk not in monthly: monthly[mk] = {"rev":0,"count":0,"year":d.year,"month":d.month}
-            monthly[mk]["rev"]   += v.get("total_price",0)
-            monthly[mk]["count"] += 1
-        except: pass
-    if monthly:
-        sorted_m = sorted(monthly.keys(), key=lambda k: (monthly[k]["year"], monthly[k]["month"]))[-6:]
-        df_m = pd.DataFrame([(m, monthly[m]["rev"]) for m in sorted_m], columns=["الشهر","الإيراد"])
-        st.bar_chart(df_m.set_index("الشهر"))
-
-    st.markdown("---")
-
-    st.markdown("#### 🏥 مقارنة الفروع")
-    branch_data = {}
-    for v in all_vs:
-        br = v.get("branch","غير محدد") or "غير محدد"
-        if br not in branch_data: branch_data[br] = {"count":0,"rev":0,"done":0}
-        branch_data[br]["count"] += 1
-        if v.get("status")!="ملغية": branch_data[br]["rev"]  += v.get("total_price",0)
-        if v.get("status")=="تمت":   branch_data[br]["done"] += 1
-    if branch_data:
-        df_br = pd.DataFrame([
-            {"الفرع":b,"الزيارات":d["count"],"تمت":d["done"],"الإيراد":d["rev"]}
-            for b,d in branch_data.items()
-        ])
-        st.dataframe(df_br.style.format({"الإيراد":"{:,.0f} ج"}), use_container_width=True)
-        st.bar_chart(df_br.set_index("الفرع")["الإيراد"])
-
-    st.markdown("---")
-
-    st.markdown("#### 🧪 أكثر التحاليل طلباً (Top 10)")
-    labs_counter = {}
-    for v in all_vs:
-        txt = v.get("selected_labs_text","")
-        if not txt: continue
-        for line in txt.splitlines():
-            lab = line.strip().split(" — ")[0].strip()
-            if lab: labs_counter[lab] = labs_counter.get(lab,0)+1
-    if labs_counter:
-        top10 = sorted(labs_counter.items(), key=lambda x: x[1], reverse=True)[:10]
-        df_l  = pd.DataFrame(top10, columns=["التحليل","عدد الطلبات"])
-        st.bar_chart(df_l.set_index("التحليل"))
-
-    st.markdown("---")
-
-    st.markdown("#### 🔖 توزيع حالات الزيارات")
-    status_counts = {}
-    for v in all_vs:
-        s = v.get("status","مجدولة")
-        status_counts[s] = status_counts.get(s,0)+1
-    if status_counts:
-        df_s = pd.DataFrame(status_counts.items(), columns=["الحالة","العدد"])
-        col_s1, col_s2 = st.columns(2)
-        with col_s1: st.dataframe(df_s, use_container_width=True)
-        with col_s2: st.bar_chart(df_s.set_index("الحالة"))
-
-    st.markdown("---")
-
-    st.markdown("#### 👨‍⚕️ أكثر الأطباء نشاطاً")
-    doc_stats = {}
-    for v in all_vs:
-        doc = v.get("doctor_name","غير محدد") or "غير محدد"
-        if doc not in doc_stats: doc_stats[doc] = {"count":0,"rev":0}
-        doc_stats[doc]["count"] += 1
-        if v.get("status")!="ملغية": doc_stats[doc]["rev"] += v.get("total_price",0)
-    if doc_stats:
-        df_d = pd.DataFrame([
-            {"الدكتور":d,"الزيارات":s["count"],"الإيراد":s["rev"]}
-            for d,s in doc_stats.items()
-        ]).sort_values("الزيارات",ascending=False)
-        st.dataframe(df_d.style.format({"الإيراد":"{:,.0f} ج"}), use_container_width=True)
-        st.bar_chart(df_d.set_index("الدكتور")["الزيارات"])
+      <div class="stat
