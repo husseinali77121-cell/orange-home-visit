@@ -282,7 +282,7 @@ def delete_visit(visit_id):
 # تصدير / استيراد
 # ══════════════════════════════════════════════════════════════════════════════
 def export_to_excel(branch_filter=None, month=None, year=None):
-    """تصدير الزيارات إلى Excel مع تنسيق احترافي وصف إجمالي"""
+    """تصدير الزيارات إلى Excel — جدول رئيسي + جدول الأطباء"""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
@@ -296,165 +296,224 @@ def export_to_excel(branch_filter=None, month=None, year=None):
     visits = fetch_visits(filters if filters else None)
     df = pd.DataFrame(visits)
 
-    COLS_ORDER = ["id","created_at","name","age","age_unit","phone","visit_date","visit_time",
-                  "doctor_name","branch","address","location_link","selected_labs_text","notes",
-                  "labs_price_before","labs_price_after","transport_fee","total_price","status"]
-    COL_NAMES_AR = {
-        'id': 'رقم الزيارة', 'created_at': 'تاريخ الإنشاء', 'name': 'الاسم',
-        'age': 'السن', 'age_unit': 'الوحدة', 'phone': 'التليفون',
-        'visit_date': 'تاريخ الزيارة', 'visit_time': 'الوقت', 'doctor_name': 'الدكتور',
-        'branch': 'الفرع', 'address': 'العنوان', 'location_link': 'رابط الموقع',
-        'selected_labs_text': 'التحاليل', 'notes': 'ملاحظات',
-        'labs_price_before': 'السعر قبل الخصم', 'labs_price_after': 'السعر بعد الخصم',
-        'transport_fee': 'بدل الانتقال', 'total_price': 'الإجمالي', 'status': 'الحالة',
-    }
-    COL_WIDTHS = {
-        'id': 18, 'created_at': 20, 'name': 22, 'age': 8, 'age_unit': 8,
-        'phone': 16, 'visit_date': 14, 'visit_time': 10, 'doctor_name': 16,
-        'branch': 12, 'address': 30, 'location_link': 22,
-        'selected_labs_text': 28, 'notes': 20,
-        'labs_price_before': 16, 'labs_price_after': 16,
-        'transport_fee': 14, 'total_price': 14, 'status': 12,
-    }
-    PRICE_COLS   = ['labs_price_before','labs_price_after','transport_fee','total_price']
-    STATUS_LIST  = ['تمت','مجدولة','في الطريق','ملغية']
-    STATUS_ROW_COLORS = {
-        'تمت': 'D5F5E3', 'ملغية': 'FADBD8',
-        'في الطريق': 'FEF9E7', 'مجدولة': 'D6EAF8',
-    }
-    ORANGE = "FF6B00"; ORANGE_LIGHT = "FFF3E8"; TOTAL_BG = "FFE0C0"; WHITE = "FFFFFF"
-
+    # ── ألوان وأنماط ──
+    ORANGE       = "FF6B00"
+    ORANGE_LIGHT = "FFF3E8"
+    DOC_HDR_BG   = "2C3E50"
+    WHITE        = "FFFFFF"
+    STATUS_FILL  = {"تمت":"D5F5E3","ملغية":"FADBD8","في الطريق":"FEF9E7","مجدولة":"D6EAF8"}
     thin   = Side(style="thin", color="FFBB80")
     BORDER = Border(left=thin, right=thin, top=thin, bottom=thin)
     CENTER = Alignment(horizontal="center", vertical="center", wrap_text=True)
     RIGHT  = Alignment(horizontal="right",  vertical="center", wrap_text=True)
 
+    # ── الأعمدة الرئيسية (RTL — من اليمين لليسار) ──
+    MAIN_COLS = [
+        ("status",            "الحالة"),
+        ("total_price",       "الإجمالي"),
+        ("transport_fee",     "بدل الانتقال"),
+        ("labs_price_after",  "السعر بعد الخصم"),
+        ("labs_price_before", "السعر قبل الخصم"),
+        ("selected_labs_text","التحاليل"),
+        ("address",           "العنوان"),
+        ("doctor_name",       "الدكتور"),
+        ("visit_date",        "تاريخ الزيارة"),
+        ("phone",             "التليفون"),
+        ("name",              "الاسم"),
+    ]
+    PRICE_KEYS = {"labs_price_before","labs_price_after","transport_fee","total_price"}
+    col_keys   = [c[0] for c in MAIN_COLS]
+    col_labels = [c[1] for c in MAIN_COLS]
+    n_cols     = len(MAIN_COLS)
+    WIDTHS_MAIN = {
+        "status":10,"total_price":14,"transport_fee":14,
+        "labs_price_after":16,"labs_price_before":16,
+        "selected_labs_text":28,"address":32,
+        "doctor_name":14,"visit_date":13,"phone":15,"name":20,
+    }
+
+    # ── اسم الملف ──
+    month_label = f"{MONTHS_AR[month-1]} {year}" if month and year else str(date.today())
+    branch_label = f"فرع {branch_filter}" if branch_filter else "كل الفروع"
+    if branch_filter == "Diamond":
+        fname = f"diamond_{MONTHS_AR[month-1]}_{year}.xlsx" if month and year else f"diamond_{date.today()}.xlsx"
+    else:
+        fname = BACKUP_EXCEL
+
     if df.empty:
-        # ملف فارغ لو مفيش بيانات
-        fname = f"diamond_{date.today()}.xlsx" if branch_filter=="Diamond" else BACKUP_EXCEL
-        pd.DataFrame(columns=COLS_ORDER).to_excel(fname, index=False, engine="openpyxl")
+        pd.DataFrame().to_excel(fname, index=False, engine="openpyxl")
         return df, fname
 
-    cols = [c for c in COLS_ORDER if c in df.columns]
-    df   = df[cols]
-    n_cols = len(cols)
-    n_rows = len(df)
+    # فلتر للزيارات الصالحة (غير ملغية) لجدول الأطباء
+    df_valid = df[df["status"] != "ملغية"]
+    n_rows   = len(df)
 
     wb = Workbook()
     ws = wb.active
     ws.title = "الزيارات"
     ws.sheet_view.rightToLeft = True
 
-    # ── صف العنوان ──
-    branch_label = f"فرع {branch_filter}" if branch_filter else "كل الفروع"
-    if month and year:
-        branch_label += f" — {MONTHS_AR[month-1]} {year}"
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
-    c = ws.cell(row=1, column=1, value=f"🟠 Orange Lab Home Visit — {branch_label}")
-    c.font      = Font(name="Cairo", bold=True, color=WHITE, size=14)
-    c.fill      = PatternFill("solid", fgColor=ORANGE)
-    c.alignment = CENTER
-    ws.row_dimensions[1].height = 36
+    DATA_START = 4
+    DATA_END   = DATA_START + n_rows - 1
+    TOTAL_ROW  = DATA_END + 1
 
-    # ── صف ملخص الحالات ──
-    status_parts = "  |  ".join(
-        f"{s}: {(df['status']==s).sum()}"
-        for s in STATUS_LIST if (df['status']==s).sum() > 0
-    )
-    summary_txt = f"إجمالي: {n_rows} زيارة  |  {status_parts}  |  تاريخ التصدير: {date.today()}"
+    # ── ROW 1: عنوان ──
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=n_cols)
+    c = ws.cell(1, 1, f"🟠 Orange Lab Home Visit — {branch_label} — {month_label}")
+    c.font = Font(name="Cairo", bold=True, color=WHITE, size=14)
+    c.fill = PatternFill("solid", fgColor=ORANGE)
+    c.alignment = CENTER
+    ws.row_dimensions[1].height = 38
+
+    # ── ROW 2: ملخص ──
+    sl = ["تمت","مجدولة","في الطريق","ملغية"]
+    parts = "  |  ".join(f"{s}: {(df['status']==s).sum()}" for s in sl if (df['status']==s).sum()>0)
     ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=n_cols)
-    c = ws.cell(row=2, column=1, value=summary_txt)
-    c.font      = Font(name="Cairo", bold=True, color=ORANGE, size=10)
-    c.fill      = PatternFill("solid", fgColor=ORANGE_LIGHT)
+    c = ws.cell(2, 1, f"إجمالي: {n_rows} زيارة  |  {parts}  |  تاريخ التصدير: {date.today()}")
+    c.font = Font(name="Cairo", bold=True, color=ORANGE, size=10)
+    c.fill = PatternFill("solid", fgColor=ORANGE_LIGHT)
     c.alignment = CENTER
     ws.row_dimensions[2].height = 22
 
-    # ── رؤوس الأعمدة (row 3) ──
-    for ci, col in enumerate(cols, 1):
-        c = ws.cell(row=3, column=ci, value=COL_NAMES_AR.get(col, col))
-        c.font      = Font(name="Cairo", bold=True, color=WHITE, size=11)
-        c.fill      = PatternFill("solid", fgColor=ORANGE)
+    # ── ROW 3: رؤوس ──
+    for ci, label in enumerate(col_labels, 1):
+        c = ws.cell(3, ci, label)
+        c.font = Font(name="Cairo", bold=True, color=WHITE, size=11)
+        c.fill = PatternFill("solid", fgColor=ORANGE)
         c.alignment = CENTER
-        c.border    = BORDER
-    ws.row_dimensions[3].height = 28
+        c.border = BORDER
+    ws.row_dimensions[3].height = 30
 
-    # ── بيانات ──
-    for ri, (_, row) in enumerate(df.iterrows(), start=4):
-        row_color = STATUS_ROW_COLORS.get(str(row.get('status','')), WHITE)
-        for ci, col in enumerate(cols, 1):
-            val = row[col]
+    # ── ROWS 4+: بيانات ──
+    for ri, (_, row) in enumerate(df.iterrows(), start=DATA_START):
+        st = str(row.get("status",""))
+        fc = STATUS_FILL.get(st, WHITE)
+        for ci, key in enumerate(col_keys, 1):
+            val = row.get(key, "")
             if pd.isna(val): val = ""
-            c = ws.cell(row=ri, column=ci, value=val)
+            c = ws.cell(ri, ci, val)
             c.font   = Font(name="Cairo", size=10)
-            c.fill   = PatternFill("solid", fgColor=row_color)
+            c.fill   = PatternFill("solid", fgColor=fc)
             c.border = BORDER
-            if col in PRICE_COLS:
+            if key in PRICE_KEYS:
                 c.number_format = '#,##0 "ج"'
-                c.alignment     = Alignment(horizontal="center", vertical="center")
+                c.alignment = Alignment(horizontal="center", vertical="center")
+            elif key == "selected_labs_text":
+                c.alignment = Alignment(horizontal="right", vertical="top", wrap_text=True)
             else:
                 c.alignment = RIGHT
-        ws.row_dimensions[ri].height = 20
+        ws.row_dimensions[ri].height = 22
 
-    # ── صف الإجمالي ──
-    total_row = 4 + n_rows
-
-    # label
-    ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=3)
-    c = ws.cell(row=total_row, column=1, value="📊 الإجمالي الكلي")
-    c.font = Font(name="Cairo", bold=True, color=ORANGE, size=11)
-    c.fill = PatternFill("solid", fgColor=TOTAL_BG)
+    # ── صف الإجمالي الكلي ──
+    labs_ci = col_keys.index("selected_labs_text") + 1
+    ws.merge_cells(start_row=TOTAL_ROW, start_column=labs_ci, end_row=TOTAL_ROW, end_column=n_cols)
+    c = ws.cell(TOTAL_ROW, labs_ci, "الإجمالي الكلي")
+    c.font = Font(name="Cairo", bold=True, color=WHITE, size=12)
+    c.fill = PatternFill("solid", fgColor=ORANGE)
     c.alignment = CENTER; c.border = BORDER
 
-    # ملخص الحالات (عمود 4 → 13)
-    end_merge = min(13, n_cols - len(PRICE_COLS) - 1)
-    ws.merge_cells(start_row=total_row, start_column=4, end_row=total_row, end_column=end_merge)
-    c = ws.cell(row=total_row, column=4, value=status_parts)
-    c.font = Font(name="Cairo", bold=True, size=10, color="333333")
-    c.fill = PatternFill("solid", fgColor=TOTAL_BG)
-    c.alignment = CENTER; c.border = BORDER
+    for ci, key in enumerate(col_keys, 1):
+        if key in PRICE_KEYS:
+            cl = get_column_letter(ci)
+            c = ws.cell(TOTAL_ROW, ci, f"=SUM({cl}{DATA_START}:{cl}{DATA_END})")
+            c.font = Font(name="Cairo", bold=True, color=WHITE, size=12)
+            c.fill = PatternFill("solid", fgColor=ORANGE)
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            c.border = BORDER
+            c.number_format = '#,##0 "ج"'
+        elif key == "status":
+            c = ws.cell(TOTAL_ROW, ci, f"{n_rows} زيارة")
+            c.font = Font(name="Cairo", bold=True, color=WHITE, size=12)
+            c.fill = PatternFill("solid", fgColor=ORANGE)
+            c.alignment = CENTER; c.border = BORDER
+    ws.row_dimensions[TOTAL_ROW].height = 28
 
-    # مجموع كل عمود سعر
-    for col in PRICE_COLS:
-        if col not in cols: continue
-        ci = cols.index(col) + 1
-        c = ws.cell(
-            row=total_row, column=ci,
-            value=f"=SUM({get_column_letter(ci)}4:{get_column_letter(ci)}{3+n_rows})"
-        )
-        c.font          = Font(name="Cairo", bold=True, color=ORANGE, size=11)
-        c.fill          = PatternFill("solid", fgColor=TOTAL_BG)
-        c.alignment     = Alignment(horizontal="center", vertical="center")
-        c.border        = BORDER
-        c.number_format = '#,##0 "ج"'
+    # ════════════════════════════════════════
+    # جدول الأطباء (تحت الجدول الرئيسي)
+    # ════════════════════════════════════════
+    DOC_COLS   = ["م","اسم الدكتور","عدد الزيارات","إجمالي بعد الخصم","بدل الزيارة (5%)","بدل الانتقال","الإجمالي"]
+    n_doc_cols = len(DOC_COLS)
+    DOC_TITLE  = TOTAL_ROW + 2
+    DOC_HDR    = TOTAL_ROW + 3
+    DOC_DATA   = TOTAL_ROW + 4
 
-    # خانة الحالة
-    if 'status' in cols:
-        ci = cols.index('status') + 1
-        c = ws.cell(row=total_row, column=ci, value=f"{n_rows} زيارة")
-        c.font = Font(name="Cairo", bold=True, color=ORANGE, size=11)
-        c.fill = PatternFill("solid", fgColor=TOTAL_BG)
+    ws.row_dimensions[TOTAL_ROW + 1].height = 16
+
+    ws.merge_cells(start_row=DOC_TITLE, start_column=1, end_row=DOC_TITLE, end_column=n_doc_cols)
+    c = ws.cell(DOC_TITLE, 1, "📊 ملخص الأطباء — بدل الزيارات")
+    c.font = Font(name="Cairo", bold=True, color=WHITE, size=12)
+    c.fill = PatternFill("solid", fgColor=DOC_HDR_BG)
+    c.alignment = CENTER
+    ws.row_dimensions[DOC_TITLE].height = 26
+
+    for ci, label in enumerate(DOC_COLS, 1):
+        c = ws.cell(DOC_HDR, ci, label)
+        c.font = Font(name="Cairo", bold=True, color=WHITE, size=11)
+        c.fill = PatternFill("solid", fgColor=DOC_HDR_BG)
         c.alignment = CENTER; c.border = BORDER
+    ws.row_dimensions[DOC_HDR].height = 28
 
-    ws.row_dimensions[total_row].height = 26
+    # حساب كل دكتور
+    doc_data = {}
+    for _, row in df_valid.iterrows():
+        doc = str(row.get("doctor_name","غير محدد") or "غير محدد")
+        if doc not in doc_data:
+            doc_data[doc] = {"count":0,"after":0,"transport":0}
+        doc_data[doc]["count"]     += 1
+        doc_data[doc]["after"]     += float(row.get("labs_price_after",0) or 0)
+        doc_data[doc]["transport"] += float(row.get("transport_fee",0) or 0)
+
+    docs_sorted = sorted(doc_data.items(), key=lambda x: x[1]["count"], reverse=True)
+
+    for idx, (doc_name, d) in enumerate(docs_sorted):
+        ri = DOC_DATA + idx
+        allowance = d["after"] * 0.05
+        total_doc = allowance + d["transport"]
+        fc = WHITE if idx % 2 == 0 else "F5F5F5"
+        for ci, val in enumerate([idx+1, doc_name, d["count"], d["after"], allowance, d["transport"], total_doc], 1):
+            c = ws.cell(ri, ci, val)
+            c.font   = Font(name="Cairo", size=11)
+            c.fill   = PatternFill("solid", fgColor=fc)
+            c.border = BORDER
+            c.alignment = CENTER if ci != 2 else RIGHT
+            if ci >= 4:
+                c.number_format = '#,##0.## "ج"'
+        ws.row_dimensions[ri].height = 22
+
+    n_docs        = len(docs_sorted)
+    DOC_TOTAL_ROW = DOC_DATA + n_docs
+    tot_after = sum(d["after"]     for _,d in docs_sorted)
+    tot_allow = tot_after * 0.05
+    tot_trans = sum(d["transport"] for _,d in docs_sorted)
+    tot_grand = tot_allow + tot_trans
+
+    ws.merge_cells(start_row=DOC_TOTAL_ROW, start_column=1, end_row=DOC_TOTAL_ROW, end_column=2)
+    c = ws.cell(DOC_TOTAL_ROW, 1, "الإجمالي")
+    c.font = Font(name="Cairo", bold=True, color=WHITE, size=12)
+    c.fill = PatternFill("solid", fgColor=ORANGE)
+    c.alignment = CENTER; c.border = BORDER
+
+    for ci, val in [(3, sum(d["count"] for _,d in docs_sorted)),
+                    (4, tot_after),(5, tot_allow),(6, tot_trans),(7, tot_grand)]:
+        c = ws.cell(DOC_TOTAL_ROW, ci, val)
+        c.font = Font(name="Cairo", bold=True, color=WHITE, size=12)
+        c.fill = PatternFill("solid", fgColor=ORANGE)
+        c.alignment = Alignment(horizontal="center", vertical="center")
+        c.border = BORDER
+        if ci >= 4:
+            c.number_format = '#,##0.## "ج"'
+    ws.row_dimensions[DOC_TOTAL_ROW].height = 26
 
     # ── عرض الأعمدة ──
-    for ci, col in enumerate(cols, 1):
-        ws.column_dimensions[get_column_letter(ci)].width = COL_WIDTHS.get(col, 15)
+    for ci, key in enumerate(col_keys, 1):
+        ws.column_dimensions[get_column_letter(ci)].width = WIDTHS_MAIN.get(key, 14)
+    for ci, w in enumerate([5,18,14,18,16,14,14], 1):
+        cur = ws.column_dimensions[get_column_letter(ci)].width
+        ws.column_dimensions[get_column_letter(ci)].width = max(cur, w)
 
     ws.freeze_panes = "A4"
-
-    # ── اسم الملف ──
-    if branch_filter == "Diamond":
-        if month and year:
-            fname = f"diamond_{MONTHS_AR[month-1]}_{year}.xlsx"
-        else:
-            fname = f"diamond_visits_{date.today()}.xlsx"
-    else:
-        fname = BACKUP_EXCEL
-
     wb.save(fname)
     return df, fname
-
 def import_from_excel(uploaded_file):
     df = pd.read_excel(uploaded_file, engine="openpyxl")
     required_cols = {"id", "name", "phone", "visit_date", "address"}
