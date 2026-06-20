@@ -200,6 +200,12 @@ def fetch_visits(filters=None):
         if filters.get("date_exact"):
             conditions.append("visit_date = ?")
             params.append(filters["date_exact"])
+        if filters.get("date_from"):
+            conditions.append("visit_date >= ?")
+            params.append(filters["date_from"])
+        if filters.get("date_to"):
+            conditions.append("visit_date <= ?")
+            params.append(filters["date_to"])
         if filters.get("status"):
             conditions.append("status = ?")
             params.append(filters["status"])
@@ -281,7 +287,7 @@ def delete_visit(visit_id):
 # ══════════════════════════════════════════════════════════════════════════════
 # تصدير / استيراد
 # ══════════════════════════════════════════════════════════════════════════════
-def export_to_excel(branch_filter=None, month=None, year=None):
+def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, date_to=None):
     """تصدير الزيارات إلى Excel — جدول رئيسي + جدول الأطباء"""
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -290,7 +296,10 @@ def export_to_excel(branch_filter=None, month=None, year=None):
     filters = {}
     if branch_filter:
         filters["branch"] = branch_filter
-    if month and year:
+    if date_from and date_to:
+        filters["date_from"] = str(date_from)
+        filters["date_to"]   = str(date_to)
+    elif month and year:
         filters["month"] = month
         filters["year"]  = year
     visits = fetch_visits(filters if filters else None)
@@ -333,12 +342,23 @@ def export_to_excel(branch_filter=None, month=None, year=None):
     }
 
     # ── اسم الملف ──
-    month_label = f"{MONTHS_AR[month-1]} {year}" if month and year else str(date.today())
-    branch_label = f"فرع {branch_filter}" if branch_filter else "كل الفروع"
-    if branch_filter == "Diamond":
-        fname = f"diamond_{MONTHS_AR[month-1]}_{year}.xlsx" if month and year else f"diamond_{date.today()}.xlsx"
+    if date_from and date_to:
+        month_label = f"{date_from} → {date_to}"
+    elif month and year:
+        month_label = f"{MONTHS_AR[month-1]} {year}"
     else:
-        fname = BACKUP_EXCEL
+        month_label = str(date.today())
+    branch_label = f"فرع {branch_filter}" if branch_filter else "كل الفروع"
+    if date_from and date_to:
+        period = f"{date_from}_to_{date_to}"
+    elif month and year:
+        period = f"{MONTHS_AR[month-1]}_{year}"
+    else:
+        period = str(date.today())
+    if branch_filter == "Diamond":
+        fname = f"diamond_{period}.xlsx"
+    else:
+        fname = f"visits_{period}.xlsx" if (date_from or month) else BACKUP_EXCEL
 
     if df.empty:
         pd.DataFrame().to_excel(fname, index=False, engine="openpyxl")
@@ -971,36 +991,54 @@ if st.session_state.page == "home":
     </div>''', unsafe_allow_html=True)
 
     # ── أزرار التصدير / الاستيراد حسب نوع المستخدم ──
-    if st.session_state.user_type == "admin":
-        col_exp, col_imp = st.columns(2)
-        with col_exp:
-            if st.button("📤 تصدير إلى Excel (كل الفروع)", use_container_width=True):
-                df_ex, path_ex = export_to_excel()
-                with open(path_ex,"rb") as fh:
-                    st.download_button("📥 تحميل الملف", data=fh,
-                        file_name=f"visits_all_{date.today().isoformat()}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="dl_admin_home")
-        with col_imp:
-            uf = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
-            if uf:
-                count = import_from_excel(uf)
-                st.success(f"تم استيراد {count} زيارة!"); st.rerun()
+    if st.session_state.user_type in ["admin","diamond"]:
+        with st.expander("📤 تصدير إلى Excel", expanded=False):
+            st.markdown('<div style="font-size:13px;font-weight:700;color:#FF6B00;margin-bottom:8px">📅 اختر فترة التصدير</div>', unsafe_allow_html=True)
+            exp_c1, exp_c2 = st.columns(2)
+            with exp_c1:
+                exp_from = st.date_input("من تاريخ", value=None, key="exp_from",
+                                         help="اكتب أو اختر تاريخ البداية")
+            with exp_c2:
+                exp_to   = st.date_input("إلى تاريخ", value=date.today(), key="exp_to",
+                                         help="اكتب أو اختر تاريخ النهاية")
 
-    elif st.session_state.user_type == "diamond":
-        if st.button("📤 تصدير زيارات Diamond إلى Excel", use_container_width=True):
-            df_ex, path_ex = export_to_excel(branch_filter="Diamond")
-            if df_ex.empty:
-                st.warning("لا توجد زيارات Diamond للتصدير.")
+            if st.session_state.user_type == "admin":
+                exp_branch = st.selectbox("الفرع", ["كل الفروع","La Cite","Diamond"], key="exp_branch_sel")
+                bf_exp = None if exp_branch == "كل الفروع" else exp_branch
+                btn_label = f"📤 تصدير ({exp_branch})"
             else:
-                with open(path_ex,"rb") as fh:
-                    st.download_button(
-                        "📥 تحميل ملف Diamond",
-                        data=fh,
-                        file_name=f"diamond_visits_{date.today().isoformat()}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="dl_diamond_home"
+                bf_exp    = "Diamond"
+                btn_label = "📤 تصدير زيارات Diamond"
+
+            if st.button(btn_label, use_container_width=True, key="btn_export_home"):
+                if not exp_from or not exp_to:
+                    st.error("⚠️ من فضلك اختر تاريخ البداية والنهاية")
+                elif exp_from > exp_to:
+                    st.error("⚠️ تاريخ البداية أكبر من تاريخ النهاية!")
+                else:
+                    df_ex, path_ex = export_to_excel(
+                        branch_filter=bf_exp,
+                        date_from=exp_from.isoformat(),
+                        date_to=exp_to.isoformat()
                     )
+                    if df_ex.empty:
+                        st.warning("لا توجد زيارات في هذه الفترة.")
+                    else:
+                        period_label = f"{exp_from} → {exp_to}"
+                        fname_dl = f"{'diamond' if bf_exp=='Diamond' else 'visits'}_{exp_from}_{exp_to}.xlsx"
+                        with open(path_ex,"rb") as fh:
+                            st.download_button(
+                                f"📥 تحميل ({period_label}) — {len(df_ex)} زيارة",
+                                data=fh, file_name=fname_dl,
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_home_final"
+                            )
+
+    if st.session_state.user_type == "admin":
+        uf = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
+        if uf:
+            count = import_from_excel(uf)
+            st.success(f"تم استيراد {count} زيارة!"); st.rerun()
 
     st.markdown("---")
     if not visits:
@@ -1419,36 +1457,46 @@ elif st.session_state.page == "reports":
 
     # زر تصدير في صفحة التقارير
     st.markdown("---")
-    if st.session_state.user_type == "diamond":
-        if st.button("📤 تصدير زيارات Diamond لهذا الشهر إلى Excel", use_container_width=True):
-            df_rep, path_rep = export_to_excel(branch_filter="Diamond", month=month, year=year)
-            if df_rep.empty:
-                st.warning("لا توجد زيارات لتصديرها.")
+    with st.expander("📤 تصدير إلى Excel", expanded=False):
+        st.markdown('<div style="font-size:13px;font-weight:700;color:#FF6B00;margin-bottom:8px">📅 اختر فترة التصدير</div>', unsafe_allow_html=True)
+        rep_c1, rep_c2 = st.columns(2)
+        with rep_c1:
+            rep_from = st.date_input("من تاريخ", value=None, key="rep_from",
+                                     help="اكتب أو اختر تاريخ البداية")
+        with rep_c2:
+            rep_to   = st.date_input("إلى تاريخ", value=date.today(), key="rep_to",
+                                     help="اكتب أو اختر تاريخ النهاية")
+
+        if st.session_state.user_type == "admin":
+            bf_rep = None if branch_filter == "الكل" else branch_filter
+            btn_rep_label = f"📤 تصدير ({branch_filter})"
+        else:
+            bf_rep = "Diamond"
+            btn_rep_label = "📤 تصدير زيارات Diamond"
+
+        if st.button(btn_rep_label, use_container_width=True, key="btn_export_reports"):
+            if not rep_from or not rep_to:
+                st.error("⚠️ من فضلك اختر تاريخ البداية والنهاية")
+            elif rep_from > rep_to:
+                st.error("⚠️ تاريخ البداية أكبر من تاريخ النهاية!")
             else:
-                with open(path_rep,"rb") as fh:
-                    st.download_button(
-                        f"📥 تحميل ملف {MONTHS_AR[month-1]} {year}",
-                        data=fh,
-                        file_name=f"diamond_{MONTHS_AR[month-1]}_{year}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="dl_diamond_reports"
-                    )
-    elif st.session_state.user_type == "admin":
-        if st.button("📤 تصدير هذا الشهر إلى Excel", use_container_width=True):
-            bf = None if branch_filter=="الكل" else branch_filter
-            df_rep, path_rep = export_to_excel(branch_filter=bf, month=month, year=year)
-            if df_rep.empty:
-                st.warning("لا توجد زيارات لتصديرها.")
-            else:
-                fname_rep = f"visits_{MONTHS_AR[month-1]}_{year}{'_'+bf if bf else ''}.xlsx"
-                with open(path_rep,"rb") as fh:
-                    st.download_button(
-                        f"📥 تحميل ملف {MONTHS_AR[month-1]} {year}",
-                        data=fh,
-                        file_name=fname_rep,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        key="dl_admin_reports"
-                    )
+                df_rep, path_rep = export_to_excel(
+                    branch_filter=bf_rep,
+                    date_from=rep_from.isoformat(),
+                    date_to=rep_to.isoformat()
+                )
+                if df_rep.empty:
+                    st.warning("لا توجد زيارات في هذه الفترة.")
+                else:
+                    period_rep  = f"{rep_from} → {rep_to}"
+                    fname_rep   = f"{'diamond' if bf_rep=='Diamond' else 'visits'}_{rep_from}_{rep_to}.xlsx"
+                    with open(path_rep,"rb") as fh:
+                        st.download_button(
+                            f"📥 تحميل ({period_rep}) — {len(df_rep)} زيارة",
+                            data=fh, file_name=fname_rep,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="dl_reports_final"
+                        )
     st.markdown("---")
 
     if not visits:
