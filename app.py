@@ -1101,12 +1101,10 @@ def go(page, prefill=None, visit_id=None):
 # ══════════════════════════════════════════════════════════════════════════════
 # الشريط العلوي
 # ══════════════════════════════════════════════════════════════════════════════
-st.markdown(f'''
-<div class="ohv-header">
+st.markdown(f"""<div class="ohv-header">
   <h1>🟠 Orange Lab Home Visit</h1>
   <span>📅 {format_date_ar(date.today())}</span>
-</div>
-''', unsafe_allow_html=True)
+</div>""", unsafe_allow_html=True)
 
 if st.session_state.user_type == "admin":
     c1,c2,c3,c4,c5,c6 = st.columns([2,2,2,2,2,1])
@@ -1152,16 +1150,18 @@ def visit_card_html(v):
     tag_color  = get_client_tag_color(tag_auto)
     rating     = int(v.get("rating", 0) or 0)
     stars      = "⭐" * rating if rating else ""
-    return f'''
-    <div class="visit-card">
-      <span class="visit-badge">{total:,} جنيه</span>
-      <span class="status-badge" style="background:{sc}">{si} {status}</span>
-      <span style="background:{tag_color};color:#fff;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:700;margin-right:4px;">{tag_auto}</span>
-      <div class="visit-name">👤 {v['name']} {stars}</div>
-      <div class="visit-meta">📞 {v.get('phone','')} &nbsp;|&nbsp; 📅 {vdate} {vtime} &nbsp; {age_disp}</div>
-      <div class="visit-meta">📍 {addr_short}</div>
-      <div class="visit-meta" style="margin-top:5px">🧪 {lc} تحليل{doc_show}{br_show}</div>
-    </div>'''
+    return (
+        f'<div class="visit-card">'
+        f'<span class="visit-badge">{total:,} جنيه</span>'
+        f'<span class="status-badge" style="background:{sc}">{si} {status}</span>'
+        f'<span style="background:{tag_color};color:#fff;border-radius:8px;'
+        f'padding:2px 8px;font-size:10px;font-weight:700;margin-right:4px;">{tag_auto}</span>'
+        f'<div class="visit-name">👤 {v["name"]} {stars}</div>'
+        f'<div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate} {vtime} &nbsp; {age_disp}</div>'
+        f'<div class="visit-meta">📍 {addr_short}</div>'
+        f'<div class="visit-meta" style="margin-top:5px">🧪 {lc} تحليل{doc_show}{br_show}</div>'
+        f'</div>'
+    )
 
 # ══════════════════════════════════════════════════════════════════════════════
 # صفحة الرئيسية
@@ -1207,13 +1207,12 @@ if st.session_state.page == "home":
     t_rev   = sum(v.get("total_price",0) for v in all_vs if v.get("status")!="ملغية")
     t_done  = sum(1 for v in all_vs if v.get("status")=="تمت")
 
-    st.markdown(f'''
-    <div class="stat-grid">
+    st.markdown(f"""    <div class="stat-grid">
       <div class="stat-box"><div class="stat-num">{len(all_vs)}</div><div class="stat-label">إجمالي الزيارات</div></div>
       <div class="stat-box"><div class="stat-num">{t_today}</div><div class="stat-label">زيارات اليوم</div></div>
       <div class="stat-box"><div class="stat-num" style="color:#27AE60">{t_done}</div><div class="stat-label">تمت ✅</div></div>
       <div class="stat-box"><div class="stat-num" style="font-size:16px">{t_rev:,.0f}</div><div class="stat-label">الإيراد (جنيه)</div></div>
-    </div>''', unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
     # ── أزرار التصدير / الاستيراد حسب نوع المستخدم ──
     if st.session_state.user_type in ["admin","diamond"]:
@@ -1300,13 +1299,12 @@ elif st.session_state.page == "today":
     pending_t = sum(1 for v in today_visits if v.get("status") in ["مجدولة","في الطريق"])
     rev_t     = sum(v.get("total_price",0) for v in today_visits if v.get("status")!="ملغية")
 
-    st.markdown(f'''
-    <div class="stat-grid">
+    st.markdown(f"""    <div class="stat-grid">
       <div class="stat-box"><div class="stat-num">{len(today_visits)}</div><div class="stat-label">إجمالي اليوم</div></div>
       <div class="stat-box"><div class="stat-num" style="color:#27AE60">{done_t}</div><div class="stat-label">تمت ✅</div></div>
       <div class="stat-box"><div class="stat-num" style="color:#F39C12">{pending_t}</div><div class="stat-label">متبقية 🕐</div></div>
       <div class="stat-box"><div class="stat-num" style="font-size:15px">{rev_t:,.0f}</div><div class="stat-label">إيراد اليوم</div></div>
-    </div>''', unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
     if not today_visits:
         st.info("لا توجد زيارات مجدولة اليوم.")
@@ -1354,8 +1352,7 @@ elif st.session_state.page == "new":
             last_date = format_date_ar(last_v.get("visit_date",""))
             last_stat = last_v.get("status","")
             n_total   = len(prev_visits)
-            st.markdown(f'''
-            <div style="background:#FFF3CD;border:2px solid #F39C12;border-radius:12px;
+            st.markdown(f"""            <div style="background:#FFF3CD;border:2px solid #F39C12;border-radius:12px;
                         padding:12px 16px;margin:8px 0;direction:rtl;">
               <div style="font-weight:800;color:#E67E22;font-size:14px;margin-bottom:6px;">
                 ⚠️ هذا العميل موجود في النظام
@@ -1367,7 +1364,7 @@ elif st.session_state.page == "new":
                 📋 إجمالي الزيارات: <b>{n_total}</b><br>
                 📅 آخر زيارة: <b>{last_date}</b> — {last_stat}
               </div>
-            </div>''', unsafe_allow_html=True)
+            </div>""", unsafe_allow_html=True)
 
             col_use, col_ignore = st.columns(2)
             with col_use:
@@ -1622,13 +1619,12 @@ elif st.session_state.page == "new":
         transport_fee     = st.number_input("⭐ بدل الانتقال", min_value=0, step=10,
                                              value=int(pf.get("transport_fee",100) or 100))
     total_price = labs_price_after + transport_fee
-    st.markdown(f'''
-    <div class="price-box">
+    st.markdown(f"""    <div class="price-box">
       <div class="price-row"><span>⭐ السعر قبل الخصم</span><span>{labs_price_before} جنيه</span></div>
       <div class="price-row"><span>⭐ السعر بعد الخصم</span><span>{labs_price_after} جنيه</span></div>
       <div class="price-row"><span>⭐ بدل الانتقال</span><span>{transport_fee} جنيه</span></div>
       <div class="price-total"><span>⭐ الإجمالي</span><span>{total_price} جنيه</span></div>
-    </div>''', unsafe_allow_html=True)
+    </div>""", unsafe_allow_html=True)
 
     if st.button("💾 حفظ الزيارة" if not is_edit else "💾 حفظ التعديلات", use_container_width=True):
         if not name or not phone or not address:
@@ -1679,16 +1675,14 @@ elif st.session_state.page == "detail":
         si       = STATUS_ICONS.get(status,"")
 
         st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
-        st.markdown(f'''
-        <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v['name']}</span></div>
+        st.markdown(f"""        <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v['name']}</span></div>
         <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{age_str}</span></div>
         <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get('phone','')}</span></div>
         <div class="detail-row"><span class="detail-label">📅 الموعد</span><span class="detail-value">{dt_disp}</span></div>
         <div class="detail-row"><span class="detail-label">👨‍⚕️ الدكتور</span><span class="detail-value">{v.get('doctor_name','')}</span></div>
         <div class="detail-row"><span class="detail-label">🏥 الفرع</span><span class="detail-value">{v.get('branch','')}</span></div>
         <div class="detail-row"><span class="detail-label">🔖 الحالة</span>
-          <span class="detail-value"><span class="status-badge" style="background:{sc}">{si} {status}</span></span></div>
-        ''', unsafe_allow_html=True)
+          <span class="detail-value"><span class="status-badge" style="background:{sc}">{si} {status}</span></span></div>""", unsafe_allow_html=True)
 
         # تغيير الحالة السريع
         st.markdown("**⚡ تغيير الحالة السريع:**")
@@ -1716,13 +1710,12 @@ elif st.session_state.page == "detail":
                         unsafe_allow_html=True)
             st.markdown("---")
 
-        st.markdown(f'''
-        <div class="price-box">
+        st.markdown(f"""        <div class="price-box">
           <div class="price-row"><span>⭐ السعر قبل الخصم</span><span>{lpb} جنيه</span></div>
           <div class="price-row"><span>⭐ السعر بعد الخصم</span><span>{lpa} جنيه</span></div>
           <div class="price-row"><span>⭐ بدل الانتقال</span><span>{tf} جنيه</span></div>
           <div class="price-total"><span>⭐ الإجمالي</span><span>{tp} جنيه</span></div>
-        </div>''', unsafe_allow_html=True)
+        </div>""", unsafe_allow_html=True)
 
         if v.get("notes"):
             st.markdown('<div class="section-title">📌 ملاحظات</div>', unsafe_allow_html=True)
@@ -1736,13 +1729,12 @@ elif st.session_state.page == "detail":
                     hs  = hv.get("status","مجدولة")
                     hsc = STATUS_COLORS.get(hs,"#888")
                     hsi = STATUS_ICONS.get(hs,"")
-                    st.markdown(f'''
-                    <div class="history-card">
+                    st.markdown(f"""                    <div class="history-card">
                       <span class="status-badge" style="background:{hsc};font-size:10px">{hsi} {hs}</span>
                       <b>{format_date_ar(hv.get('visit_date',''))}</b> — {hv.get('visit_time','')}
                       <br>👨‍⚕️ {hv.get('doctor_name','')} &nbsp;|&nbsp; 💵 {hv.get('total_price',0):,} جنيه
                       <br>🧪 {len(hv.get('selected_labs_text','').splitlines()) if hv.get('selected_labs_text') else 0} تحليل
-                    </div>''', unsafe_allow_html=True)
+                    </div>""", unsafe_allow_html=True)
                     if st.button(f"📂 {format_date_ar(hv.get('visit_date',''))}", key=f"hv_{hv['id']}", use_container_width=True):
                         go("detail", visit_id=hv["id"])
             st.markdown("---")
@@ -1948,13 +1940,12 @@ elif st.session_state.page == "reports":
         t_done = sum(1 for v in visits if v.get("status")=="تمت")
         t_canc = sum(1 for v in visits if v.get("status")=="ملغية")
 
-        st.markdown(f'''
-        <div class="stat-grid">
+        st.markdown(f"""        <div class="stat-grid">
           <div class="stat-box"><div class="stat-num">{len(visits)}</div><div class="stat-label">إجمالي الزيارات</div></div>
           <div class="stat-box"><div class="stat-num" style="color:#27AE60">{t_done}</div><div class="stat-label">تمت ✅</div></div>
           <div class="stat-box"><div class="stat-num" style="color:#E74C3C">{t_canc}</div><div class="stat-label">ملغية ❌</div></div>
           <div class="stat-box"><div class="stat-num" style="font-size:15px">{t_rev:,.0f}</div><div class="stat-label">الإيراد (جنيه)</div></div>
-        </div>''', unsafe_allow_html=True)
+        </div>""", unsafe_allow_html=True)
 
         st.markdown("#### 📊 الإيراد اليومي")
         daily = {}
@@ -2068,8 +2059,7 @@ elif st.session_state.page == "dashboard":
     week_vs   = [v for v in all_vs if v.get("visit_date","")>=week_ago]
     week_rev  = sum(v.get("total_price",0) for v in week_vs if v.get("status")!="ملغية")
 
-    st.markdown(f'''
-    <div class="stat-grid">
+    st.markdown(f"""    <div class="stat-grid">
       <div class="stat-box"><div class="stat-num">{total_all}</div><div class="stat-label">إجمالي كل الزيارات</div></div>
       <div class="stat-box"><div class="stat-num" style="color:#27AE60">{done_all}</div><div class="stat-label">تمت بنجاح ✅</div></div>
-      <div class="stat-box"><div class="stat-num">{today_cnt}</div><div class="stat-la
+      <div class="stat-box"><div class="stat-
