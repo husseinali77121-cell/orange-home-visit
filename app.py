@@ -1157,8 +1157,8 @@ def visit_card_html(v):
       <span class="visit-badge">{total:,} جنيه</span>
       <span class="status-badge" style="background:{sc}">{si} {status}</span>
       <span style="background:{tag_color};color:#fff;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:700;margin-right:4px;">{tag_auto}</span>
-      <div class="visit-name">👤 {v["name"]} {stars}</div>
-      <div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate} {vtime} &nbsp; {age_disp}</div>
+      <div class="visit-name">👤 {v['name']} {stars}</div>
+      <div class="visit-meta">📞 {v.get('phone','')} &nbsp;|&nbsp; 📅 {vdate} {vtime} &nbsp; {age_disp}</div>
       <div class="visit-meta">📍 {addr_short}</div>
       <div class="visit-meta" style="margin-top:5px">🧪 {lc} تحليل{doc_show}{br_show}</div>
     </div>'''
@@ -1361,7 +1361,7 @@ elif st.session_state.page == "new":
                 ⚠️ هذا العميل موجود في النظام
               </div>
               <div style="font-size:13px;color:#333;line-height:1.8;">
-                👤 <b>{last_v.get("name","")}</b> &nbsp;|&nbsp;
+                👤 <b>{last_v.get('name','')}</b> &nbsp;|&nbsp;
                 <span style="background:{tag_color};color:#fff;border-radius:8px;
                              padding:2px 8px;font-size:11px;">{tag_auto}</span><br>
                 📋 إجمالي الزيارات: <b>{n_total}</b><br>
@@ -1680,12 +1680,12 @@ elif st.session_state.page == "detail":
 
         st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
         st.markdown(f'''
-        <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v["name"]}</span></div>
+        <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v['name']}</span></div>
         <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{age_str}</span></div>
-        <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get("phone","")}</span></div>
+        <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get('phone','')}</span></div>
         <div class="detail-row"><span class="detail-label">📅 الموعد</span><span class="detail-value">{dt_disp}</span></div>
-        <div class="detail-row"><span class="detail-label">👨‍⚕️ الدكتور</span><span class="detail-value">{v.get("doctor_name","")}</span></div>
-        <div class="detail-row"><span class="detail-label">🏥 الفرع</span><span class="detail-value">{v.get("branch","")}</span></div>
+        <div class="detail-row"><span class="detail-label">👨‍⚕️ الدكتور</span><span class="detail-value">{v.get('doctor_name','')}</span></div>
+        <div class="detail-row"><span class="detail-label">🏥 الفرع</span><span class="detail-value">{v.get('branch','')}</span></div>
         <div class="detail-row"><span class="detail-label">🔖 الحالة</span>
           <span class="detail-value"><span class="status-badge" style="background:{sc}">{si} {status}</span></span></div>
         ''', unsafe_allow_html=True)
@@ -1739,9 +1739,9 @@ elif st.session_state.page == "detail":
                     st.markdown(f'''
                     <div class="history-card">
                       <span class="status-badge" style="background:{hsc};font-size:10px">{hsi} {hs}</span>
-                      <b>{format_date_ar(hv.get("visit_date",""))}</b> — {hv.get("visit_time","")}
-                      <br>👨‍⚕️ {hv.get("doctor_name","")} &nbsp;|&nbsp; 💵 {hv.get("total_price",0):,} جنيه
-                      <br>🧪 {len(hv.get("selected_labs_text","").splitlines()) if hv.get("selected_labs_text") else 0} تحليل
+                      <b>{format_date_ar(hv.get('visit_date',''))}</b> — {hv.get('visit_time','')}
+                      <br>👨‍⚕️ {hv.get('doctor_name','')} &nbsp;|&nbsp; 💵 {hv.get('total_price',0):,} جنيه
+                      <br>🧪 {len(hv.get('selected_labs_text','').splitlines()) if hv.get('selected_labs_text') else 0} تحليل
                     </div>''', unsafe_allow_html=True)
                     if st.button(f"📂 {format_date_ar(hv.get('visit_date',''))}", key=f"hv_{hv['id']}", use_container_width=True):
                         go("detail", visit_id=hv["id"])
@@ -1754,13 +1754,15 @@ elif st.session_state.page == "detail":
         done_count   = sum(1 for hv in all_visits_c if hv.get("status")=="تمت")
         cur_rating   = int(v.get("rating", 0) or 0)
 
-        st.markdown(f'''
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
-          <span style="background:{tag_clr};color:#fff;border-radius:20px;padding:5px 14px;
-                      font-weight:800;font-size:13px;">{client_tag}</span>
-          <span style="color:#888;font-size:12px;">زيارات مكتملة: <b style="color:#27AE60">{done_count}</b></span>
-          {f'<span style="font-size:16px;">{"⭐"*cur_rating}</span>' if cur_rating else ""}
-        </div>''', unsafe_allow_html=True)
+        stars_html = f'<span style="font-size:16px;">{"⭐"*cur_rating}</span>' if cur_rating else ""
+        st.markdown(
+            f'<div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">'
+            f'<span style="background:{tag_clr};color:#fff;border-radius:20px;padding:5px 14px;'
+            f'font-weight:800;font-size:13px;">{client_tag}</span>'
+            f'<span style="color:#888;font-size:12px;">زيارات مكتملة: <b style="color:#27AE60">{done_count}</b></span>'
+            f'{stars_html}</div>',
+            unsafe_allow_html=True
+        )
 
         # ── تغيير Tag يدوي ──
         tag_options = ["🆕 عميل جديد","⭐ عميل منتظم","🌟 عميل متكرر","👑 VIP","🏢 Corporate"]
@@ -2070,5 +2072,4 @@ elif st.session_state.page == "dashboard":
     <div class="stat-grid">
       <div class="stat-box"><div class="stat-num">{total_all}</div><div class="stat-label">إجمالي كل الزيارات</div></div>
       <div class="stat-box"><div class="stat-num" style="color:#27AE60">{done_all}</div><div class="stat-label">تمت بنجاح ✅</div></div>
-      <div class="stat-box"><div class="stat-num">{today_cnt}</div><div class="stat-label">زيارات اليوم</div></div>
-      <div class="stat
+      <div class="stat-box"><div class="stat-num">{today_cnt}</div><div class="stat-la
