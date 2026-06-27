@@ -492,7 +492,7 @@ def insert_visit(record):
         record["id"], record["created_at"], record["name"], record["age"],
         record.get("age_unit","سنة"), record["phone"],
         record["visit_date"], record["visit_time"], record["doctor_name"],
-        record.get("branch","La Cite"), record["address"], record.get["location_link", ""],
+        record.get("branch","La Cite"), record["address"], record["location_link"],
         record["selected_labs_text"], record["notes"],
         record["labs_price_before"], record["labs_price_after"],
         record["transport_fee"], record["total_price"],
