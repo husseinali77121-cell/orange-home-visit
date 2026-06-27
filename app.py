@@ -920,7 +920,20 @@ def import_from_excel(uploaded_file):
                 val = row[col_mapping[key]]
                 if pd.isna(val): val = None
                 record[key] = val
+# ضمان وجود الحقول الاختيارية حتى لا يفشل الاستيراد
+defaults = {
+    "location_link": "",
+    "selected_labs_text": "",
+    "notes": "",
+    "doctor_name": "",
+    "address": "",
+    "visit_time": "",
+    "created_at": datetime.now().isoformat(),
+}
 
+for k, v in defaults.items():
+    if k not in record or record[k] is None:
+        record[k] = v
             # معالجة الأرقام (ضمان إنها أرقام وليست نصوص)
             for num_key in ["labs_price_before", "labs_price_after", "transport_fee", "total_price", "paid_amount", "age"]:
                 if num_key in record and record[num_key] is not None:
