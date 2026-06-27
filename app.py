@@ -824,7 +824,7 @@ def import_from_excel(uploaded_file):
         # قراءة ملف الإكسيل (الورقة الأولى دائماً)
         # قراءة ذكية لملفات Excel (ملفات البرنامج أو ملفات عادية)
 
-headers_to_try = [2, 3, 0]
+    headers_to_try = [2, 3, 0]
 df = None
 
 for hdr in headers_to_try:
