@@ -1,7 +1,6 @@
 import streamlit as st
 import sqlite3
 import os
-import json
 import uuid as uuid_lib
 import urllib.parse
 from datetime import date, datetime, timedelta
