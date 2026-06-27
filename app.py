@@ -816,184 +816,7 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
     ws.freeze_panes = "A4"; wb.save(fname)
     return df, fname
 
-# ══════════════════════════════════════════════════════════════════════════════
-# 🔥 دالة الاستيراد الذكية الجديدة (نسخة مقاومة للأخطاء) 🔥
-# ══════════════════════════════════════════════════════════════════════════════
-def import_from_excel(uploaded_file):
-    try:
-        # قراءة ذكية لملفات Excel (ملفات البرنامج أو ملفات عادية)
-
-        headers_to_try = [2, 3, 0]
-        df = None
-
-        for hdr in headers_to_try:
-            try:
-                uploaded_file.seek(0)
-
-                tmp = pd.read_excel(
-                    uploaded_file,
-                    engine="openpyxl",
-                    sheet_name=0,
-                    header=hdr
-                )
-
-                cols = [
-                    str(c).strip().replace(" ", "").replace("\xa0", "")
-                    for c in tmp.columns
-                ]
-
-                if any(c in cols for c in ["الاسم", "name"]):
-                    df = tmp
-                    break
-
-            except Exception:
-                pass
-
-        if df is None:
-            uploaded_file.seek(0)
-            df = pd.read_excel(
-                uploaded_file,
-                engine="openpyxl",
-                sheet_name=0
-            )
-
-        # حذف الصفوف الفارغة
-        df = df.dropna(how="all")
-
-        # تنظيف أسماء الأعمدة
-        cleaned_cols = []
-        for c in df.columns:
-            c = str(c).strip().replace(" ", "").replace("\xa0", "")
-            cleaned_cols.append(c)
-
-        df.columns = cleaned_cols
-
-        # ===========================================
-        # كود الاستيراد الحالي يبدأ من هنا كما هو
-        # count_imported = 0
-        # count_updated = 0
-        # ....
-        # ===========================================
-        # خريطة متطابقة مع كل أنواع الملفات (بما فيها الملفات اللي بعتها)
-        col_mapping = {}
-        name_mapping = {
-            "id": ["رقمالزيارة", "id", "visitid", "معرفالزيارة", "زيارةرقم"],
-            "name": ["الاسم", "اسمالمريض", "اسم", "name", "patientname"],
-            "phone": ["التليفون", "رقمالتليفون", "هاتف", "phone", "mobile", "telephone"],
-            "visit_date": ["تاريخالزيارة", "تاريخ", "الزيارة", "visitdate", "visit_date", "التاريخ"],
-            "age": ["السن", "العمر", "age"],
-            "age_unit": ["الوحدة", "وحدةالعمر", "العمربوحدة", "age_unit"],
-            "doctor_name": ["الدكتور", "اسمالدكتور", "طبيب", "doctor"],
-            "branch": ["الفرع", "branch"],
-            "address": ["العنوان", "address"],
-            "location_link": ["رابطالموقع", "location", "map", "رابط", "الموقع"],
-            "selected_labs_text": ["التحاليل", "التحليل", "labs", "tests", "selected_labs_text"],
-            "notes": ["ملاحظات", "notes"],
-            "labs_price_before": ["السعرقبلالخصم", "قبلالخصم", "pricebefore", "labs_price_before", "الخصم"],
-            "labs_price_after": ["السعربعدالخصم", "بعدالخصم", "priceafter", "labs_price_after"],
-            "transport_fee": ["بدلالانتقال", "النقل", "transportfee", "transport_fee", "الانتقال"],
-            "total_price": ["الإجمالي", "السعرالاجمالي", "الاجمالي", "total"],
-            "status": ["الحالة", "status", "الوضع"],
-            "payment_status": ["حالةالدفع", "paymentstatus", "دفع", "payment_status"],
-            "payment_method": ["طريقةالدفع", "paymentmethod", "payment_method"],
-            "paid_amount": ["المبلغالمدفوع", "paidamount", "مدفوع", "paid"],
-            "visit_time": ["الوقت", "الموعد", "visit_time", "time"],
-            "created_at": ["تاريخالإنشاء", "createdat", "created_at", "تاريخانشاء"]
-        }
-
-        # بناء خريطة الأعمدة
-        for internal_key, possible_names in name_mapping.items():
-            for col in df.columns:
-                if col.lower() in [n.lower() for n in possible_names]:
-                    col_mapping[internal_key] = col
-                    break
-
-        # (للتصحيح فقط) عرض الأعمدة اللي التطبيق قدر يتعرف عليها في الشريط الجانبي
-        st.sidebar.write("✅ الأعمدة التي تم التعرف عليها في الملف:", col_mapping)
-
-        # 2. المرور على كل صف
-        for _, row in df.iterrows():
-            record = {}
-            
-            # تعيين القيم من ملف الإكسيل
-            for key in col_mapping:
-                val = row[col_mapping[key]]
-                if pd.isna(val): val = None
-                record[key] = val
-
-            # معالجة الأرقام (ضمان إنها أرقام وليست نصوص)
-            for num_key in ["labs_price_before", "labs_price_after", "transport_fee", "total_price", "paid_amount", "age"]:
-                if num_key in record and record[num_key] is not None:
-                    try:
-                        if isinstance(record[num_key], str):
-                            record[num_key] = float(record[num_key].replace(",", ""))
-                        else:
-                            record[num_key] = float(record[num_key])
-                    except:
-                        record[num_key] = 0
-                elif num_key not in record:
-                    record[num_key] = 0
-
-            # معالجة القيم النصية الافتراضية
-            for txt_key in ["status", "branch", "payment_status", "payment_method", "doctor_name", "age_unit"]:
-                if txt_key not in record or record[txt_key] is None:
-                    if txt_key == "status": record[txt_key] = "مجدولة"
-                    elif txt_key == "branch": record[txt_key] = "La Cite"
-                    elif txt_key == "payment_status": record[txt_key] = "غير مدفوع"
-# ══════════════════════════════════════════════════════════════════════════════
-# 🔥 دالة الاستيراد الذكية (نسخة آمنة تماماً للنصوص) 🔥
-# ══════════════════════════════════════════════════════════════════════════════
-def import_from_excel(uploaded_file):
-    try:
-        # قراءة ملف الإكسيل (الورقة الأولى دائماً)
-        df = pd.read_excel(uploaded_file, engine="openpyxl", sheet_name=0)
-        
-        # تنظيف عنيف جداً لأسماء الأعمدة (حتى من المسافات المخفية)
-        cleaned_cols = []
-        for c in df.columns:
-            c = str(c).strip().replace(" ", "").replace("\xa0", "")
-            cleaned_cols.append(c)
-        df.columns = cleaned_cols
-
-        count_imported = 0
-        count_updated = 0
-
-        # خريطة متطابقة مع كل أنواع الملفات
-        col_mapping = {}
-        name_mapping = {
-            "id": ["رقمالزيارة", "id", "visitid", "معرفالزيارة", "زيارةرقم"],
-            "name": ["الاسم", "اسمالمريض", "اسم", "name", "patientname"],
-            "phone": ["التليفون", "رقمالتليفون", "هاتف", "phone", "mobile", "telephone"],
-            "visit_date": ["تاريخالزيارة", "تاريخ", "الزيارة", "visitdate", "visit_date", "التاريخ"],
-            "age": ["السن", "العمر", "age"],
-            "age_unit": ["الوحدة", "وحدةالعمر", "العمربوحدة", "age_unit"],
-            "doctor_name": ["الدكتور", "اسمالدكتور", "طبيب", "doctor"],
-            "branch": ["الفرع", "branch"],
-            "address": ["العنوان", "address"],
-            "location_link": ["رابطالموقع", "location", "map", "رابط", "الموقع", "رابطالموقع", "locationlink"],
-            "selected_labs_text": ["التحاليل", "التحليل", "labs", "tests", "selected_labs_text"],
-            "notes": ["ملاحظات", "notes"],
-            "labs_price_before": ["السعرقبلالخصم", "قبلالخصم", "pricebefore", "labs_price_before", "الخصم"],
-            "labs_price_after": ["السعربعدالخصم", "بعدالخصم", "priceafter", "labs_price_after"],
-            "transport_fee": ["بدلالانتقال", "النقل", "transportfee", "transport_fee", "الانتقال"],
-            "total_price": ["الإجمالي", "السعرالاجمالي", "الاجمالي", "total"],
-            "status": ["الحالة", "status", "الوضع"],
-            "payment_status": ["حالةالدفع", "paymentstatus", "دفع", "payment_status"],
-            "payment_method": ["طريقةالدفع", "paymentmethod", "payment_method"],
-            "paid_amount": ["المبلغالمدفوع", "paidamount", "مدفوع", "paid"],
-            "visit_time": ["الوقت", "الموعد", "visit_time", "time"],
-            "created_at": ["تاريخالإنشاء", "createdat", "created_at", "تاريخانشاء"]
-        }
-
-        # بناء خريطة الأعمدة
-        for internal_key, possible_names in name_mapping.items():
-            for col in df.columns:
-                if col.lower() in [n.lower() for n in possible_names]:
-                    col_mapping[internal_key] = col
-                    break
-
-        # عرض الأعمدة التي تم التعرف عليها للتصحيح
-        st.sidebar.write("✅ الأعمدة التي تم التعرف عليها في الملف:", col_mapping)
+:✅ الأعمدة التي تم التعرف عليها في الملف:", col_mapping)
 
         # 2. المرور على كل صف
         for index, row in df.iterrows():
@@ -1077,6 +900,137 @@ def import_from_excel(uploaded_file):
                         record.get("name"), 
                         record.get("phone"), 
                         record.get("visit_date")
+def import_from_excel(uploaded_file):
+    try:
+        # 1. قراءة ملف الإكسيل (الورقة الأولى دائماً)
+        df = pd.read_excel(uploaded_file, engine="openpyxl", sheet_name=0)
+        
+        # تنظيف عنيف جداً لأسماء الأعمدة (حتى من المسافات المخفية)
+        cleaned_cols = []
+        for c in df.columns:
+            c = str(c).strip().replace(" ", "").replace("\xa0", "")
+            cleaned_cols.append(c)
+        df.columns = cleaned_cols
+
+        count_imported = 0
+        count_updated = 0
+
+        # خريطة متطابقة مع كل أنواع الملفات
+        col_mapping = {}
+        name_mapping = {
+            "id": ["رقمالزيارة", "id", "visitid", "معرفالزيارة", "زيارةرقم"],
+            "name": ["الاسم", "اسمالمريض", "اسم", "name", "patientname"],
+            "phone": ["التليفون", "رقمالتليفون", "هاتف", "phone", "mobile", "telephone"],
+            "visit_date": ["تاريخالزيارة", "تاريخ", "الزيارة", "visitdate", "visit_date", "التاريخ"],
+            "age": ["السن", "العمر", "age"],
+            "age_unit": ["الوحدة", "وحدةالعمر", "العمربوحدة", "age_unit"],
+            "doctor_name": ["الدكتور", "اسمالدكتور", "طبيب", "doctor"],
+            "branch": ["الفرع", "branch"],
+            "address": ["العنوان", "address"],
+            "location_link": ["رابطالموقع", "location", "map", "رابط", "الموقع", "locationlink"],
+            "selected_labs_text": ["التحاليل", "التحليل", "labs", "tests", "selected_labs_text"],
+            "notes": ["ملاحظات", "notes"],
+            "labs_price_before": ["السعرقبلالخصم", "قبلالخصم", "pricebefore", "labs_price_before", "الخصم"],
+            "labs_price_after": ["السعربعدالخصم", "بعدالخصم", "priceafter", "labs_price_after"],
+            "transport_fee": ["بدلالانتقال", "النقل", "transportfee", "transport_fee", "الانتقال"],
+            "total_price": ["الإجمالي", "السعرالاجمالي", "الاجمالي", "total"],
+            "status": ["الحالة", "status", "الوضع"],
+            "payment_status": ["حالةالدفع", "paymentstatus", "دفع", "payment_status"],
+            "payment_method": ["طريقةالدفع", "paymentmethod", "payment_method"],
+            "paid_amount": ["المبلغالمدفوع", "paidamount", "مدفوع", "paid"],
+            "visit_time": ["الوقت", "الموعد", "visit_time", "time"],
+            "created_at": ["تاريخالإنشاء", "createdat", "created_at", "تاريخانشاء"]
+        }
+
+        # بناء خريطة الأعمدة
+        for internal_key, possible_names in name_mapping.items():
+            for col in df.columns:
+                if col.lower() in [n.lower() for n in possible_names]:
+                    col_mapping[internal_key] = col
+                    break
+
+        # عرض الأعمدة التي تم التعرف عليها للتصحيح
+        st.sidebar.write("✅ الأعمدة التي تم التعرف عليها في الملف:", col_mapping)
+
+        # 2. المرور على كل صف
+        for index, row in df.iterrows():
+            try:
+                record = {}
+                
+                # تعيين القيم من ملف الإكسيل
+                for key in col_mapping:
+                    val = row[col_mapping[key]]
+                    if pd.isna(val): val = None
+                    record[key] = val
+
+                # معالجة الأرقام
+                for num_key in ["labs_price_before", "labs_price_after", "transport_fee", "total_price", "paid_amount", "age"]:
+                    if num_key in record and record[num_key] is not None:
+                        try:
+                            if isinstance(record[num_key], str):
+                                record[num_key] = float(record[num_key].replace(",", ""))
+                            else:
+                                record[num_key] = float(record[num_key])
+                        except:
+                            record[num_key] = 0
+                    elif num_key not in record:
+                        record[num_key] = 0
+
+                # معالجة النصوص الافتراضية
+                txt_defaults = {
+                    "status": "مجدولة", "branch": "La Cite", 
+                    "payment_status": "غير مدفوع", "payment_method": "نقدي", 
+                    "age_unit": "سنة", "doctor_name": ""
+                }
+                for txt_key, default_val in txt_defaults.items():
+                    if txt_key not in record or record[txt_key] is None:
+                        record[txt_key] = default_val
+                    else:
+                        record[txt_key] = str(record[txt_key]).strip()
+
+                # 🔥 التصحيح الأهم: معالجة النصوص الكبيرة (لحل مشكلة location_link)
+                for txt_key in ["location_link", "address", "selected_labs_text", "notes"]:
+                    if txt_key in record and record[txt_key] is not None:
+                        record[txt_key] = str(record[txt_key]).strip()
+                    else:
+                        record[txt_key] = ""
+
+                # معالجة التواريخ
+                if "visit_date" in record and record["visit_date"] is not None:
+                    try:
+                        record["visit_date"] = pd.to_datetime(record["visit_date"]).strftime("%Y-%m-%d")
+                    except:
+                        record["visit_date"] = date.today().isoformat()
+                else:
+                    record["visit_date"] = date.today().isoformat()
+                    
+                if "visit_time" not in record or record["visit_time"] is None:
+                    record["visit_time"] = ""
+
+                # حساب الإجمالي إذا لم يكن موجوداً
+                if record.get("total_price", 0) == 0:
+                    record["total_price"] = record.get("labs_price_after", 0) + record.get("transport_fee", 0)
+
+                # التأكد من وجود البيانات الأساسية
+                if not record.get("name") or not record.get("phone"):
+                    continue
+
+                # إنشاء ID
+                if "id" not in record or not record["id"]:
+                    record["id"] = uuid_lib.uuid4().hex[:16]
+                else:
+                    record["id"] = str(record["id"])
+
+                # البحث عن السجل الموجود
+                existing_record = None
+                if "id" in record and record["id"]:
+                    existing_record = fetch_visit_by_id(record["id"])
+                
+                if not existing_record and record.get("name") and record.get("phone") and record.get("visit_date"):
+                    existing_record = fetch_visit_by_unique_keys(
+                        record.get("name"), 
+                        record.get("phone"), 
+                        record.get("visit_date")
                     )
 
                 # التحديث أو الإدراج
@@ -1092,7 +1046,7 @@ def import_from_excel(uploaded_file):
                     count_imported += 1
 
             except Exception as row_error:
-                # لو حصل خطأ في صف معين، يتجاهله ويكمل، ويعرض تحذير في الشريط الجانبي
+                # لو صف واحد فيه مشكلة، يقفز عليه ويكمل
                 st.sidebar.warning(f"⚠️ تخطي الصف رقم {index + 2} بسبب خطأ: {row_error}")
 
         return count_imported, count_updated
@@ -1100,7 +1054,6 @@ def import_from_excel(uploaded_file):
     except Exception as e:
         st.error(f"حدث خطأ أثناء معالجة الملف: {e}")
         return 0, 0
-
 # ══════════════════════════════════════════════════════════════════════════════
 # Quick Panels واقتراحات (كما هي)
 # ══════════════════════════════════════════════════════════════════════════════
