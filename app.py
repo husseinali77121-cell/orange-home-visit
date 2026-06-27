@@ -828,7 +828,7 @@ def import_from_excel(uploaded_file):
         df = None
 
         for hdr in headers_to_try:
-    try:
+           try:
         uploaded_file.seek(0)
         tmp = pd.read_excel(
             uploaded_file,
