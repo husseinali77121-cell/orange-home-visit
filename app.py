@@ -824,10 +824,10 @@ def import_from_excel(uploaded_file):
         # قراءة ملف الإكسيل (الورقة الأولى دائماً)
         # قراءة ذكية لملفات Excel (ملفات البرنامج أو ملفات عادية)
 
-    headers_to_try = [2, 3, 0]
-df = None
+        headers_to_try = [2, 3, 0]
+        df = None
 
-for hdr in headers_to_try:
+        for hdr in headers_to_try:
     try:
         uploaded_file.seek(0)
         tmp = pd.read_excel(
