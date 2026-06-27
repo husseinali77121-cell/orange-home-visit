@@ -921,7 +921,7 @@ def import_from_excel(uploaded_file):
                 if pd.isna(val): val = None
                 record[key] = val
 # ضمان وجود الحقول الاختيارية حتى لا يفشل الاستيراد
-defaults = {
+    defaults = {
     "location_link": "",
     "selected_labs_text": "",
     "notes": "",
