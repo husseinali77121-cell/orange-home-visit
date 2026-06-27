@@ -821,48 +821,59 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
 # ══════════════════════════════════════════════════════════════════════════════
 def import_from_excel(uploaded_file):
     try:
-        # قراءة ملف الإكسيل (الورقة الأولى دائماً)
         # قراءة ذكية لملفات Excel (ملفات البرنامج أو ملفات عادية)
 
         headers_to_try = [2, 3, 0]
         df = None
 
         for hdr in headers_to_try:
-           try:
-        uploaded_file.seek(0)
-        tmp = pd.read_excel(
-            uploaded_file,
-            engine="openpyxl",
-            sheet_name=0,
-            header=hdr
-        )
+            try:
+                uploaded_file.seek(0)
 
-        cols = [str(c).strip().replace(" ", "").replace("\xa0", "") for c in tmp.columns]
+                tmp = pd.read_excel(
+                    uploaded_file,
+                    engine="openpyxl",
+                    sheet_name=0,
+                    header=hdr
+                )
 
-        if any(c in cols for c in ["الاسم", "name"]):
-            df = tmp
-            break
+                cols = [
+                    str(c).strip().replace(" ", "").replace("\xa0", "")
+                    for c in tmp.columns
+                ]
 
-    except Exception:
-        pass
+                if any(c in cols for c in ["الاسم", "name"]):
+                    df = tmp
+                    break
 
-if df is None:
-    uploaded_file.seek(0)
-    df = pd.read_excel(uploaded_file, engine="openpyxl", sheet_name=0)
+            except Exception:
+                pass
 
-# حذف الصفوف الفارغة
-df = df.dropna(how="all")
-        
-        # تنظيف عنيف جداً لأسماء الأعمدة (حتى من المسافات المخفية)
+        if df is None:
+            uploaded_file.seek(0)
+            df = pd.read_excel(
+                uploaded_file,
+                engine="openpyxl",
+                sheet_name=0
+            )
+
+        # حذف الصفوف الفارغة
+        df = df.dropna(how="all")
+
+        # تنظيف أسماء الأعمدة
         cleaned_cols = []
         for c in df.columns:
-            c = str(c).strip().replace(" ", "").replace("\xa0", "") # إزالة المسافات العادية والمخفية
+            c = str(c).strip().replace(" ", "").replace("\xa0", "")
             cleaned_cols.append(c)
+
         df.columns = cleaned_cols
 
-        count_imported = 0
-        count_updated = 0
-
+        # ===========================================
+        # كود الاستيراد الحالي يبدأ من هنا كما هو
+        # count_imported = 0
+        # count_updated = 0
+        # ....
+        # ===========================================
         # خريطة متطابقة مع كل أنواع الملفات (بما فيها الملفات اللي بعتها)
         col_mapping = {}
         name_mapping = {
