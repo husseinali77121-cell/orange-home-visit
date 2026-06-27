@@ -423,6 +423,18 @@ def _log_audit(user_email, action, table_name, record_id, field_name="", old_val
     except Exception as e:
         log_error(user_email, "audit_log", e)
 
+# ══════════════════════════════════════════════════════════════════════════════
+# دالة البحث الذكي (جديدة)
+# ══════════════════════════════════════════════════════════════════════════════
+def fetch_visit_by_unique_keys(name, phone, visit_date):
+    """البحث عن زيارة بناءً على الاسم والتليفون والتاريخ بدلاً من الـ ID"""
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT * FROM visits WHERE name=? AND phone=? AND visit_date=? AND deleted_at IS NULL LIMIT 1",
+        (name, phone, visit_date)
+    ).fetchone()
+    return dict(row) if row else None
+
 def fetch_visits(filters=None, page=None, page_size=None):
     """جلب الزيارات مع دعم pagination"""
     conn = get_connection()
@@ -839,105 +851,136 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
 # 🔥 دالة الاستيراد الذكية الجديدة 🔥
 # ══════════════════════════════════════════════════════════════════════════════
 def import_from_excel(uploaded_file):
-    # 1. قراءة ملف الإكسيل
-    df = pd.read_excel(uploaded_file, engine="openpyxl")
-    # تنظيف أسماء الأعمدة من أي مسافات زائدة
-    df.columns = [str(c).strip() for c in df.columns]
+    try:
+        df = pd.read_excel(uploaded_file, engine="openpyxl")
+        df.columns = [str(c).strip().replace(" ", "") for c in df.columns]
 
-    # 2. قائمة الحقول المتوقعة التي يفهمها التطبيق
-    expected_cols = [
-        "id", "created_at", "name", "age", "age_unit", "phone", "visit_date", "visit_time",
-        "doctor_name", "branch", "address", "location_link", "selected_labs_text", "notes",
-        "labs_price_before", "labs_price_after", "transport_fee", "total_price", "status",
-        "payment_status", "payment_method", "paid_amount", "payment_date", "rating", "tag", "deleted_at"
-    ]
+        count_imported = 0
+        count_updated = 0
 
-    count_imported = 0
-    count_updated = 0
+        # خريطة مرنة لتحديد أسماء الأعمدة (عربي / إنجليزي)
+        col_mapping = {}
+        arabic_to_internal = {
+            "id": ["رقمالزيارة", "id", "visitid", "معرفالزيارة", "الزيارةرقم"],
+            "name": ["الاسم", "اسمالمريض", "اسم", "name", "patientname"],
+            "phone": ["التليفون", "رقمالتليفون", "هاتف", "phone", "mobile", "telephone"],
+            "visit_date": ["تاريخالزيارة", "تاريخ", "الزيارة", "visitdate", "visit_date", "التاريخ"],
+            "age": ["السن", "العمر", "age"],
+            "age_unit": ["وحدةالعمر", "العمربوحدة", "age_unit"],
+            "doctor_name": ["الدكتور", "اسمالدكتور", "طبيب", "doctor"],
+            "branch": ["الفرع", "branch"],
+            "address": ["العنوان", "address"],
+            "location_link": ["رابطالموقع", "location", "map", "رابط"],
+            "selected_labs_text": ["التحاليل", "التحليل", "labs", "tests", "selected_labs_text"],
+            "notes": ["ملاحظات", "notes"],
+            "labs_price_before": ["السعرقبلالخصم", "قبلالخصم", "pricebefore", "labs_price_before"],
+            "labs_price_after": ["السعربعدالخصم", "بعدالخصم", "priceafter", "labs_price_after"],
+            "transport_fee": ["بدلالانتقال", "النقل", "transportfee", "transport_fee"],
+            "total_price": ["الإجمالي", "السعرالاجمالي", "الاجمالي", "total"],
+            "status": ["الحالة", "status", "الوضع"],
+            "payment_status": ["حالةالدفع", "paymentstatus", "دفع", "payment_status"],
+            "payment_method": ["طريقةالدفع", "paymentmethod", "payment_method"],
+            "paid_amount": ["المبلغالمدفوع", "paidamount", "مدفوع", "paid"],
+            "visit_time": ["الوقت", "الموعد", "visit_time", "time"],
+        }
 
-    # 3. المرور على كل صف في ملف الإكسيل
-    for _, row in df.iterrows():
-        record = {}
-        
-        # 3.1. تجميع الحقول الموجودة فقط داخل ملف الـ Excel
-        for col in expected_cols:
-            if col in df.columns:
-                val = row.get(col)
-                
-                # معالجة الأرقام (لو القيمة فارغة، نحولها لـ 0)
-                if col in ["labs_price_before", "labs_price_after", "transport_fee", "total_price", "paid_amount", "age", "rating"]:
-                    try:
-                        if pd.isna(val):
-                            val = 0
-                        elif col in ["age", "rating"]:
-                            val = int(float(val))
-                        else:
-                            val = float(val)
-                    except:
-                        val = 0
-                
-                # معالجة التواريخ
-                elif col == "visit_date":
-                    if pd.isna(val): val = date.today().isoformat()
-                    else:
-                        try: val = pd.to_datetime(val).strftime("%Y-%m-%d")
-                        except: val = str(val)
-                
-                elif col == "payment_date":
-                    if not pd.isna(val):
-                        try: val = pd.to_datetime(val).strftime("%Y-%m-%d")
-                        except: val = str(val)
-                    else: val = ""
-                
-                record[col] = val
+        # بناء خريطة الأعمدة بناءً على الملف المرفوع
+        for internal_key, possible_names in arabic_to_internal.items():
+            for col in df.columns:
+                if col.strip().lower() in [n.lower() for n in possible_names]:
+                    col_mapping[internal_key] = col
+                    break
+
+        # 2. المرور على كل صف
+        for _, row in df.iterrows():
+            record = {}
             
-            # 3.2. لو العمود مش موجود في ملف الإكسيل، نحط قيمة افتراضية "ذكية"
+            # تعيين القيم من ملف الإكسيل
+            for key in col_mapping:
+                val = row[col_mapping[key]]
+                if pd.isna(val): val = None
+                record[key] = val
+
+            # معالجة الأرقام
+            for num_key in ["labs_price_before", "labs_price_after", "transport_fee", "total_price", "paid_amount", "age"]:
+                if num_key in record and record[num_key] is not None:
+                    try: record[num_key] = float(record[num_key])
+                    except: record[num_key] = 0
+                elif num_key not in record:
+                    record[num_key] = 0
+
+            # معالجة النصوص
+            for txt_key in ["status", "branch", "payment_status", "payment_method", "doctor_name", "age_unit"]:
+                if txt_key not in record or record[txt_key] is None:
+                    if txt_key == "status": record[txt_key] = "مجدولة"
+                    elif txt_key == "branch": record[txt_key] = "La Cite"
+                    elif txt_key == "payment_status": record[txt_key] = "غير مدفوع"
+                    elif txt_key == "payment_method": record[txt_key] = "نقدي"
+                    elif txt_key == "age_unit": record[txt_key] = "سنة"
+                    else: record[txt_key] = ""
+
+            # معالجة التواريخ
+            if "visit_date" in record and record["visit_date"] is not None:
+                try:
+                    record["visit_date"] = pd.to_datetime(record["visit_date"]).strftime("%Y-%m-%d")
+                except:
+                    record["visit_date"] = date.today().isoformat()
             else:
-                if col == "id": record[col] = uuid_lib.uuid4().hex[:16]
-                elif col == "created_at": record[col] = datetime.now().isoformat()
-                elif col == "age": record[col] = 0
-                elif col == "age_unit": record[col] = "سنة"
-                elif col == "branch": record[col] = "La Cite"
-                elif col == "status": record[col] = "مجدولة"
-                elif col == "payment_status": record[col] = "غير مدفوع"
-                elif col == "payment_method": record[col] = ""
-                elif col == "paid_amount": record[col] = 0
-                elif col == "payment_date": record[col] = ""
-                elif col == "visit_time": record[col] = ""
-                elif col == "doctor_name": record[col] = ""
-                elif col == "location_link": record[col] = ""
-                elif col == "selected_labs_text": record[col] = ""
-                elif col == "notes": record[col] = ""
-                elif col == "labs_price_before": record[col] = 0
-                elif col == "labs_price_after": record[col] = 0
-                elif col == "transport_fee": record[col] = 0
-                elif col == "total_price": record[col] = 0
-                elif col == "rating": record[col] = 0
-                elif col == "tag": record[col] = ""
-                elif col == "deleted_at": record[col] = None
+                record["visit_date"] = date.today().isoformat()
+                
+            # إذا لم يكن هناك وقت، ضع فارغاً
+            if "visit_time" not in record or record["visit_time"] is None:
+                record["visit_time"] = ""
 
-        # 4. حساب السعر الإجمالي لو مش موجود في ملف الإكسيل
-        if record.get("total_price", 0) == 0:
-            record["total_price"] = float(record.get("labs_price_after", 0)) + float(record.get("transport_fee", 0))
+            # حساب الإجمالي إذا لم يكن موجوداً
+            if record.get("total_price", 0) == 0:
+                record["total_price"] = record.get("labs_price_after", 0) + record.get("transport_fee", 0)
 
-        # 5. التأكد من وجود البيانات الأساسية للزيارة
-        if not record.get("name") or not record.get("phone") or not record.get("visit_date"):
-            continue  # لو الاسم أو التليفون أو التاريخ ناقصين، تخطي السطر ده
+            # التأكد من وجود البيانات الأساسية
+            if not record.get("name") or not record.get("phone"):
+                continue
 
-        # 6. "تطابق المتشابهة": لو الـ ID موجود وقاعدة البيانات فيها زيارة بنفس الـ ID، نقوم بـ تحديثها
-        existing = fetch_visit_by_id(record["id"])
-        if existing:
-            update_visit(record)
-            count_updated += 1
-        else:
-            # لو مفيش تطابق، نقوم بعمل زيارة جديدة (رفع)
-            insert_visit(record)
-            count_imported += 1
+            # إنشاء ID إذا لم يكن موجوداً في الملف
+            if "id" not in record or not record["id"]:
+                record["id"] = uuid_lib.uuid4().hex[:16]
+            else:
+                record["id"] = str(record["id"])
 
-    return count_imported, count_updated
+            # تحديد ما إذا كان السجل موجوداً (بناءً على الـ ID أو بناءً على الاسم والتليفون والتاريخ)
+            existing_record = None
+            
+            # 1. حاول البحث بالـ ID
+            if "id" in record and record["id"]:
+                existing_record = fetch_visit_by_id(record["id"])
+            
+            # 2. إذا لم يوجد بالـ ID، ابحث بالاسم + التليفون + التاريخ (لمنع التكرار للملفات التي ليس بها ID)
+            if not existing_record:
+                existing_record = fetch_visit_by_unique_keys(
+                    record.get("name"), 
+                    record.get("phone"), 
+                    record.get("visit_date")
+                )
+
+            # 3. إما التحديث أو الإدراج
+            if existing_record:
+                record["id"] = existing_record["id"] # نستخدم الـ ID الموجود لتحديث السجل بشكل صحيح
+                record["_user"] = st.session_state.get("user_email", "system_import")
+                update_visit(record)
+                count_updated += 1
+            else:
+                record["created_at"] = datetime.now().isoformat()
+                record["_user"] = st.session_state.get("user_email", "system_import")
+                insert_visit(record)
+                count_imported += 1
+
+        return count_imported, count_updated
+
+    except Exception as e:
+        st.error(f"حدث خطأ أثناء معالجة الملف: {e}")
+        return 0, 0
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Quick Panels واقتراحات
+# Quick Panels واقتراحات (كما هي)
 # ══════════════════════════════════════════════════════════════════════════════
 QUICK_PANELS = [
     {"name":"🩸 CBC",      "tests":["CBC"]},
@@ -1227,7 +1270,7 @@ table{{width:100%;border-collapse:collapse;font-size:13px;}}
 </body></html>"""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CSS
+# CSS (كما هي)
 # ══════════════════════════════════════════════════════════════════════════════
 def inject_css():
     css = """
@@ -1438,7 +1481,7 @@ else:
 
 st.markdown("---")
 # ══════════════════════════════════════════════════════════════════════════════
-# صفحة الرئيسية
+# صفحة الرئيسية (مع تحسينات)
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.page == "home":
     if st.session_state.user_type not in ["admin","diamond","lacite"]:
@@ -1534,7 +1577,7 @@ if st.session_state.page == "home":
             if count_updated > 0:
                 st.success(f"✅ تم استيراد {count_imported} زيارة جديدة، وتحديث {count_updated} زيارة موجودة!")
             else:
-                st.success(f"✅ تم استيراد {count_imported} زيارة!")
+                st.success(f"✅ تم استيراد {count_imported} زيارة جديدة!")
             st.rerun()
     st.markdown("---")
     if not visits:
@@ -1575,7 +1618,7 @@ if st.session_state.page == "home":
     </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# صفحة زيارات اليوم
+# صفحة زيارات اليوم (بقية الكود كما هو)
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "today":
     if st.session_state.user_type not in ["admin","diamond","lacite"]:
@@ -1640,7 +1683,7 @@ elif st.session_state.page == "today":
                         go("detail", visit_id=v["id"])
 
 # ══════════════════════════════════════════════════════════════════════════════
-# صفحة زيارة جديدة / تعديل
+# صفحة زيارة جديدة / تعديل (مع تحسين تنبيه العميل)
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "new":
     pf      = st.session_state.prefill or {}
@@ -1910,7 +1953,7 @@ elif st.session_state.page == "new":
             go("detail", visit_id=pf.get("id"))
 
 # ══════════════════════════════════════════════════════════════════════════════
-# صفحة التفاصيل
+# صفحة التفاصيل (بقية الكود كما هو مع format_money)
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "detail":
     vid = st.session_state.selected_id
@@ -2567,7 +2610,7 @@ elif st.session_state.page == "dashboard":
             if count_updated > 0:
                 st.success(f"✅ تم استيراد {count_imported} زيارة جديدة، وتحديث {count_updated} زيارة موجودة!")
             else:
-                st.success(f"✅ تم استيراد {count_imported} زيارة!")
+                st.success(f"✅ تم استيراد {count_imported} زيارة جديدة!")
             st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
