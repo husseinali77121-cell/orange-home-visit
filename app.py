@@ -822,7 +822,36 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
 def import_from_excel(uploaded_file):
     try:
         # قراءة ملف الإكسيل (الورقة الأولى دائماً)
-        df = pd.read_excel(uploaded_file, engine="openpyxl", sheet_name=0)
+        # قراءة ذكية لملفات Excel (ملفات البرنامج أو ملفات عادية)
+
+headers_to_try = [2, 3, 0]
+df = None
+
+for hdr in headers_to_try:
+    try:
+        uploaded_file.seek(0)
+        tmp = pd.read_excel(
+            uploaded_file,
+            engine="openpyxl",
+            sheet_name=0,
+            header=hdr
+        )
+
+        cols = [str(c).strip().replace(" ", "").replace("\xa0", "") for c in tmp.columns]
+
+        if any(c in cols for c in ["الاسم", "name"]):
+            df = tmp
+            break
+
+    except Exception:
+        pass
+
+if df is None:
+    uploaded_file.seek(0)
+    df = pd.read_excel(uploaded_file, engine="openpyxl", sheet_name=0)
+
+# حذف الصفوف الفارغة
+df = df.dropna(how="all")
         
         # تنظيف عنيف جداً لأسماء الأعمدة (حتى من المسافات المخفية)
         cleaned_cols = []
