@@ -940,63 +940,160 @@ def import_from_excel(uploaded_file):
                     if txt_key == "status": record[txt_key] = "مجدولة"
                     elif txt_key == "branch": record[txt_key] = "La Cite"
                     elif txt_key == "payment_status": record[txt_key] = "غير مدفوع"
-                    elif txt_key == "payment_method": record[txt_key] = "نقدي"
-                    elif txt_key == "age_unit": record[txt_key] = "سنة"
-                    else: record[txt_key] = ""
+# ══════════════════════════════════════════════════════════════════════════════
+# 🔥 دالة الاستيراد الذكية (نسخة آمنة تماماً للنصوص) 🔥
+# ══════════════════════════════════════════════════════════════════════════════
+def import_from_excel(uploaded_file):
+    try:
+        # قراءة ملف الإكسيل (الورقة الأولى دائماً)
+        df = pd.read_excel(uploaded_file, engine="openpyxl", sheet_name=0)
+        
+        # تنظيف عنيف جداً لأسماء الأعمدة (حتى من المسافات المخفية)
+        cleaned_cols = []
+        for c in df.columns:
+            c = str(c).strip().replace(" ", "").replace("\xa0", "")
+            cleaned_cols.append(c)
+        df.columns = cleaned_cols
 
-            # معالجة التواريخ بدقة
-            if "visit_date" in record and record["visit_date"] is not None:
-                try:
-                    record["visit_date"] = pd.to_datetime(record["visit_date"]).strftime("%Y-%m-%d")
-                except:
-                    record["visit_date"] = date.today().isoformat()
-            else:
-                record["visit_date"] = date.today().isoformat()
+        count_imported = 0
+        count_updated = 0
+
+        # خريطة متطابقة مع كل أنواع الملفات
+        col_mapping = {}
+        name_mapping = {
+            "id": ["رقمالزيارة", "id", "visitid", "معرفالزيارة", "زيارةرقم"],
+            "name": ["الاسم", "اسمالمريض", "اسم", "name", "patientname"],
+            "phone": ["التليفون", "رقمالتليفون", "هاتف", "phone", "mobile", "telephone"],
+            "visit_date": ["تاريخالزيارة", "تاريخ", "الزيارة", "visitdate", "visit_date", "التاريخ"],
+            "age": ["السن", "العمر", "age"],
+            "age_unit": ["الوحدة", "وحدةالعمر", "العمربوحدة", "age_unit"],
+            "doctor_name": ["الدكتور", "اسمالدكتور", "طبيب", "doctor"],
+            "branch": ["الفرع", "branch"],
+            "address": ["العنوان", "address"],
+            "location_link": ["رابطالموقع", "location", "map", "رابط", "الموقع", "رابطالموقع", "locationlink"],
+            "selected_labs_text": ["التحاليل", "التحليل", "labs", "tests", "selected_labs_text"],
+            "notes": ["ملاحظات", "notes"],
+            "labs_price_before": ["السعرقبلالخصم", "قبلالخصم", "pricebefore", "labs_price_before", "الخصم"],
+            "labs_price_after": ["السعربعدالخصم", "بعدالخصم", "priceafter", "labs_price_after"],
+            "transport_fee": ["بدلالانتقال", "النقل", "transportfee", "transport_fee", "الانتقال"],
+            "total_price": ["الإجمالي", "السعرالاجمالي", "الاجمالي", "total"],
+            "status": ["الحالة", "status", "الوضع"],
+            "payment_status": ["حالةالدفع", "paymentstatus", "دفع", "payment_status"],
+            "payment_method": ["طريقةالدفع", "paymentmethod", "payment_method"],
+            "paid_amount": ["المبلغالمدفوع", "paidamount", "مدفوع", "paid"],
+            "visit_time": ["الوقت", "الموعد", "visit_time", "time"],
+            "created_at": ["تاريخالإنشاء", "createdat", "created_at", "تاريخانشاء"]
+        }
+
+        # بناء خريطة الأعمدة
+        for internal_key, possible_names in name_mapping.items():
+            for col in df.columns:
+                if col.lower() in [n.lower() for n in possible_names]:
+                    col_mapping[internal_key] = col
+                    break
+
+        # عرض الأعمدة التي تم التعرف عليها للتصحيح
+        st.sidebar.write("✅ الأعمدة التي تم التعرف عليها في الملف:", col_mapping)
+
+        # 2. المرور على كل صف
+        for index, row in df.iterrows():
+            try:
+                record = {}
                 
-            # إذا لم يكن هناك وقت، ضع فارغاً
-            if "visit_time" not in record or record["visit_time"] is None:
-                record["visit_time"] = ""
+                # تعيين القيم من ملف الإكسيل
+                for key in col_mapping:
+                    val = row[col_mapping[key]]
+                    if pd.isna(val): val = None
+                    record[key] = val
 
-            # حساب الإجمالي إذا لم يكن موجوداً
-            if record.get("total_price", 0) == 0:
-                record["total_price"] = record.get("labs_price_after", 0) + record.get("transport_fee", 0)
+                # معالجة الأرقام (ضمان إنها أرقام)
+                for num_key in ["labs_price_before", "labs_price_after", "transport_fee", "total_price", "paid_amount", "age"]:
+                    if num_key in record and record[num_key] is not None:
+                        try:
+                            if isinstance(record[num_key], str):
+                                record[num_key] = float(record[num_key].replace(",", ""))
+                            else:
+                                record[num_key] = float(record[num_key])
+                        except:
+                            record[num_key] = 0
+                    elif num_key not in record:
+                        record[num_key] = 0
 
-            # التأكد من وجود البيانات الأساسية
-            if not record.get("name") or not record.get("phone"):
-                continue
+                # معالجة النصوص (الحماية من None و NaN) - هذا الجزء هو حل المشكلة
+                txt_defaults = {
+                    "status": "مجدولة", "branch": "La Cite", 
+                    "payment_status": "غير مدفوع", "payment_method": "نقدي", 
+                    "age_unit": "سنة", "doctor_name": ""
+                }
+                for txt_key, default_val in txt_defaults.items():
+                    if txt_key not in record or record[txt_key] is None:
+                        record[txt_key] = default_val
+                    else:
+                        record[txt_key] = str(record[txt_key]).strip()
 
-            # إنشاء ID إذا لم يكن موجوداً في الملف
-            if "id" not in record or not record["id"]:
-                record["id"] = uuid_lib.uuid4().hex[:16]
-            else:
-                record["id"] = str(record["id"])
+                # معالجة الحقول النصية الكبيرة (Location_link, Address, Labs, Notes)
+                # ده التصحيح اللي هيحل مشكلة الـ location_link
+                for txt_key in ["location_link", "address", "selected_labs_text", "notes"]:
+                    if txt_key in record and record[txt_key] is not None:
+                        # تحويل الرقم أو التاريخ إلى نص، وتنظيف المسافات
+                        record[txt_key] = str(record[txt_key]).strip()
+                    else:
+                        record[txt_key] = ""
 
-            # تحديد ما إذا كان السجل موجوداً (بناءً على الـ ID أو بناءً على الاسم والتليفون والتاريخ)
-            existing_record = None
-            
-            # 1. حاول البحث بالـ ID
-            if "id" in record and record["id"]:
-                existing_record = fetch_visit_by_id(record["id"])
-            
-            # 2. إذا لم يوجد بالـ ID، ابحث بالاسم + التليفون + التاريخ (لمنع التكرار للملفات التي ليس بها ID)
-            if not existing_record and record.get("name") and record.get("phone") and record.get("visit_date"):
-                existing_record = fetch_visit_by_unique_keys(
-                    record.get("name"), 
-                    record.get("phone"), 
-                    record.get("visit_date")
-                )
+                # معالجة التواريخ بدقة
+                if "visit_date" in record and record["visit_date"] is not None:
+                    try:
+                        record["visit_date"] = pd.to_datetime(record["visit_date"]).strftime("%Y-%m-%d")
+                    except:
+                        record["visit_date"] = date.today().isoformat()
+                else:
+                    record["visit_date"] = date.today().isoformat()
+                    
+                # إذا لم يكن هناك وقت، ضع فارغاً
+                if "visit_time" not in record or record["visit_time"] is None:
+                    record["visit_time"] = ""
 
-            # 3. إما التحديث أو الإدراج
-            if existing_record:
-                record["id"] = existing_record["id"] # نستخدم الـ ID الموجود لتحديث السجل بشكل صحيح
-                record["_user"] = st.session_state.get("user_email", "system_import")
-                update_visit(record)
-                count_updated += 1
-            else:
-                record["created_at"] = datetime.now().isoformat()
-                record["_user"] = st.session_state.get("user_email", "system_import")
-                insert_visit(record)
-                count_imported += 1
+                # حساب الإجمالي إذا لم يكن موجوداً
+                if record.get("total_price", 0) == 0:
+                    record["total_price"] = record.get("labs_price_after", 0) + record.get("transport_fee", 0)
+
+                # التأكد من وجود البيانات الأساسية
+                if not record.get("name") or not record.get("phone"):
+                    continue
+
+                # إنشاء ID
+                if "id" not in record or not record["id"]:
+                    record["id"] = uuid_lib.uuid4().hex[:16]
+                else:
+                    record["id"] = str(record["id"])
+
+                # البحث عن السجل الموجود
+                existing_record = None
+                if "id" in record and record["id"]:
+                    existing_record = fetch_visit_by_id(record["id"])
+                
+                if not existing_record and record.get("name") and record.get("phone") and record.get("visit_date"):
+                    existing_record = fetch_visit_by_unique_keys(
+                        record.get("name"), 
+                        record.get("phone"), 
+                        record.get("visit_date")
+                    )
+
+                # التحديث أو الإدراج
+                if existing_record:
+                    record["id"] = existing_record["id"]
+                    record["_user"] = st.session_state.get("user_email", "system_import")
+                    update_visit(record)
+                    count_updated += 1
+                else:
+                    record["created_at"] = datetime.now().isoformat()
+                    record["_user"] = st.session_state.get("user_email", "system_import")
+                    insert_visit(record)
+                    count_imported += 1
+
+            except Exception as row_error:
+                # لو حصل خطأ في صف معين، يتجاهله ويكمل، ويعرض تحذير في الشريط الجانبي
+                st.sidebar.warning(f"⚠️ تخطي الصف رقم {index + 2} بسبب خطأ: {row_error}")
 
         return count_imported, count_updated
 
