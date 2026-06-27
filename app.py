@@ -835,31 +835,109 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
     ws.freeze_panes = "A4"; wb.save(fname)
     return df, fname
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 🔥 دالة الاستيراد الذكية الجديدة 🔥
+# ══════════════════════════════════════════════════════════════════════════════
 def import_from_excel(uploaded_file):
+    # 1. قراءة ملف الإكسيل
     df = pd.read_excel(uploaded_file, engine="openpyxl")
-    required_cols = {"id","name","phone","visit_date","address"}
-    if not required_cols.issubset(df.columns):
-        st.error("ملف Excel غير صالح: ينقصه أعمدة أساسية"); return 0
-    count = 0
+    # تنظيف أسماء الأعمدة من أي مسافات زائدة
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # 2. قائمة الحقول المتوقعة التي يفهمها التطبيق
+    expected_cols = [
+        "id", "created_at", "name", "age", "age_unit", "phone", "visit_date", "visit_time",
+        "doctor_name", "branch", "address", "location_link", "selected_labs_text", "notes",
+        "labs_price_before", "labs_price_after", "transport_fee", "total_price", "status",
+        "payment_status", "payment_method", "paid_amount", "payment_date", "rating", "tag", "deleted_at"
+    ]
+
+    count_imported = 0
+    count_updated = 0
+
+    # 3. المرور على كل صف في ملف الإكسيل
     for _, row in df.iterrows():
-        record = row.to_dict()
-        record.setdefault("created_at", datetime.now().isoformat())
-        record.setdefault("visit_time",""); record.setdefault("doctor_name","")
-        record.setdefault("branch","La Cite"); record.setdefault("location_link","")
-        record.setdefault("selected_labs_text",""); record.setdefault("notes","")
-        record.setdefault("labs_price_before",0); record.setdefault("labs_price_after",0)
-        record.setdefault("transport_fee",0); record.setdefault("total_price",0)
-        record.setdefault("age_unit","سنة"); record.setdefault("status","مجدولة")
-        record.setdefault("payment_status","غير مدفوع"); record.setdefault("payment_method","")
-        record.setdefault("paid_amount",0); record.setdefault("payment_date","")
-        if "age" not in record or pd.isna(record["age"]): record["age"] = 0
-        if fetch_visit_by_id(record["id"]): update_visit(record)
-        else: insert_visit(record)
-        count += 1
-    return count
+        record = {}
+        
+        # 3.1. تجميع الحقول الموجودة فقط داخل ملف الـ Excel
+        for col in expected_cols:
+            if col in df.columns:
+                val = row.get(col)
+                
+                # معالجة الأرقام (لو القيمة فارغة، نحولها لـ 0)
+                if col in ["labs_price_before", "labs_price_after", "transport_fee", "total_price", "paid_amount", "age", "rating"]:
+                    try:
+                        if pd.isna(val):
+                            val = 0
+                        elif col in ["age", "rating"]:
+                            val = int(float(val))
+                        else:
+                            val = float(val)
+                    except:
+                        val = 0
+                
+                # معالجة التواريخ
+                elif col == "visit_date":
+                    if pd.isna(val): val = date.today().isoformat()
+                    else:
+                        try: val = pd.to_datetime(val).strftime("%Y-%m-%d")
+                        except: val = str(val)
+                
+                elif col == "payment_date":
+                    if not pd.isna(val):
+                        try: val = pd.to_datetime(val).strftime("%Y-%m-%d")
+                        except: val = str(val)
+                    else: val = ""
+                
+                record[col] = val
+            
+            # 3.2. لو العمود مش موجود في ملف الإكسيل، نحط قيمة افتراضية "ذكية"
+            else:
+                if col == "id": record[col] = uuid_lib.uuid4().hex[:16]
+                elif col == "created_at": record[col] = datetime.now().isoformat()
+                elif col == "age": record[col] = 0
+                elif col == "age_unit": record[col] = "سنة"
+                elif col == "branch": record[col] = "La Cite"
+                elif col == "status": record[col] = "مجدولة"
+                elif col == "payment_status": record[col] = "غير مدفوع"
+                elif col == "payment_method": record[col] = ""
+                elif col == "paid_amount": record[col] = 0
+                elif col == "payment_date": record[col] = ""
+                elif col == "visit_time": record[col] = ""
+                elif col == "doctor_name": record[col] = ""
+                elif col == "location_link": record[col] = ""
+                elif col == "selected_labs_text": record[col] = ""
+                elif col == "notes": record[col] = ""
+                elif col == "labs_price_before": record[col] = 0
+                elif col == "labs_price_after": record[col] = 0
+                elif col == "transport_fee": record[col] = 0
+                elif col == "total_price": record[col] = 0
+                elif col == "rating": record[col] = 0
+                elif col == "tag": record[col] = ""
+                elif col == "deleted_at": record[col] = None
+
+        # 4. حساب السعر الإجمالي لو مش موجود في ملف الإكسيل
+        if record.get("total_price", 0) == 0:
+            record["total_price"] = float(record.get("labs_price_after", 0)) + float(record.get("transport_fee", 0))
+
+        # 5. التأكد من وجود البيانات الأساسية للزيارة
+        if not record.get("name") or not record.get("phone") or not record.get("visit_date"):
+            continue  # لو الاسم أو التليفون أو التاريخ ناقصين، تخطي السطر ده
+
+        # 6. "تطابق المتشابهة": لو الـ ID موجود وقاعدة البيانات فيها زيارة بنفس الـ ID، نقوم بـ تحديثها
+        existing = fetch_visit_by_id(record["id"])
+        if existing:
+            update_visit(record)
+            count_updated += 1
+        else:
+            # لو مفيش تطابق، نقوم بعمل زيارة جديدة (رفع)
+            insert_visit(record)
+            count_imported += 1
+
+    return count_imported, count_updated
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Quick Panels واقتراحات (كما هي)
+# Quick Panels واقتراحات
 # ══════════════════════════════════════════════════════════════════════════════
 QUICK_PANELS = [
     {"name":"🩸 CBC",      "tests":["CBC"]},
@@ -1149,7 +1227,7 @@ table{{width:100%;border-collapse:collapse;font-size:13px;}}
 </body></html>"""
 
 # ══════════════════════════════════════════════════════════════════════════════
-# CSS (كما هي)
+# CSS
 # ══════════════════════════════════════════════════════════════════════════════
 def inject_css():
     css = """
@@ -1360,7 +1438,7 @@ else:
 
 st.markdown("---")
 # ══════════════════════════════════════════════════════════════════════════════
-# صفحة الرئيسية (مع تحسينات)
+# صفحة الرئيسية
 # ══════════════════════════════════════════════════════════════════════════════
 if st.session_state.page == "home":
     if st.session_state.user_type not in ["admin","diamond","lacite"]:
@@ -1452,8 +1530,12 @@ if st.session_state.page == "home":
     if st.session_state.user_type == "admin":
         uf = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
         if uf:
-            count = import_from_excel(uf)
-            st.success(f"تم استيراد {count} زيارة!"); st.rerun()
+            count_imported, count_updated = import_from_excel(uf)
+            if count_updated > 0:
+                st.success(f"✅ تم استيراد {count_imported} زيارة جديدة، وتحديث {count_updated} زيارة موجودة!")
+            else:
+                st.success(f"✅ تم استيراد {count_imported} زيارة!")
+            st.rerun()
     st.markdown("---")
     if not visits:
         st.info("لا توجد زيارات تطابق التصفية.")
@@ -1493,7 +1575,7 @@ if st.session_state.page == "home":
     </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# صفحة زيارات اليوم (بقية الكود كما هو)
+# صفحة زيارات اليوم
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "today":
     if st.session_state.user_type not in ["admin","diamond","lacite"]:
@@ -1558,7 +1640,7 @@ elif st.session_state.page == "today":
                         go("detail", visit_id=v["id"])
 
 # ══════════════════════════════════════════════════════════════════════════════
-# صفحة زيارة جديدة / تعديل (مع تحسين تنبيه العميل)
+# صفحة زيارة جديدة / تعديل
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "new":
     pf      = st.session_state.prefill or {}
@@ -1582,7 +1664,6 @@ elif st.session_state.page == "new":
             last_date = format_date_ar(last_v.get("visit_date",""))
             last_stat = last_v.get("status",""); n_total = len(prev_visits)
             churn     = get_churn_risk(phone)
-            # عرض معلومات محسنة
             st.markdown(f"""<div style="background:#FFF3CD;border:2px solid #F39C12;border-radius:12px;padding:12px 16px;margin:8px 0;direction:rtl;">
               <div style="font-weight:800;color:#E67E22;font-size:14px;margin-bottom:6px;">⚠️ هذا العميل موجود في النظام</div>
               <div style="font-size:13px;color:#333;line-height:1.8;">
@@ -1829,7 +1910,7 @@ elif st.session_state.page == "new":
             go("detail", visit_id=pf.get("id"))
 
 # ══════════════════════════════════════════════════════════════════════════════
-# صفحة التفاصيل (بقية الكود كما هو مع format_money)
+# صفحة التفاصيل
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "detail":
     vid = st.session_state.selected_id
@@ -2482,8 +2563,12 @@ elif st.session_state.page == "dashboard":
     with ba2:
         uf_dash = st.file_uploader("📤 استيراد بيانات", type=["xlsx"], key="import_dash")
         if uf_dash:
-            count = import_from_excel(uf_dash)
-            st.success(f"تم استيراد {count} زيارة!"); st.rerun()
+            count_imported, count_updated = import_from_excel(uf_dash)
+            if count_updated > 0:
+                st.success(f"✅ تم استيراد {count_imported} زيارة جديدة، وتحديث {count_updated} زيارة موجودة!")
+            else:
+                st.success(f"✅ تم استيراد {count_imported} زيارة!")
+            st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # صفحة بروفايل العميل
