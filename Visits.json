@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-06-29T17:55:30.133360",
+  "exported_at": "2026-06-29T17:58:02.068437",
   "total": 35,
   "visits": [
     {
@@ -246,15 +246,15 @@
       "id": "930df1e38e4344a6",
       "created_at": "2026-06-29T11:08:12.480855",
       "name": "نهلة حمدي امين",
-      "age": "",
+      "age": 0,
       "age_unit": "سنة",
       "phone": "01222531398",
       "visit_date": "2026-06-06",
-      "visit_time": "",
+      "visit_time": "12:00 PM",
       "doctor_name": "حسين علي",
       "branch": "La Cite",
       "address": "الحي الثالث - 6 اكتوبر - مجاورة 8 - عمارة 1799 فيلا الايمان الدور الارضي",
-      "location_link": "",
+      "location_link": "https://maps.app.goo.gl/F31EuELq2ZQTf7NX7",
       "selected_labs_text": "روشتة",
       "notes": "",
       "labs_price_before": 1980.0,
@@ -263,14 +263,14 @@
       "total_price": 1700.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
-      "payment_method": "",
-      "paid_amount": 0.0,
-      "payment_date": "",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 1700.0,
+      "payment_date": "2026-06-29",
       "deleted_at": null,
-      "city": "",
-      "district": ""
+      "city": "6 أكتوبر",
+      "district": "الحي الثالث"
     },
     {
       "id": "6f0a75e2b87d4367",
