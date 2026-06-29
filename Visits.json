@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-06-29T13:05:48.945335",
+  "exported_at": "2026-06-29T15:50:03.678470",
   "total": 35,
   "visits": [
     {
@@ -921,7 +921,7 @@
       "labs_price_after": 2320.0,
       "transport_fee": 80.0,
       "total_price": 2400.0,
-      "status": "مجدولة",
+      "status": "ملغية",
       "rating": 0,
       "tag": "🆕 عميل جديد",
       "payment_status": "غير مدفوع",
