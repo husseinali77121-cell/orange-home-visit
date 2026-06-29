@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-06-29T18:04:11.251067",
+  "exported_at": "2026-06-29T18:05:38.162946",
   "total": 35,
   "visits": [
     {
@@ -546,15 +546,15 @@
       "id": "d4838232f8f943eb",
       "created_at": "2026-06-29T11:08:12.485156",
       "name": "فتحي عبد السميع الغول",
-      "age": "",
+      "age": 0,
       "age_unit": "سنة",
       "phone": "01100559045",
       "visit_date": "2026-06-16",
-      "visit_time": "",
+      "visit_time": "12:00 PM",
       "doctor_name": "حسين علي",
       "branch": "La Cite",
       "address": "طريق مصر اسكندرية - الكيلو 2.5 - مدخل ابو رواش المنصورية",
-      "location_link": "",
+      "location_link": "https://maps.app.goo.gl/91NZYNzoXjV94W1c9",
       "selected_labs_text": "FULL Check up",
       "notes": "",
       "labs_price_before": 4600.0,
@@ -563,14 +563,14 @@
       "total_price": 4600.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
-      "payment_method": "",
-      "paid_amount": 0.0,
-      "payment_date": "",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 4600.0,
+      "payment_date": "2026-06-29",
       "deleted_at": null,
-      "city": "",
-      "district": ""
+      "city": "ابو رواش",
+      "district": "مدخل الكيلو 26"
     },
     {
       "id": "da00a2520159425c",
