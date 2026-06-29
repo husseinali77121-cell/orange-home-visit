@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-29T11:42:30.319924",
-  "total": 33,
+  "exported_at": "2026-06-29T11:49:41.116383",
+  "total": 34,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -983,7 +983,7 @@
       "total_price": 1800.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
       "payment_method": "نقدي",
       "paid_amount": 1800.0,
@@ -991,6 +991,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "كمبيوند زايد 2000"
+    },
+    {
+      "id": "b9dae4a184db4ee5",
+      "created_at": "2026-06-29T11:49:41.066231",
+      "name": "شهد الصديف حسب الرسول",
+      "age": 36,
+      "age_unit": "سنة",
+      "phone": "01515959140",
+      "visit_date": "2026-06-28",
+      "visit_time": "11:30 AM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "مجاورة 7 - عمارة 1364 - بااب خاص  - استديو 5 ",
+      "location_link": "https://maps.app.goo.gl/qG8u6mJ1YMdi6Rs7A",
+      "selected_labs_text": "TSH — 330 جنيه\nFT4 — 270 جنيه",
+      "notes": "",
+      "labs_price_before": 600.0,
+      "labs_price_after": 500.0,
+      "transport_fee": 100.0,
+      "total_price": 600.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "محفظة إلكترونية",
+      "paid_amount": 600.0,
+      "payment_date": "2026-06-29",
+      "deleted_at": null,
+      "city": "6 أكتوبر",
+      "district": "الحي الاول"
     }
   ]
 }
