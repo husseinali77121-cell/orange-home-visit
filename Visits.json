@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-06-29T18:55:23.373980",
+  "exported_at": "2026-06-29T19:00:05.639443",
   "total": 35,
   "visits": [
     {
@@ -909,7 +909,7 @@
       "age": 80,
       "age_unit": "سنة",
       "phone": "01061711902",
-      "visit_date": "2026-07-01",
+      "visit_date": "2026-06-30",
       "visit_time": "10:00 AM",
       "doctor_name": "حسين علي",
       "branch": "La Cite",
@@ -921,7 +921,7 @@
       "labs_price_after": 2320.0,
       "transport_fee": 80.0,
       "total_price": 2400.0,
-      "status": "ملغية",
+      "status": "مجدولة",
       "rating": 0,
       "tag": "🆕 عميل جديد",
       "payment_status": "غير مدفوع",
