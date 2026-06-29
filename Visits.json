@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-29T11:14:48.676075",
-  "total": 30,
+  "exported_at": "2026-06-29T11:25:50.771517",
+  "total": 31,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -901,6 +901,36 @@
       "deleted_at": null,
       "city": "",
       "district": ""
+    },
+    {
+      "id": "68b772967f524fb2",
+      "created_at": "2026-06-29T11:25:50.721915",
+      "name": "اسماعيل عبد العزيز حمامة",
+      "age": 80,
+      "age_unit": "سنة",
+      "phone": "01061711902",
+      "visit_date": "2026-07-01",
+      "visit_time": "10:00 AM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "المجاورة الثالثة - عمارة ١١ الدور الثاني شقه ٢٠٢",
+      "location_link": "https://maps.app.goo.gl/zF495ABa7TEGwbon7?g_st=ac",
+      "selected_labs_text": "",
+      "notes": "",
+      "labs_price_before": 2900.0,
+      "labs_price_after": 2320.0,
+      "transport_fee": 80.0,
+      "total_price": 2400.0,
+      "status": "مجدولة",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "غير مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "",
+      "deleted_at": null,
+      "city": "6 أكتوبر",
+      "district": "الحي الثامن"
     }
   ]
 }
