@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-29T11:49:41.116383",
-  "total": 34,
+  "exported_at": "2026-06-29T12:07:34.391151",
+  "total": 35,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -1013,7 +1013,7 @@
       "total_price": 600.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
       "payment_method": "محفظة إلكترونية",
       "paid_amount": 600.0,
@@ -1021,6 +1021,36 @@
       "deleted_at": null,
       "city": "6 أكتوبر",
       "district": "الحي الاول"
+    },
+    {
+      "id": "707aaec1041b4b5b",
+      "created_at": "2026-06-29T12:07:34.335809",
+      "name": "Melissa Ellen",
+      "age": 48,
+      "age_unit": "سنة",
+      "phone": "01226704021",
+      "visit_date": "2026-06-29",
+      "visit_time": "10:00 AM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "الحي الثاني - مجاورة الرابعة - شارع رنا مول - عمارة 1089 - الدور الرابع  - شقة 4 ",
+      "location_link": "https://maps.app.goo.gl/hVfEHyfEJnMJ8cw3A",
+      "selected_labs_text": "",
+      "notes": "",
+      "labs_price_before": 5000.0,
+      "labs_price_after": 4100.0,
+      "transport_fee": 100.0,
+      "total_price": 4200.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "نقدي",
+      "paid_amount": 4200.0,
+      "payment_date": "2026-06-29",
+      "deleted_at": null,
+      "city": "6 أكتوبر",
+      "district": "الحي الثاني"
     }
   ]
 }
