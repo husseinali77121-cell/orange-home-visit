@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-29T11:25:50.771517",
-  "total": 31,
+  "exported_at": "2026-06-29T11:38:46.038427",
+  "total": 32,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -923,7 +923,7 @@
       "total_price": 2400.0,
       "status": "مجدولة",
       "rating": 0,
-      "tag": "",
+      "tag": "🆕 عميل جديد",
       "payment_status": "غير مدفوع",
       "payment_method": "",
       "paid_amount": 0.0,
@@ -931,6 +931,36 @@
       "deleted_at": null,
       "city": "6 أكتوبر",
       "district": "الحي الثامن"
+    },
+    {
+      "id": "a350f05ed63048ab",
+      "created_at": "2026-06-29T11:38:45.989561",
+      "name": "زهراء سامى عبد الله",
+      "age": 32,
+      "age_unit": "سنة",
+      "phone": "01001579218",
+      "visit_date": "2026-06-28",
+      "visit_time": "12:00 PM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "المجاورة 5 -شارع محمد السنوسي - عمارة 1390 - شقة 14 - الدور 3 يمين",
+      "location_link": "https://maps.app.goo.gl/TDkFHQKx42cWKSPLA",
+      "selected_labs_text": "TSH — 330 جنيه",
+      "notes": "",
+      "labs_price_before": 330.0,
+      "labs_price_after": 330.0,
+      "transport_fee": 100.0,
+      "total_price": 430.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 430.0,
+      "payment_date": "2026-06-29",
+      "deleted_at": null,
+      "city": "6 أكتوبر",
+      "district": "الحي الثاني"
     }
   ]
 }
