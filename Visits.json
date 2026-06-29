@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-06-29T12:13:59.588409",
+  "exported_at": "2026-06-29T13:05:48.945335",
   "total": 35,
   "visits": [
     {
@@ -743,7 +743,7 @@
       "total_price": 3500.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
       "payment_method": "",
       "paid_amount": 0.0,
@@ -816,7 +816,7 @@
       "id": "5f78e39cd025497f",
       "created_at": "2026-06-29T11:08:12.489067",
       "name": "صابرين احمد",
-      "age": 0,
+      "age": 26,
       "age_unit": "سنة",
       "phone": "01129991123",
       "visit_date": "2026-06-23",
@@ -827,11 +827,11 @@
       "location_link": "",
       "selected_labs_text": "IgE (Total) — 400 جنيه\nCBC — 400 جنيه\nHbA1C — 400 جنيه\nCRP — 350 جنيه",
       "notes": "عدد 2 حالة اخري عينة بول",
-      "labs_price_before": 1940.0,
+      "labs_price_before": 1550.0,
       "labs_price_after": 1600.0,
       "transport_fee": 100.0,
       "total_price": 1700.0,
-      "status": "مجدولة",
+      "status": "تمت",
       "rating": 0,
       "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
