@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-06-29T18:41:20.918226",
+  "exported_at": "2026-06-29T18:45:32.617236",
   "total": 35,
   "visits": [
     {
@@ -456,15 +456,15 @@
       "id": "ab991d95c143415b",
       "created_at": "2026-06-29T11:08:12.483851",
       "name": "فدوة مازن",
-      "age": "",
+      "age": 0,
       "age_unit": "سنة",
       "phone": "01019156765",
       "visit_date": "2026-06-15",
-      "visit_time": "",
+      "visit_time": "12:00 PM",
       "doctor_name": "حسين علي",
       "branch": "La Cite",
       "address": "الحي الاول - مجاورة 1 - عمارة 22 - شقة",
-      "location_link": "",
+      "location_link": "https://maps.app.goo.gl/zaTHx92FgnwH5GnC9",
       "selected_labs_text": "VITAMIN d",
       "notes": "",
       "labs_price_before": 400.0,
@@ -473,14 +473,14 @@
       "total_price": 400.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
-      "payment_method": "",
-      "paid_amount": 0.0,
-      "payment_date": "",
+      "payment_method": "نقدي",
+      "paid_amount": 400.0,
+      "payment_date": "2026-06-29",
       "deleted_at": null,
-      "city": "",
-      "district": ""
+      "city": "6 أكتوبر",
+      "district": "الحي الاول"
     },
     {
       "id": "2fcba44fe0b74818",
