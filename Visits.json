@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-06-29T18:00:02.228879",
+  "exported_at": "2026-06-29T18:04:11.251067",
   "total": 35,
   "visits": [
     {
@@ -336,15 +336,15 @@
       "id": "22d464d1f0a3427f",
       "created_at": "2026-06-29T11:08:12.482158",
       "name": "مريم عبد الجواد الغول",
-      "age": "",
+      "age": 0,
       "age_unit": "سنة",
       "phone": "01065951842",
       "visit_date": "2026-06-10",
-      "visit_time": "",
+      "visit_time": "12:00 PM",
       "doctor_name": "حسين علي",
       "branch": "La Cite",
       "address": "أبو رواش - مدخل الكيلو 26 - بجوار مسجد ال الغول",
-      "location_link": "",
+      "location_link": "https://maps.app.goo.gl/91NZYNzoXjV94W1c9",
       "selected_labs_text": "Full check Up لفردين",
       "notes": "",
       "labs_price_before": 10620.0,
@@ -353,14 +353,14 @@
       "total_price": 9865.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
-      "payment_method": "",
-      "paid_amount": 0.0,
-      "payment_date": "",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 9865.0,
+      "payment_date": "2026-06-29",
       "deleted_at": null,
-      "city": "",
-      "district": ""
+      "city": "ابو رواش",
+      "district": "مدخل الكيلو 26"
     },
     {
       "id": "b57cbde7628e4518",
