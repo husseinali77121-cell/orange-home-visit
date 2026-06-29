@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-29T11:38:46.038427",
-  "total": 32,
+  "exported_at": "2026-06-29T11:42:30.319924",
+  "total": 33,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -953,7 +953,7 @@
       "total_price": 430.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
       "payment_method": "تحويل بنكي",
       "paid_amount": 430.0,
@@ -961,6 +961,36 @@
       "deleted_at": null,
       "city": "6 أكتوبر",
       "district": "الحي الثاني"
+    },
+    {
+      "id": "3427ebef1a754d39",
+      "created_at": "2026-06-29T11:42:30.270118",
+      "name": "نسمة محمد سمير",
+      "age": 50,
+      "age_unit": "سنة",
+      "phone": "01099805799",
+      "visit_date": "2026-06-28",
+      "visit_time": "1:00 PM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "بوابة 4 - فيلا 233\n",
+      "location_link": "https://maps.app.goo.gl/HtZKwEZVA6QATxPL7",
+      "selected_labs_text": "",
+      "notes": "الام وبنتها\n",
+      "labs_price_before": 2420.0,
+      "labs_price_after": 1600.0,
+      "transport_fee": 200.0,
+      "total_price": 1800.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "نقدي",
+      "paid_amount": 1800.0,
+      "payment_date": "2026-06-29",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "كمبيوند زايد 2000"
     }
   ]
 }
