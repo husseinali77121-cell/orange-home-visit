@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-29T19:00:05.639443",
-  "total": 35,
+  "exported_at": "2026-06-30T06:34:29.847161",
+  "total": 36,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -1051,6 +1051,36 @@
       "deleted_at": null,
       "city": "6 أكتوبر",
       "district": "الحي الثاني"
+    },
+    {
+      "id": "35a9163ffaa74e3a",
+      "created_at": "2026-06-30T06:34:29.792748",
+      "name": "سلمى محمود لطفى",
+      "age": 30,
+      "age_unit": "سنة",
+      "phone": "01125559904",
+      "visit_date": "2026-06-30",
+      "visit_time": "11:00 AM",
+      "doctor_name": "حسين علي",
+      "branch": "Diamond",
+      "address": "الحى المتميز السياحية الاولى فيلا ١٧٤ بوابة ٤",
+      "location_link": "https://maps.app.goo.gl/UsP9EZjnZJev4Hvd9",
+      "selected_labs_text": "CBC — 400 جنيه\nESR — 120 جنيه\nCRP — 350 جنيه\nALT (SGPT) — 150 جنيه\nAST (SGOT) — 150 جنيه\nUrea — 120 جنيه\nCreatinine (Serum) — 150 جنيه\nHbA1C — 400 جنيه\nHOMA1-IR — 550 جنيه\nInsulin (Fasting) — 400 جنيه\nAmylase in (serum) — 400 جنيه\nLipase in serum — 370 جنيه\nlipid profile 700\nTSH — 330 جنيه\nFT3 — 270 جنيه\nVitamin D3(25 Hydroxy Cholecal.) — 1000 جنيه\nCalcium (Total) — 200 جنيه\nCa++ — 220 جنيه\nMagnesium (Mg) serum — 260 جنيه\nZinc (blood) — 550 جنيه\nIron (Serum) — 320 جنيه\nFerritin — 400 جنيه\nH.pylori Ag in Stool (Quanti) — 650 جنيه\nStool Examination — 150 جنيه\nFT4 — 270 جنيه",
+      "notes": "",
+      "labs_price_before": 8880.0,
+      "labs_price_after": 6750.0,
+      "transport_fee": 150.0,
+      "total_price": 6900.0,
+      "status": "مجدولة",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "غير مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "",
+      "deleted_at": null,
+      "city": "6 أكتوبر",
+      "district": "الحى المتميز"
     }
   ]
 }
