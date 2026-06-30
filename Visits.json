@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:18:54.372511",
-  "total": 775,
+  "exported_at": "2026-06-30T14:18:56.771911",
+  "total": 776,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -23251,6 +23251,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "حدائق الاهرام"
+    },
+    {
+      "id": "9356d841-90d8-48f7-afde-3623ce2086ba",
+      "created_at": "2026-06-30T13:19:43.633860",
+      "name": "دعاء سامى عبد الله",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01149166878",
+      "visit_date": "2021-05-18",
+      "visit_time": "15:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج 4 عماره 24 ب شقه 17 امام مستشفى الزهور",
+      "location_link": "",
+      "selected_labs_text": "BHCG",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2021-05-18",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثامن"
     }
   ]
 }
