@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:03:19.550191",
-  "total": 245,
+  "exported_at": "2026-06-30T14:03:21.246666",
+  "total": 246,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -7351,6 +7351,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "6d3f31b8-1c04-4dc9-b9fe-0111d0e65550",
+      "created_at": "2026-06-30T13:19:43.618780",
+      "name": "ادم يوريس",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01225749946",
+      "visit_date": "2017-04-18",
+      "visit_time": "09:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "فيلات العزيزيه-فيلا33",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 100.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 100.0,
+      "payment_date": "2017-04-18",
+      "deleted_at": null,
+      "city": "الطريق الصحراوى",
+      "district": "العزيزيه"
     }
   ]
 }
