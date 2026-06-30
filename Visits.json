@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:05:45.817303",
-  "total": 337,
+  "exported_at": "2026-06-30T14:05:47.928240",
+  "total": 338,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -10111,6 +10111,36 @@
       "deleted_at": null,
       "city": "طريق الواحات",
       "district": "حى الاشجار"
+    },
+    {
+      "id": "b2e122a1-b926-4d00-ab61-b55143d8ba49",
+      "created_at": "2026-06-30T13:19:43.620312",
+      "name": "حسين احمد عبيد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01222154881",
+      "visit_date": "2017-08-01",
+      "visit_time": "03:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "عماره 28 - شقه 42",
+      "location_link": "",
+      "selected_labs_text": "CBC",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2017-08-01",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "ديار التعمير"
     }
   ]
 }
