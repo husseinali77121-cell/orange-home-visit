@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:04:25.424386",
-  "total": 288,
+  "exported_at": "2026-06-30T14:04:27.181175",
+  "total": 289,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -8641,6 +8641,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "بيفرلى هيلز"
+    },
+    {
+      "id": "a817e4f5-6248-40a5-8857-5a2852554315",
+      "created_at": "2026-06-30T13:19:43.619528",
+      "name": "سعاد محمد على",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01093826666",
+      "visit_date": "2017-05-28",
+      "visit_time": "22:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "المجاوره الاولى - عماره 228 - شارع امام بنك التعمير والاسكان",
+      "location_link": "",
+      "selected_labs_text": "pt",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2017-05-28",
+      "deleted_at": null,
+      "city": "",
+      "district": "الحى الرابع"
     }
   ]
 }
