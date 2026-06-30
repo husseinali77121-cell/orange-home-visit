@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:03:47.379000",
-  "total": 263,
+  "exported_at": "2026-06-30T14:03:49.182070",
+  "total": 264,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -7891,6 +7891,36 @@
       "deleted_at": null,
       "city": "",
       "district": ""
+    },
+    {
+      "id": "2d609788-9a0b-42da-9b49-59e3db683edb",
+      "created_at": "2026-06-30T13:19:43.619077",
+      "name": "ابراهيم زاخر",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01015149050",
+      "visit_date": "2017-05-08",
+      "visit_time": "10:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "بجوار كومباوند البستان - عماره 16 - الدور 5 - شقه 1 - بجوار المصعد",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-05-08",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "المستثمر الصغير"
     }
   ]
 }
