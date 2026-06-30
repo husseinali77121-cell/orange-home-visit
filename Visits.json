@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:55:25.844771",
-  "total": 858,
+  "exported_at": "2026-06-30T14:55:28.059810",
+  "total": 859,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -25741,6 +25741,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى السابع"
+    },
+    {
+      "id": "c272fa3b-4bd6-484f-ba33-174a3e619f69",
+      "created_at": "2026-06-30T13:19:43.636747",
+      "name": "نور مصطفى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01127038564",
+      "visit_date": "2022-01-13",
+      "visit_time": "12:00",
+      "doctor_name": "شيرين احمد",
+      "branch": "La Cite",
+      "address": "الحى3 مج 7 شارع 40 قطعه 1344 محور الكفراوى",
+      "location_link": "",
+      "selected_labs_text": "bhcg",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 195.0,
+      "labs_price_after": 195.0,
+      "transport_fee": 50.0,
+      "total_price": 295.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 295.0,
+      "payment_date": "2022-01-13",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
