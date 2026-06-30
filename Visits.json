@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:36.518764",
-  "total": 368,
+  "exported_at": "2026-06-30T14:06:38.293275",
+  "total": 369,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -11041,6 +11041,36 @@
       "deleted_at": null,
       "city": "طريق الواحات",
       "district": "حدائق الاهرام"
+    },
+    {
+      "id": "7d06096b-51ea-423d-8871-444823af9f21",
+      "created_at": "2026-06-30T13:19:43.620885",
+      "name": "وائل مصطفى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01210438888",
+      "visit_date": "2017-09-07",
+      "visit_time": "14:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الكيلو 28 ابو رواش بعد بنزينه الامارات يمين شارع مريم - بجوار اكاديميه غابور",
+      "location_link": "",
+      "selected_labs_text": "تحاليل",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 100.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 100.0,
+      "payment_date": "2017-09-07",
+      "deleted_at": null,
+      "city": "الطريق الصحراوى",
+      "district": "الطريق الصحراوى"
     }
   ]
 }
