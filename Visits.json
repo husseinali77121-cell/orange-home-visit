@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:04:07.954646",
-  "total": 277,
+  "exported_at": "2026-06-30T14:04:10.000563",
+  "total": 278,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -8311,6 +8311,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "المنطقه الصناعيه"
+    },
+    {
+      "id": "33053784-b3f1-4ce1-8369-fef8caab816d",
+      "created_at": "2026-06-30T13:19:43.619306",
+      "name": "منى خالد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01141815109",
+      "visit_date": "2017-05-16",
+      "visit_time": "13:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "مستشفى زايد التخصصى  - غرفه 716 - الدور 7",
+      "location_link": "",
+      "selected_labs_text": "t3-t4-tsh",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-05-16",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": ""
     }
   ]
 }
