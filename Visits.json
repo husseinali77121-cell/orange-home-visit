@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:41.586653",
-  "total": 371,
+  "exported_at": "2026-06-30T14:06:43.411555",
+  "total": 372,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -11131,6 +11131,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "7b338bc8-a6ef-40f2-8c43-0525a0bf7b46",
+      "created_at": "2026-06-30T13:19:43.620932",
+      "name": "مى عمر عبد المنعم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01223183210",
+      "visit_date": "2017-09-11",
+      "visit_time": "11:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "كازا - 32 أ - شقه 4",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-09-11",
+      "deleted_at": null,
+      "city": "الطريق الصحراوى",
+      "district": "بيفرلى هيلز"
     }
   ]
 }
