@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-06-30T06:34:29.847161",
+  "exported_at": "2026-06-30T08:18:00.709459",
   "total": 36,
   "visits": [
     {
@@ -924,10 +924,10 @@
       "status": "مجدولة",
       "rating": 0,
       "tag": "🆕 عميل جديد",
-      "payment_status": "غير مدفوع",
-      "payment_method": "",
-      "paid_amount": 0.0,
-      "payment_date": "",
+      "payment_status": "مدفوع",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 2400.0,
+      "payment_date": "2026-06-30",
       "deleted_at": null,
       "city": "6 أكتوبر",
       "district": "الحي الثامن"
@@ -1073,7 +1073,7 @@
       "total_price": 6900.0,
       "status": "مجدولة",
       "rating": 0,
-      "tag": "",
+      "tag": "🆕 عميل جديد",
       "payment_status": "غير مدفوع",
       "payment_method": "",
       "paid_amount": 0.0,
