@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:31:49.750192",
-  "total": 119,
+  "exported_at": "2026-06-30T13:31:51.208096",
+  "total": 120,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -3571,6 +3571,36 @@
       "deleted_at": null,
       "city": "طريق الواحات",
       "district": "دريم لاند"
+    },
+    {
+      "id": "6a4bd120-f930-4268-a68b-7db725ac62e7",
+      "created_at": "2026-06-30T13:19:43.616605",
+      "name": "امينه خليل",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01001112654",
+      "visit_date": "2016-12-22",
+      "visit_time": "15:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "60جاردنيا بارك-كومباوند جاردنيا",
+      "location_link": "",
+      "selected_labs_text": "cheak up",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2016-12-22",
+      "deleted_at": null,
+      "city": "طريق الواحات",
+      "district": "جاردنيا"
     }
   ]
 }
