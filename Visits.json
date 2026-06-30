@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:05:40.567275",
-  "total": 334,
+  "exported_at": "2026-06-30T14:05:42.394265",
+  "total": 335,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -10020,6 +10020,36 @@
       "payment_date": "2017-07-30",
       "deleted_at": null,
       "city": "6اكتوبر",
+      "district": "الحى الثالث"
+    },
+    {
+      "id": "8dcf0f7c-98c3-409a-884d-569dbce89376",
+      "created_at": "2026-06-30T13:19:43.620257",
+      "name": "ناديه محمود عبد العزيز",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01005525625",
+      "visit_date": "2022-10-22",
+      "visit_time": "13:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "شارع 17 - المجاوره 3 - عماره 429 الدور 2 - شقه 3 بجوار محل شيك للملابس",
+      "location_link": "",
+      "selected_labs_text": "cbc-crp-ast-alt",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 3",
+      "labs_price_before": 310.0,
+      "labs_price_after": 310.0,
+      "transport_fee": 0.0,
+      "total_price": 350.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 350.0,
+      "payment_date": "2022-10-22",
+      "deleted_at": null,
+      "city": "",
       "district": "الحى الثالث"
     }
   ]
