@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:53:45.899327",
-  "total": 810,
+  "exported_at": "2026-06-30T14:53:48.547762",
+  "total": 811,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -24301,6 +24301,36 @@
       "deleted_at": null,
       "city": "",
       "district": "الحى الرابع"
+    },
+    {
+      "id": "6f911461-217d-4ea7-9e00-a0a6716a2b93",
+      "created_at": "2026-06-30T13:19:43.635194",
+      "name": "خالد ضبيب",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01025046666",
+      "visit_date": "2021-08-08",
+      "visit_time": "10:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "فندق نوفوتيل",
+      "location_link": "",
+      "selected_labs_text": "fbg,lipid",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2021-08-08",
+      "deleted_at": null,
+      "city": "",
+      "district": "المتميز"
     }
   ]
 }
