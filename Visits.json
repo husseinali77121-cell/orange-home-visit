@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:17:42.614926",
-  "total": 737,
+  "exported_at": "2026-06-30T14:17:44.633026",
+  "total": 738,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -22111,6 +22111,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثانى"
+    },
+    {
+      "id": "0f42638e-08ea-4621-af7d-2fa5db597d04",
+      "created_at": "2026-06-30T13:19:43.632611",
+      "name": "عبير عباس",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01147767093",
+      "visit_date": "2021-05-30",
+      "visit_time": "11:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الحي الخامس - عمارة 1282 - الدور الثاني شقة 5",
+      "location_link": "",
+      "selected_labs_text": "تحاليل الاشتباه\n560ج بالزيارة",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2021-05-30",
+      "deleted_at": null,
+      "city": "",
+      "district": "الحى الخامس"
     }
   ]
 }
