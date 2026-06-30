@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:02:45.833263",
-  "total": 224,
+  "exported_at": "2026-06-30T14:02:50.119497",
+  "total": 225,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -6721,6 +6721,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "زايد2000"
+    },
+    {
+      "id": "ad37d0f3-945f-47a0-aa82-9a6812b2be64",
+      "created_at": "2026-06-30T13:19:43.618385",
+      "name": "ابراهيم الدسوقى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "0100351462",
+      "visit_date": "2017-04-06",
+      "visit_time": "00:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "1168 المجاوره 5-بعد مسجد ابو بكر-الدور الارضى",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2017-04-06",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثانى"
     }
   ]
 }
