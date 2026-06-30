@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:05:23.575235",
-  "total": 324,
+  "exported_at": "2026-06-30T14:05:25.505629",
+  "total": 325,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -9721,6 +9721,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "الثالث عشر"
+    },
+    {
+      "id": "77f49c7f-77ea-4155-a3e9-f995195961f4",
+      "created_at": "2026-06-30T13:19:43.620101",
+      "name": "ورده الليثى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01007929136",
+      "visit_date": "2017-07-13",
+      "visit_time": "12:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "ح11 شباب 100 متر منطقه21 عماره10 الدور4 شقه8 امام المطافى",
+      "location_link": "",
+      "selected_labs_text": "b.hcg",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2017-07-13",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الحادى عشر"
     }
   ]
 }
