@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:10:55.534329",
-  "total": 519,
+  "exported_at": "2026-06-30T14:10:57.495286",
+  "total": 520,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -15571,6 +15571,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثانى"
+    },
+    {
+      "id": "0a6556b6-f624-4f68-9e34-f19e4b4eaa9a",
+      "created_at": "2026-06-30T13:19:43.625078",
+      "name": "هند جابر",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01005076788",
+      "visit_date": "2018-06-12",
+      "visit_time": "21:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الحى 5 شارع 16 متفرع من شارع 2 من شارع الخزان مج 3 شارع 17 عماره 589 تقاطع شارع 16 مع 17",
+      "location_link": "",
+      "selected_labs_text": "pt- ptt",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2018-06-12",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
