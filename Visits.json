@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:23:04.552168",
-  "total": 66,
+  "exported_at": "2026-06-30T13:23:06.076229",
+  "total": 67,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -1981,6 +1981,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الخامس"
+    },
+    {
+      "id": "257f8b22-c5cb-4d17-943e-c6954eb0584b",
+      "created_at": "2026-06-30T13:19:43.611648",
+      "name": "افيلين فكرى عطيه",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01007743098",
+      "visit_date": "2021-01-01",
+      "visit_time": "",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "عماره532 شقه 16",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1 (تاريخ الزيارة غير متوفر بالملف الأصلي — تم استخدام تاريخ افتراضي للتمييز)",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 0.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "2021-01-01",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "حدائق المهندسين"
     }
   ]
 }
