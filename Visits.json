@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:08:17.776540",
-  "total": 429,
+  "exported_at": "2026-06-30T14:08:20.275484",
+  "total": 430,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -12871,6 +12871,36 @@
       "deleted_at": null,
       "city": "",
       "district": "جاردنيا"
+    },
+    {
+      "id": "45595afc-5e8d-4bf3-bf30-baec4b47b029",
+      "created_at": "2026-06-30T13:19:43.621915",
+      "name": "بسنت لقمان",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01000907995",
+      "visit_date": "2017-11-13",
+      "visit_time": "11:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "دريم لاند بوابه 3 عماره 782 شقه206 الدور الاول بعد الارضى امام السلم",
+      "location_link": "",
+      "selected_labs_text": "THYROID",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-11-13",
+      "deleted_at": null,
+      "city": "",
+      "district": "دريم لاند"
     }
   ]
 }
