@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:14:30.344403",
-  "total": 638,
+  "exported_at": "2026-06-30T14:14:32.697788",
+  "total": 639,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -19141,6 +19141,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الخامس"
+    },
+    {
+      "id": "050d3894-a0da-47b0-b085-46b3ba13004b",
+      "created_at": "2026-06-30T13:19:43.629106",
+      "name": "سالى سمير الكومى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01122772626",
+      "visit_date": "2020-06-14",
+      "visit_time": "04:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج 7 عماره 1940 خلف مسجد ابو بكر الصديق",
+      "location_link": "",
+      "selected_labs_text": "cbc",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2020-06-14",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثانى"
     }
   ]
 }
