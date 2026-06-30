@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:05:38.842613",
-  "total": 333,
+  "exported_at": "2026-06-30T14:05:40.567275",
+  "total": 334,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -9991,6 +9991,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "الربوه"
+    },
+    {
+      "id": "0fbeb581-0ec2-4bb0-8b3d-deba43a91416",
+      "created_at": "2026-06-30T13:19:43.620238",
+      "name": "زينات احمد دياب",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01090328099",
+      "visit_date": "2017-07-30",
+      "visit_time": "11:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "مج7 عماره1427 الدور2 شقه1",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2017-07-30",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
