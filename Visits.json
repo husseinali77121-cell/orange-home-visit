@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:15:43.587551",
-  "total": 676,
+  "exported_at": "2026-06-30T14:15:45.591996",
+  "total": 677,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -20281,6 +20281,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "الحى السادس"
+    },
+    {
+      "id": "c41915c2-af24-4d0a-9355-86e4f652be84",
+      "created_at": "2026-06-30T13:19:43.630362",
+      "name": "راما امانو",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01554623788",
+      "visit_date": "2020-11-21",
+      "visit_time": "02:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج 8- عماره 1654-د3-شقه 7",
+      "location_link": "",
+      "selected_labs_text": "روشتة",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2020-11-21",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الرابع"
     }
   ]
 }
