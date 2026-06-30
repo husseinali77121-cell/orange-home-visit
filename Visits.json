@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:22:52.906637",
-  "total": 55,
+  "exported_at": "2026-06-30T13:22:54.195424",
+  "total": 56,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -1651,6 +1651,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الخامس"
+    },
+    {
+      "id": "4cdc2ff0-be0a-4ca4-b69a-a9645b2fb946",
+      "created_at": "2026-06-30T13:19:43.611551",
+      "name": "احمد سليمان",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01111728437",
+      "visit_date": "2021-01-01",
+      "visit_time": "",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "فيلا1138-البوابه 4",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1 (تاريخ الزيارة غير متوفر بالملف الأصلي — تم استخدام تاريخ افتراضي للتمييز)",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 0.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "2021-01-01",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "الياسمين"
     }
   ]
 }
