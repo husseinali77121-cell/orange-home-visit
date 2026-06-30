@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:08:56.571142",
-  "total": 451,
+  "exported_at": "2026-06-30T14:08:58.395391",
+  "total": 452,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -13531,6 +13531,36 @@
       "deleted_at": null,
       "city": "",
       "district": "الحى الحادى عشر"
+    },
+    {
+      "id": "4bfbb217-7675-4d0a-9bbe-640a0a1f9e98",
+      "created_at": "2026-06-30T13:19:43.622399",
+      "name": "شهاب حسن",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01005310834",
+      "visit_date": "2017-12-02",
+      "visit_time": "13:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "حى الاشجار بوابه2 عماره19 شقه7 الدور3 الجاردن الاولى قبل السنتر",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-12-02",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "حى الاشجار"
     }
   ]
 }
