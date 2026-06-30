@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:56:27.604064",
-  "total": 887,
+  "exported_at": "2026-06-30T14:56:29.939135",
+  "total": 888,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -26611,6 +26611,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "الحى الثانى"
+    },
+    {
+      "id": "10523cf8-5f48-47b6-8322-0f39150424fe",
+      "created_at": "2026-06-30T13:19:43.637758",
+      "name": "ناديه نصر",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01090433178",
+      "visit_date": "2022-05-01",
+      "visit_time": "",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "داره جاردن خلف نادى المهندسين بجوار الجيم A14",
+      "location_link": "",
+      "selected_labs_text": "cbc-crp-ca-ca++-mg-alt",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 4",
+      "labs_price_before": 820.0,
+      "labs_price_after": 820.0,
+      "transport_fee": 0.0,
+      "total_price": 890.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 890.0,
+      "payment_date": "2022-05-01",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "داره جاردن"
     }
   ]
 }
