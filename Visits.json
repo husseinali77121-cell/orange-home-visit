@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:54:25.695418",
-  "total": 829,
+  "exported_at": "2026-06-30T14:54:27.850563",
+  "total": 830,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -24871,6 +24871,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "5067d82c-2f31-4578-9d6b-3948549bb994",
+      "created_at": "2026-06-30T13:19:43.635869",
+      "name": "سميره حمزه الجراح",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01114077455",
+      "visit_date": "2021-09-20",
+      "visit_time": "13:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج 8-عماره 1690-الدور الارضى شقه 2.خلف مسجد الخلفاء الراشدين",
+      "location_link": "",
+      "selected_labs_text": "urea,creat,cbc,hba1c,insulin,urine\nالتكلفه بعد الخصم 590 بالزياره",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2021-09-20",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الرابع"
     }
   ]
 }
