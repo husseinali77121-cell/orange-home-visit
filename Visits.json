@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:53:57.167950",
-  "total": 815,
+  "exported_at": "2026-06-30T14:53:59.759567",
+  "total": 816,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -24451,6 +24451,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "حى الاندلس"
+    },
+    {
+      "id": "21901eb9-cdfc-4ed8-ac88-553a495c03aa",
+      "created_at": "2026-06-30T13:19:43.635330",
+      "name": "نفوسه عبد الحميد محمود",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01000537214",
+      "visit_date": "2022-11-02",
+      "visit_time": "12:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الحى 8 عماره 101 امام صيدليه ابو على الدور 3",
+      "location_link": "",
+      "selected_labs_text": "covid 19 ag",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 300.0,
+      "labs_price_after": 300.0,
+      "transport_fee": 0.0,
+      "total_price": 340.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 340.0,
+      "payment_date": "2022-11-02",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثامن"
     }
   ]
 }
