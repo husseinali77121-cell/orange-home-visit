@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:12:20.259279",
-  "total": 566,
+  "exported_at": "2026-06-30T14:12:22.528782",
+  "total": 567,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -16981,6 +16981,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى السابع"
+    },
+    {
+      "id": "6012e437-99d2-45d6-8d28-bc51a077fa45",
+      "created_at": "2026-06-30T13:19:43.626659",
+      "name": "حبيبه فاضل ابراهيم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01005654383",
+      "visit_date": "2023-02-15",
+      "visit_time": "11:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "الحى 4 - مج 1 - عماره 58 - الدور الارضى",
+      "location_link": "",
+      "selected_labs_text": "cbc-ast-alt-urea-creat-hba1c-tsh,crp",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 5",
+      "labs_price_before": 680.0,
+      "labs_price_after": 680.0,
+      "transport_fee": 75.0,
+      "total_price": 825.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 825.0,
+      "payment_date": "2023-02-15",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الرابع"
     }
   ]
 }
