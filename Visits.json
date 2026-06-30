@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:03:29.837222",
-  "total": 252,
+  "exported_at": "2026-06-30T14:03:32.082870",
+  "total": 253,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -7561,6 +7561,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى السابع"
+    },
+    {
+      "id": "9c2da7d9-af5d-4059-822d-c5d336086132",
+      "created_at": "2026-06-30T13:19:43.618895",
+      "name": "مالك احمد محمد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01001070065",
+      "visit_date": "2017-05-01",
+      "visit_time": "11:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "البوابه 3 - عماره 711 - الدور الاول - شقه 22",
+      "location_link": "",
+      "selected_labs_text": "STOOL C/S-STOOL",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 100.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 100.0,
+      "payment_date": "2017-05-01",
+      "deleted_at": null,
+      "city": "طريق الواحات",
+      "district": "دريم لاند"
     }
   ]
 }
