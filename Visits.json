@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:01:46.947124",
-  "total": 184,
+  "exported_at": "2026-06-30T14:01:48.640435",
+  "total": 185,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -5521,6 +5521,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "f8bd6345-e2dc-4888-8872-a3f3ce839b5f",
+      "created_at": "2026-06-30T13:19:43.617715",
+      "name": "د/فاروق عبد الغنى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01009131788",
+      "visit_date": "2017-03-01",
+      "visit_time": "12:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مدينه الخمائل عماره 137 شقه6 الدور الارضى-امام هايبر مباشره",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 120.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 120.0,
+      "payment_date": "2017-03-01",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "مدينه الخمائل"
     }
   ]
 }
