@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:10:14.041762",
-  "total": 495,
+  "exported_at": "2026-06-30T14:10:16.157073",
+  "total": 496,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -14851,6 +14851,36 @@
       "deleted_at": null,
       "city": "",
       "district": "بيفرلى هيلز"
+    },
+    {
+      "id": "993ff77a-f5f6-4aa4-a795-5a36e21ffaac",
+      "created_at": "2026-06-30T13:19:43.623769",
+      "name": "رشا كرم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01221158275",
+      "visit_date": "2018-01-13",
+      "visit_time": "13:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج 2 اهالى 69 الدور الارضى شقه 2",
+      "location_link": "",
+      "selected_labs_text": "pp",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2018-01-13",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثامن"
     }
   ]
 }
