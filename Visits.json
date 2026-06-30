@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:07:08.674796",
-  "total": 389,
+  "exported_at": "2026-06-30T14:07:11.139457",
+  "total": 390,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -11671,6 +11671,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "بيفرلى هيلز"
+    },
+    {
+      "id": "0a8647a7-40f3-4597-b36a-95d1e6c469dc",
+      "created_at": "2026-06-30T13:19:43.621213",
+      "name": "عايده صالح",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01098337708",
+      "visit_date": "2017-12-09",
+      "visit_time": "10:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مشروع 103 ح6 بجوار مسجد ابو العنين عماره44 شقه8",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-12-09",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى السادس"
     }
   ]
 }
