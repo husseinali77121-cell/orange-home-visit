@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:02:05.095453",
-  "total": 196,
+  "exported_at": "2026-06-30T14:02:06.750668",
+  "total": 197,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -5881,6 +5881,36 @@
       "deleted_at": null,
       "city": "المتميز",
       "district": ""
+    },
+    {
+      "id": "7de38882-66bd-432a-8679-c0623823ff5d",
+      "created_at": "2026-06-30T13:19:43.617906",
+      "name": "سيف الدين طارق",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01090197772",
+      "visit_date": "2017-03-13",
+      "visit_time": "10:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "خلف سعودى-فيلا 2064 أ",
+      "location_link": "",
+      "selected_labs_text": "cbc",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-03-13",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "جرينز"
     }
   ]
 }
