@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:13:36.628208",
-  "total": 609,
+  "exported_at": "2026-06-30T14:13:38.667548",
+  "total": 610,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -18271,6 +18271,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "5b411793-9c47-4339-90c2-ca67b823887c",
+      "created_at": "2026-06-30T13:19:43.628070",
+      "name": "نور الهدى مصطفى  ابراهيم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01032847185",
+      "visit_date": "2020-03-04",
+      "visit_time": "16:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "المجاوره 7-شارع 40 عماره 1344 الدور الثانى",
+      "location_link": "",
+      "selected_labs_text": "روشتة",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2020-03-04",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
