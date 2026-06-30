@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:56:29.939135",
-  "total": 888,
+  "exported_at": "2026-06-30T14:56:32.061666",
+  "total": 889,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -26641,6 +26641,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "داره جاردن"
+    },
+    {
+      "id": "cf2e646c-74a0-445d-9d7d-785cd4f2b8af",
+      "created_at": "2026-06-30T13:19:43.637815",
+      "name": "غدير جمال شاهين",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01007455344",
+      "visit_date": "2021-12-31",
+      "visit_time": "16:00",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "شارع احمد راتب عماره 347 الدور 3 شقه 3",
+      "location_link": "",
+      "selected_labs_text": "pregnancy test",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 100.0,
+      "labs_price_after": 100.0,
+      "transport_fee": 40.0,
+      "total_price": 180.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 180.0,
+      "payment_date": "2021-12-31",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى السابع"
     }
   ]
 }
