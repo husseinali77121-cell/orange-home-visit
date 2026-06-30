@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:11:54.931302",
-  "total": 552,
+  "exported_at": "2026-06-30T14:11:56.726764",
+  "total": 553,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -16561,6 +16561,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الرابع"
+    },
+    {
+      "id": "03d2e6cd-18c6-44ad-8a03-7b2c147a84b8",
+      "created_at": "2026-06-30T13:19:43.626160",
+      "name": "وفاء عبد الحميد شومان",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "0104702581",
+      "visit_date": "2019-03-10",
+      "visit_time": "10:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "شارع الكهرباء كومباوند بيتى خلف كومباوند البستان/ المهندس محمد شومان عماره B1-شقه 15",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2019-03-10",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
