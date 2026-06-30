@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:01.194763",
-  "total": 346,
+  "exported_at": "2026-06-30T14:06:03.505603",
+  "total": 347,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -10381,6 +10381,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "غرب سوميد"
+    },
+    {
+      "id": "7ded3bd4-c869-46b0-9c70-8168c849ba82",
+      "created_at": "2026-06-30T13:19:43.620496",
+      "name": "ليلى محمد محمد عبد العال",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "012247896060124757779",
+      "visit_date": "2017-08-09",
+      "visit_time": "10:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "المجاوره2-عماره 9 ب - شقه 24 خلف سوب ماركت اوكازيون",
+      "location_link": "",
+      "selected_labs_text": "cbc-FBS-PP-Urea-Creat-Uric-AST-ALT-FT3-FT4-TSH",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 120.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 120.0,
+      "payment_date": "2017-08-09",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "الحى الحادى عشر"
     }
   ]
 }
