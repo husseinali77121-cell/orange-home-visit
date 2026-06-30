@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:32:29.733560",
-  "total": 149,
+  "exported_at": "2026-06-30T13:32:31.541115",
+  "total": 150,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -4471,6 +4471,36 @@
       "deleted_at": null,
       "city": "المتميز",
       "district": "المتميز"
+    },
+    {
+      "id": "a0b56466-f81d-4c94-bc10-a71d505504fb",
+      "created_at": "2026-06-30T13:19:43.617089",
+      "name": "د/زكريا عليان(ابنه)",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01112530441",
+      "visit_date": "2017-01-19",
+      "visit_time": "17:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "فيلا 78 طريق جمال عبد الناصر",
+      "location_link": "",
+      "selected_labs_text": "cbc.alt,ast,pt,ggt,HBs Ag,HCV ab",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 0.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "2017-01-19",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الورود"
     }
   ]
 }
