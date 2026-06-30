@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:09:01.611326",
-  "total": 454,
+  "exported_at": "2026-06-30T14:09:03.930922",
+  "total": 455,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -13621,6 +13621,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الرابع"
+    },
+    {
+      "id": "d8a21a56-90fd-4e34-9572-52908c76e7c4",
+      "created_at": "2026-06-30T13:19:43.622459",
+      "name": "ايمن العنانى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01001111456",
+      "visit_date": "2017-12-04",
+      "visit_time": "15:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "جاردنيا 2 - الواحات فيلا79 - فيلا المهندس ايمن العنانى طريق وصله دهشور",
+      "location_link": "",
+      "selected_labs_text": "tuberclin-hcvab-hbsag-hiv-widel-brucella-stool",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-12-04",
+      "deleted_at": null,
+      "city": "",
+      "district": ""
     }
   ]
 }
