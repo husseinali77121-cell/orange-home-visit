@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:01:56.104549",
-  "total": 190,
+  "exported_at": "2026-06-30T14:01:57.900772",
+  "total": 191,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -5701,6 +5701,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "حى الندى"
+    },
+    {
+      "id": "c75ec3b4-756a-4811-9938-a84e5c12afa2",
+      "created_at": "2026-06-30T13:19:43.617815",
+      "name": "محفوظ فرج احمد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01288955873",
+      "visit_date": "2017-03-23",
+      "visit_time": "13:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "شارع 19-عماره 157 بجوار مسجد بن حمد وسوبر ماركت الامير",
+      "location_link": "",
+      "selected_labs_text": "creat.na",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-03-23",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
