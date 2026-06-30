@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:16:55.115372",
-  "total": 713,
+  "exported_at": "2026-06-30T14:16:57.368887",
+  "total": 714,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -21391,6 +21391,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الحادى عشر"
+    },
+    {
+      "id": "77072a58-ce1b-4eac-9c55-86bd335f399a",
+      "created_at": "2026-06-30T13:19:43.631804",
+      "name": "شيماء شرف",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01005767996",
+      "visit_date": "2021-02-18",
+      "visit_time": "17:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مجاوره 17 بلوك 17 عماره 4",
+      "location_link": "",
+      "selected_labs_text": "cbc,crp,esr",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2021-02-18",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "عمارات النصر"
     }
   ]
 }
