@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:12:37.946602",
-  "total": 576,
+  "exported_at": "2026-06-30T14:12:40.096794",
+  "total": 577,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -17281,6 +17281,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الحادى عشر"
+    },
+    {
+      "id": "bdcccce7-f5ea-4628-aebe-b5f6450b5e93",
+      "created_at": "2026-06-30T13:19:43.626975",
+      "name": "ميرفت عبد العاطى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01009275290",
+      "visit_date": "2019-08-22",
+      "visit_time": "22:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "الحى 8 - مجاورة 3 - عمارة 46- شقة 201 بجوار مسجد فاطمة الزهراء",
+      "location_link": "",
+      "selected_labs_text": "2 مريض تحاليل urea -creat- uric\n1 مريض عرض الغدة ft3-ft4-tsh",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2019-08-22",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثامن"
     }
   ]
 }
