@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T09:05:37.424673",
-  "total": 37,
+  "exported_at": "2026-06-30T09:18:15.265505",
+  "total": 38,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -1103,7 +1103,7 @@
       "total_price": 2600.0,
       "status": "مجدولة",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "غير مدفوع",
       "payment_method": "",
       "paid_amount": 0.0,
@@ -1111,6 +1111,36 @@
       "deleted_at": null,
       "city": "6 أكتوبر",
       "district": "الحي الثاني"
+    },
+    {
+      "id": "ef3c10f42a7a4f00",
+      "created_at": "2026-06-30T09:18:15.211049",
+      "name": "ليلي محمد",
+      "age": 2,
+      "age_unit": "سنة",
+      "phone": "01002481630",
+      "visit_date": "2026-06-30",
+      "visit_time": "1:00 PM",
+      "doctor_name": "حسين علي",
+      "branch": "Diamond",
+      "address": "كومباوند جنة اكتوبر عماره ١٩٣ دور ٤ ش ٢٠",
+      "location_link": "https://www.google.com/maps/place/30%C2%B000'45.7%22N+30%C2%B056'35.4%22E/@30.0126875,30.9405794,17z/data=!3m1!4b1!4m4!3m3!8m2!3d30.0126875!4d30.9431543?hl=en&entry=ttu&g_ep=EgoyMDI2MDYyNC4wIKXMDSoASAFQAw%3D%3D",
+      "selected_labs_text": "CBC — 400 جنيه\nPT — 180 جنيه",
+      "notes": "",
+      "labs_price_before": 580.0,
+      "labs_price_after": 500.0,
+      "transport_fee": 150.0,
+      "total_price": 650.0,
+      "status": "مجدولة",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "غير مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "",
+      "deleted_at": null,
+      "city": "6 أكتوبر",
+      "district": "كمبوند جنه اكتوبر"
     }
   ]
 }
