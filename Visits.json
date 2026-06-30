@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:15:29.896221",
-  "total": 669,
+  "exported_at": "2026-06-30T14:15:31.721736",
+  "total": 670,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -20071,6 +20071,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الخامس"
+    },
+    {
+      "id": "579b98f4-e8c4-47fe-9076-234a7468e420",
+      "created_at": "2026-06-30T13:19:43.630115",
+      "name": "رينا الشوربجى على",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01554555991",
+      "visit_date": "2020-10-26",
+      "visit_time": "11:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج7-شارع75-فيلا12-الدور الثانى",
+      "location_link": "",
+      "selected_labs_text": "h.pylori ag(quanti),creat,uric acid,cbc,stool\nالحساب بعد الخصم 600 جنيه شامل الزياره",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2020-10-26",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "غرب سوميد"
     }
   ]
 }
