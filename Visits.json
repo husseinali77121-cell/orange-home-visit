@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:17:26.227824",
-  "total": 729,
+  "exported_at": "2026-06-30T14:17:28.635313",
+  "total": 730,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -21870,6 +21870,36 @@
       "payment_date": "2021-03-27",
       "deleted_at": null,
       "city": "6اكتوبر",
+      "district": "الحى الثانى"
+    },
+    {
+      "id": "d7d000c2-1fd9-4c6f-9fbd-8c20edc4377d",
+      "created_at": "2026-06-30T13:19:43.632391",
+      "name": "عصمت عبد القادر الشيمى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01001879791",
+      "visit_date": "2021-03-27",
+      "visit_time": "12:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "خلف مسجد ابو بكر الصديق عماره2/7 ص الدور الخامس شقه 10",
+      "location_link": "",
+      "selected_labs_text": "cbc,D-Dimer",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2021-03-27",
+      "deleted_at": null,
+      "city": "",
       "district": "الحى الثانى"
     }
   ]
