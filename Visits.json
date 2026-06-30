@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:53:38.237954",
-  "total": 806,
+  "exported_at": "2026-06-30T14:53:40.557545",
+  "total": 807,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -24181,6 +24181,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الرابع"
+    },
+    {
+      "id": "0f477c29-a677-47b1-b8a3-d501b0b12a46",
+      "created_at": "2026-06-30T13:19:43.635076",
+      "name": "رانيا عدنان جبريل",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01060750765",
+      "visit_date": "2021-07-24",
+      "visit_time": "14:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "شارع انس بن مالك متفرع من احمد راتب عماره 272 شقه 15",
+      "location_link": "",
+      "selected_labs_text": "اشتباه",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2021-07-24",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى السابع"
     }
   ]
 }
