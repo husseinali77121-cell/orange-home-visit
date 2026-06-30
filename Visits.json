@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:05:51.093781",
-  "total": 340,
+  "exported_at": "2026-06-30T14:05:53.014307",
+  "total": 341,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -10201,6 +10201,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "4f516d5e-ee4e-40e4-9818-1a3f0f3a49eb",
+      "created_at": "2026-06-30T13:19:43.620398",
+      "name": "سهام على احمد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01066665782",
+      "visit_date": "2017-08-02",
+      "visit_time": "17:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "البوابه 2 - عماره 762 A -الدور 5 - شقه 51 شمال المصعد",
+      "location_link": "",
+      "selected_labs_text": "cbc-liver-kidny-CEA-CA15.3-CA19.9",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-08-02",
+      "deleted_at": null,
+      "city": "طريق الواحات",
+      "district": "دريم لاند"
     }
   ]
 }
