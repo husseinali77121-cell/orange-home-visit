@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:09:13.794093",
-  "total": 461,
+  "exported_at": "2026-06-30T14:09:16.079606",
+  "total": 462,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -13831,6 +13831,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": ""
+    },
+    {
+      "id": "dc0db81a-7708-4785-9bfe-0a9d1de4ebdb",
+      "created_at": "2026-06-30T13:19:43.622640",
+      "name": "هدى شلبى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01111883556",
+      "visit_date": "2017-12-12",
+      "visit_time": "12:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "عمارات ابو الوفا - عماره 64 شقه 24 - الدور 3 - مدخل ابو الوفا الرئيسى",
+      "location_link": "",
+      "selected_labs_text": "hcv pcr - ferrtin -cbc-ast-alt-fbs-hba1c",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-12-12",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى السادس"
     }
   ]
 }
