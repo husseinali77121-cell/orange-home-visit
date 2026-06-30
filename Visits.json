@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:31:57.486553",
-  "total": 125,
+  "exported_at": "2026-06-30T13:31:58.922682",
+  "total": 126,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -3751,6 +3751,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "6e037ab3-9fe6-4133-9415-fe95de2efcb2",
+      "created_at": "2026-06-30T13:19:43.616704",
+      "name": "منال شحاته",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01001198237",
+      "visit_date": "2016-12-26",
+      "visit_time": "11:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "المجاوره 6 - شارع 36 - رقم 1225 - الدور2 - شقه 2",
+      "location_link": "",
+      "selected_labs_text": "pt",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2016-12-26",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
