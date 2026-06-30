@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:53.171024",
-  "total": 379,
+  "exported_at": "2026-06-30T14:06:55.234787",
+  "total": 380,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -11371,6 +11371,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثانى"
+    },
+    {
+      "id": "ecbdf6ae-9d16-4a76-9389-934a8ebf80f2",
+      "created_at": "2026-06-30T13:19:43.621056",
+      "name": "محمد محمود",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "0111063708301002823523",
+      "visit_date": "2017-09-24",
+      "visit_time": "15:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "ح3 شارع17 عماره1379 الدور4 شقه7",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2017-09-24",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
