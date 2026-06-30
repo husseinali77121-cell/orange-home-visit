@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:22:42.730508",
-  "total": 46,
+  "exported_at": "2026-06-30T13:22:44.099660",
+  "total": 47,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -1381,6 +1381,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثالث"
+    },
+    {
+      "id": "655f8e7a-9082-4c03-8175-d8e1c7a0a95a",
+      "created_at": "2026-06-30T13:19:43.611379",
+      "name": "كاميليا احمد حمدى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01006448469",
+      "visit_date": "2021-01-01",
+      "visit_time": "",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الحى 5 مج 3 شارع 35 فيلا 1273 بعد كشك المرور",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1 (تاريخ الزيارة غير متوفر بالملف الأصلي — تم استخدام تاريخ افتراضي للتمييز)",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 0.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "2021-01-01",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
