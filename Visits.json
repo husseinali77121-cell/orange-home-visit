@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:16:21.061829",
-  "total": 695,
+  "exported_at": "2026-06-30T14:16:23.183602",
+  "total": 696,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -20851,6 +20851,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى المتميز"
+    },
+    {
+      "id": "8d675fe2-6945-41ad-b3f3-0596608e2e4f",
+      "created_at": "2026-06-30T13:19:43.631145",
+      "name": "يوسف عمر",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "0109412065801151864487",
+      "visit_date": "2021-01-12",
+      "visit_time": "16:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الحى ال11-شباب 100 متر-ع 96-منطقة 18-الدور الثالث شقة 6",
+      "location_link": "",
+      "selected_labs_text": "اشتباه\n550ج بالزيارة",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2021-01-12",
+      "deleted_at": null,
+      "city": "",
+      "district": "الحى الحادى عشر"
     }
   ]
 }
