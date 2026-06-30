@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:04:44.576249",
-  "total": 300,
+  "exported_at": "2026-06-30T14:04:46.367806",
+  "total": 301,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -9001,6 +9001,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الحادى عشر"
+    },
+    {
+      "id": "1de212e3-c95c-4f6b-8a0d-81b5c9e66695",
+      "created_at": "2026-06-30T13:19:43.619714",
+      "name": "نهلة محجوب سالم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01202143374",
+      "visit_date": "2017-06-07",
+      "visit_time": "09:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "غرب سوميد-الحي4-مجاورة 7- فيلا 8 - بجوار فيلا المحافظ",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2017-06-07",
+      "deleted_at": null,
+      "city": "غرب سوميد",
+      "district": "الحى الرابع"
     }
   ]
 }
