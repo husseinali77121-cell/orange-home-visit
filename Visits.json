@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:08:12.397575",
-  "total": 426,
+  "exported_at": "2026-06-30T14:08:14.589074",
+  "total": 427,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -12781,6 +12781,36 @@
       "deleted_at": null,
       "city": "",
       "district": "مينا جاردن سيتى"
+    },
+    {
+      "id": "d9e5c7fc-f76b-4890-8642-000bf635004e",
+      "created_at": "2026-06-30T13:19:43.621864",
+      "name": "مجدى  على ابراهيم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01008725632",
+      "visit_date": "2017-11-08",
+      "visit_time": "19:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الاتحاد التعاونى عماره 65 الدور 3 شقه 10 تحت العماره محل المؤسسه",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2017-11-08",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الحادى عشر"
     }
   ]
 }
