@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:55:17.690214",
-  "total": 854,
+  "exported_at": "2026-06-30T14:55:19.710602",
+  "total": 855,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -25621,6 +25621,36 @@
       "deleted_at": null,
       "city": "المتميز",
       "district": "المتميز"
+    },
+    {
+      "id": "72df05d0-76d3-467b-834d-8721392679c0",
+      "created_at": "2026-06-30T13:19:43.636620",
+      "name": "اشرف ابراهيم جبريل",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01066658415",
+      "visit_date": "2021-11-01",
+      "visit_time": "20:00",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "كايروميديكال سنتر-مركز الشروق للاشعه",
+      "location_link": "",
+      "selected_labs_text": "2مسحة\n1460 بالزياره",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2021-11-01",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
