@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:10:27.724887",
-  "total": 503,
+  "exported_at": "2026-06-30T14:10:29.955526",
+  "total": 504,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -15091,6 +15091,36 @@
       "deleted_at": null,
       "city": "طريق الواحات",
       "district": "دريم لاند"
+    },
+    {
+      "id": "e13401d3-0b95-41bc-9d6b-d2b64cbe61d5",
+      "created_at": "2026-06-30T13:19:43.624058",
+      "name": "بنك عوده",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01201111275",
+      "visit_date": "2018-01-18",
+      "visit_time": "09:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "حازم حسن",
+      "location_link": "",
+      "selected_labs_text": "احمد الباز",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2018-01-18",
+      "deleted_at": null,
+      "city": "الطريق الصحراوى",
+      "district": ""
     }
   ]
 }
