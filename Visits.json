@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:03:07.308928",
-  "total": 237,
+  "exported_at": "2026-06-30T14:03:09.423563",
+  "total": 238,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -7111,6 +7111,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "غرب سوميد"
+    },
+    {
+      "id": "d761c804-12e0-4cf4-9988-b039b8a92746",
+      "created_at": "2026-06-30T13:19:43.618653",
+      "name": "وداد على كامل",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01028899455",
+      "visit_date": "2017-04-13",
+      "visit_time": "10:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "كمباوند زا ادريس زايد عماره 407 شقه14 قرب سعودى ماركت",
+      "location_link": "",
+      "selected_labs_text": "الاتصال ع ا/عيسى عند الذهاب",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-04-13",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": ""
     }
   ]
 }
