@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T09:02:54.496731",
-  "total": 36,
+  "exported_at": "2026-06-30T09:05:37.424673",
+  "total": 37,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -1081,6 +1081,36 @@
       "deleted_at": null,
       "city": "6 أكتوبر",
       "district": "الحى المتميز"
+    },
+    {
+      "id": "995a07ce1f1c41eb",
+      "created_at": "2026-06-30T09:05:37.371861",
+      "name": "Melissa Ellen",
+      "age": 48,
+      "age_unit": "سنة",
+      "phone": "01226704021",
+      "visit_date": "2026-07-01",
+      "visit_time": "10:00 AM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "الحي الثاني - مجاورة الرابعة - شارع رنا مول - عمارة 1089 - الدور الرابع  - شقة 4 ",
+      "location_link": "https://maps.app.goo.gl/hVfEHyfEJnMJ8cw3A",
+      "selected_labs_text": "LH — 330 جنيه\nE2 (Estradiol) — 300 جنيه\nAMH (Anti Mullerian Hormone) — 1300 جنيه\nProlactin (PRL) — 330 جنيه\nTSH — 330 جنيه\nFT4 — 270 جنيه",
+      "notes": "",
+      "labs_price_before": 2860.0,
+      "labs_price_after": 2500.0,
+      "transport_fee": 100.0,
+      "total_price": 2600.0,
+      "status": "مجدولة",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "غير مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "",
+      "deleted_at": null,
+      "city": "6 أكتوبر",
+      "district": "الحي الثاني"
     }
   ]
 }
