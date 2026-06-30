@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:19:03.242096",
-  "total": 779,
+  "exported_at": "2026-06-30T14:28:29.274294",
+  "total": 780,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -23371,6 +23371,36 @@
       "deleted_at": null,
       "city": "",
       "district": ""
+    },
+    {
+      "id": "adc072eb-ee53-4c11-aec7-d77488484f81",
+      "created_at": "2026-06-30T13:19:43.634009",
+      "name": "اية الله زكريا محمد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01119551444",
+      "visit_date": "2021-05-20",
+      "visit_time": "16:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "عماره 121 دور رابع شقه 403",
+      "location_link": "",
+      "selected_labs_text": "عرض غده",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2021-05-20",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "البشاير"
     }
   ]
 }
