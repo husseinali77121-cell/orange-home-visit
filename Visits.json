@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:13:04.689128",
-  "total": 591,
+  "exported_at": "2026-06-30T14:13:06.847242",
+  "total": 592,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -17731,6 +17731,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الخامس"
+    },
+    {
+      "id": "77ba1e93-c35f-4f4d-89ea-6665abce8f32",
+      "created_at": "2026-06-30T13:19:43.627420",
+      "name": "نعمه الامام",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01091136012",
+      "visit_date": "2020-01-09",
+      "visit_time": "13:15",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "الحى الحادى عشر-بعد الكشك الموف - سنتر البكرى سوبر ماركت اسلام او الرحمه 2",
+      "location_link": "",
+      "selected_labs_text": "vitd-ca++-po4-uric",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2020-01-09",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الحادى عشر"
     }
   ]
 }
