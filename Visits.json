@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:15:55.910397",
-  "total": 682,
+  "exported_at": "2026-06-30T14:15:58.547818",
+  "total": 683,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -20461,6 +20461,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": ""
+    },
+    {
+      "id": "92fda866-737c-4506-87cf-c995f3422064",
+      "created_at": "2026-06-30T13:19:43.630666",
+      "name": "احمد مجدى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01005888968",
+      "visit_date": "2021-01-13",
+      "visit_time": "16:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الشيخ زايد-الحى السابع-عماره 60-شقه 1",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 120.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 120.0,
+      "payment_date": "2021-01-13",
+      "deleted_at": null,
+      "city": "",
+      "district": "الشيخ زايد"
     }
   ]
 }
