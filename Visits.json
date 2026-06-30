@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:09:19.301001",
-  "total": 464,
+  "exported_at": "2026-06-30T14:09:21.290048",
+  "total": 465,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -13921,6 +13921,36 @@
       "deleted_at": null,
       "city": "المتميز",
       "district": "المتميز"
+    },
+    {
+      "id": "8741363e-9a46-49dd-b9bd-0421d6f39f9b",
+      "created_at": "2026-06-30T13:19:43.622688",
+      "name": "رانيا ابراهيم الدسوقى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01229909691",
+      "visit_date": "2017-12-14",
+      "visit_time": "14:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "البوابه الالمانيه-عماره 59 شقه 31",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-12-14",
+      "deleted_at": null,
+      "city": "الطريق الصحراوى",
+      "district": "بيفرلى هيلز"
     }
   ]
 }
