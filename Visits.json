@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:53:32.443841",
-  "total": 156,
+  "exported_at": "2026-06-30T13:53:33.953756",
+  "total": 157,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -4681,6 +4681,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الجنه الخضراء"
+    },
+    {
+      "id": "51ef1a3e-c8b3-4996-9624-8243b9b38c45",
+      "created_at": "2026-06-30T13:19:43.617207",
+      "name": "رضوى رمزى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01141589693",
+      "visit_date": "2017-08-03",
+      "visit_time": "11:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج6 شارع اسواق الطيب عماره1574 الدور2 شقه2",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 3",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2017-08-03",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثانى"
     }
   ]
 }
