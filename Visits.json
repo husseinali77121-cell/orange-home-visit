@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:18:27.073931",
-  "total": 761,
+  "exported_at": "2026-06-30T14:18:29.322400",
+  "total": 762,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -22831,6 +22831,36 @@
       "deleted_at": null,
       "city": "",
       "district": "الحى الرابع"
+    },
+    {
+      "id": "d78b63e4-0f72-46c7-a1fe-b7b2d919be2e",
+      "created_at": "2026-06-30T13:19:43.633386",
+      "name": "سماء عبد الشافى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01014753113",
+      "visit_date": "2022-02-11",
+      "visit_time": "13:30",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "الحى 1 - مج 5 -شارع كازيون بعد مستشفى الصفوه - عماره 937 الدور 1 شقه 3",
+      "location_link": "",
+      "selected_labs_text": "fsh,lh,e2",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 270.0,
+      "labs_price_after": 270.0,
+      "transport_fee": 0.0,
+      "total_price": 320.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 320.0,
+      "payment_date": "2022-02-11",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الاول"
     }
   ]
 }
