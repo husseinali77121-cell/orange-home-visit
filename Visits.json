@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:56:46.257084",
-  "total": 896,
+  "exported_at": "2026-06-30T14:56:48.453553",
+  "total": 897,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -26881,6 +26881,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الخامس"
+    },
+    {
+      "id": "4cb384c4-11c5-490b-ae89-10043e2a515a",
+      "created_at": "2026-06-30T13:19:43.638005",
+      "name": "صفاء علي سيد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01207999365",
+      "visit_date": "2022-01-17",
+      "visit_time": "20:00",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "فيلا 329",
+      "location_link": "",
+      "selected_labs_text": "covid19pcr",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 1400.0,
+      "labs_price_after": 1400.0,
+      "transport_fee": 70.0,
+      "total_price": 1540.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 1540.0,
+      "payment_date": "2022-01-17",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "السياحيه الاولى"
     }
   ]
 }
