@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:14:40.184920",
-  "total": 643,
+  "exported_at": "2026-06-30T14:14:42.468987",
+  "total": 644,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -19291,6 +19291,36 @@
       "deleted_at": null,
       "city": "ارض اللواء",
       "district": ""
+    },
+    {
+      "id": "d93ff339-5abb-42a9-9230-47c004c40ac6",
+      "created_at": "2026-06-30T13:19:43.629236",
+      "name": "محمد مصطفى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01111911402",
+      "visit_date": "2020-06-20",
+      "visit_time": "13:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "فيلا 12 مربع 1008 مجاورة العاشرة التجمع الاول",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 0.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "2020-06-20",
+      "deleted_at": null,
+      "city": "التجمع الاول",
+      "district": "مربع 1008"
     }
   ]
 }
