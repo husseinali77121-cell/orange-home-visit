@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:32:03.197872",
-  "total": 129,
+  "exported_at": "2026-06-30T13:32:04.860294",
+  "total": 130,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -3871,6 +3871,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "899a6b2e-936d-468d-844f-7401d33bce91",
+      "created_at": "2026-06-30T13:19:43.616765",
+      "name": "فريال محمد حافظ",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01096524374",
+      "visit_date": "2016-12-29",
+      "visit_time": "04:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "210 - شقه 3  - امام مدارس النيل",
+      "location_link": "",
+      "selected_labs_text": "liver-Kidny",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2016-12-29",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الرابع"
     }
   ]
 }
