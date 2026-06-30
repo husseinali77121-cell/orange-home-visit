@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:56:55.711183",
-  "total": 901,
+  "exported_at": "2026-06-30T14:56:57.770010",
+  "total": 902,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -27031,6 +27031,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "الخمايل"
+    },
+    {
+      "id": "1f46afc6-5fd2-4edf-8122-62fce108bf54",
+      "created_at": "2026-06-30T13:19:43.638224",
+      "name": "فيروز خليل الحلفاوى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01111100520",
+      "visit_date": "2022-08-15",
+      "visit_time": "20:00",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "فيلا y9",
+      "location_link": "",
+      "selected_labs_text": "مسحه",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 700.0,
+      "labs_price_after": 700.0,
+      "transport_fee": 70.0,
+      "total_price": 840.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 840.0,
+      "payment_date": "2022-08-15",
+      "deleted_at": null,
+      "city": "المتميز",
+      "district": "مينا جاردن سيتى"
     }
   ]
 }
