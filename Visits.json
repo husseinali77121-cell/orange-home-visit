@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:02:13.888414",
-  "total": 202,
+  "exported_at": "2026-06-30T14:02:15.856911",
+  "total": 203,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -6061,6 +6061,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": ""
+    },
+    {
+      "id": "b7da21d2-fe63-481d-9eb8-65ee979cec13",
+      "created_at": "2026-06-30T13:19:43.617997",
+      "name": "شريهان السعيد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01286908800",
+      "visit_date": "2017-03-20",
+      "visit_time": "17:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "المستثمر الصغير خلف مسجد التوحيد عماره 11 شقه 24 الدور5",
+      "location_link": "",
+      "selected_labs_text": "u1.crp.cbc.kft",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 0.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "2017-03-20",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى السادس"
     }
   ]
 }
