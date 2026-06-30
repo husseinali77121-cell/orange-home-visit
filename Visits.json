@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:54:48.755658",
-  "total": 841,
+  "exported_at": "2026-06-30T14:54:51.022362",
+  "total": 842,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -25231,6 +25231,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "fdb07c66-560f-4113-bcad-b34cb134dbb3",
+      "created_at": "2026-06-30T13:19:43.636165",
+      "name": "هانم عبدالمنعم عزام",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01113641021",
+      "visit_date": "2021-10-09",
+      "visit_time": "11:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "الحي الخامس - عقد 2 عماره 316 الدور الاخير شقه 10",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2021-10-09",
+      "deleted_at": null,
+      "city": "",
+      "district": "الحى الخامس"
     }
   ]
 }
