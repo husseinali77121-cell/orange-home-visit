@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:53:20.351369",
-  "total": 797,
+  "exported_at": "2026-06-30T14:53:22.920415",
+  "total": 798,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -23911,6 +23911,36 @@
       "deleted_at": null,
       "city": "",
       "district": ""
+    },
+    {
+      "id": "1a4fe748-09d6-4b49-9e0e-1bdb5bc3d2a3",
+      "created_at": "2026-06-30T13:19:43.634762",
+      "name": "ساره شعبان ابراهيم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01119855530",
+      "visit_date": "2021-06-29",
+      "visit_time": "20:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "كومباوند بداية-عمارة6 شقة 101",
+      "location_link": "",
+      "selected_labs_text": "روشتة\n1320ج بعد الخصم بالزيارة",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 170.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 170.0,
+      "payment_date": "2021-06-29",
+      "deleted_at": null,
+      "city": "",
+      "district": "حدائق اكتوبر"
     }
   ]
 }
