@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:31:53.710433",
-  "total": 122,
+  "exported_at": "2026-06-30T13:31:55.298645",
+  "total": 123,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -3661,6 +3661,36 @@
       "deleted_at": null,
       "city": "طريق الواحات",
       "district": "الفردوس"
+    },
+    {
+      "id": "3cdb68d5-fced-4ebe-b7e2-eded9791d2cf",
+      "created_at": "2026-06-30T13:19:43.616654",
+      "name": "محمود زكى عبد الرحمن",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01116116263",
+      "visit_date": "2016-12-25",
+      "visit_time": "10:30",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "المجاوره3-شارع13-عماره 690 اعلى كازيون ماركت",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2016-12-25",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
