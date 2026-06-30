@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:55:11.173284",
-  "total": 851,
+  "exported_at": "2026-06-30T14:55:13.621065",
+  "total": 852,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -25531,6 +25531,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثالث"
+    },
+    {
+      "id": "e184cbcf-8d50-4fab-aa0c-a7aa9df9cfd5",
+      "created_at": "2026-06-30T13:19:43.636569",
+      "name": "ريم عبدالله مبارك",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "96551245390",
+      "visit_date": "2021-10-29",
+      "visit_time": "14:30",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "الحي السادس المجاورة 5 سوق القديم بجوار قدورة عمارة 5/ 2 الدور الرابع الشقة امام السلم",
+      "location_link": "",
+      "selected_labs_text": "مسحة معتمدة للسفر\nالتكلفة 1300 بالزيارة",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 100.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 100.0,
+      "payment_date": "2021-10-29",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى السادس"
     }
   ]
 }
