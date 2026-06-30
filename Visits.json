@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:01:19.934392",
-  "total": 166,
+  "exported_at": "2026-06-30T14:01:21.601378",
+  "total": 167,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -4980,6 +4980,36 @@
       "payment_date": "2017-02-11",
       "deleted_at": null,
       "city": "الشيخ زايد",
+      "district": ""
+    },
+    {
+      "id": "94961e2f-8c1e-41c5-b3ab-6a871f16354c",
+      "created_at": "2026-06-30T13:19:43.617410",
+      "name": "ايمان عادل",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01065201440",
+      "visit_date": "2017-02-11",
+      "visit_time": "18:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "6عمارات السرايا الدور 6 شقه302",
+      "location_link": "",
+      "selected_labs_text": "cbc.ferritin.u1.rh.calcium.f.p.tsh",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2017-02-11",
+      "deleted_at": null,
+      "city": "6اكتوبر",
       "district": ""
     }
   ]
