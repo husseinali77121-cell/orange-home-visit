@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:02:53.103022",
-  "total": 227,
+  "exported_at": "2026-06-30T14:02:54.871102",
+  "total": 228,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -6811,6 +6811,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "7038d68f-1c9b-475c-bb6e-ca247a28be54",
+      "created_at": "2026-06-30T13:19:43.618441",
+      "name": "ايمان سليمان",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01144016666",
+      "visit_date": "2017-04-09",
+      "visit_time": "16:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "شارع اللواء احمد حسن موازى لشارع الخزان قطعه 1352 بجوار مسجد المعز وخلف صيدليه ابو على الدور الارضى",
+      "location_link": "",
+      "selected_labs_text": "BHCG",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-04-09",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
