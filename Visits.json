@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:12:55.627924",
-  "total": 586,
+  "exported_at": "2026-06-30T14:12:57.434067",
+  "total": 587,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -17581,6 +17581,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى السادس"
+    },
+    {
+      "id": "196387d2-b194-4db4-a566-18d29e0f4586",
+      "created_at": "2026-06-30T13:19:43.627234",
+      "name": "رحاب عبد الحميد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01010839387",
+      "visit_date": "2019-11-20",
+      "visit_time": "19:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "الحى3-شارع7-مج2-عماره 277 - شقه3",
+      "location_link": "",
+      "selected_labs_text": "cbc-urea-creat-na-k-lipase-amylase-h.pyloriin blood-urine",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2019-11-20",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
