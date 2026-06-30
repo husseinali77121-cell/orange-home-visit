@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:31.572337",
-  "total": 365,
+  "exported_at": "2026-06-30T14:06:33.330041",
+  "total": 366,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -10950,6 +10950,36 @@
       "payment_date": "2017-08-29",
       "deleted_at": null,
       "city": "6اكتوبر",
+      "district": "السياحيه السادسه"
+    },
+    {
+      "id": "16297d25-8fb6-496a-a627-8caf0b13e33f",
+      "created_at": "2026-06-30T13:19:43.620837",
+      "name": "سميه عبد المنعم قنديل",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01009690150",
+      "visit_date": "2017-09-05",
+      "visit_time": "09:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "57 - الدور الارضى -شقه 1",
+      "location_link": "",
+      "selected_labs_text": "FBS-PP.liver.kidney.lipid.cbc.esr",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 120.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 120.0,
+      "payment_date": "2017-09-05",
+      "deleted_at": null,
+      "city": "",
       "district": "السياحيه السادسه"
     }
   ]
