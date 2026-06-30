@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:14:45.862035",
-  "total": 646,
+  "exported_at": "2026-06-30T14:14:47.573625",
+  "total": 647,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -19381,6 +19381,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثانى"
+    },
+    {
+      "id": "bb98bdc8-e2f4-43ee-9596-c1ea95cc2966",
+      "created_at": "2026-06-30T13:19:43.629403",
+      "name": "لمار عمرو صبرى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01065171751",
+      "visit_date": "2020-06-27",
+      "visit_time": "12:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "كومباوند المعموره-عماره 7 الدور الاول علوى شقه 102",
+      "location_link": "",
+      "selected_labs_text": "cbc,pt,ptt,esr,",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2020-06-27",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثامن"
     }
   ]
 }
