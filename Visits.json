@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:09:33.892756",
-  "total": 472,
+  "exported_at": "2026-06-30T14:09:35.752117",
+  "total": 473,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -14161,6 +14161,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الرابع"
+    },
+    {
+      "id": "6b50526a-4a22-4ab2-b93a-84fa753d6005",
+      "created_at": "2026-06-30T13:19:43.622818",
+      "name": "كريم عادل",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01207797704",
+      "visit_date": "2017-12-21",
+      "visit_time": "19:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "المجاوره 3 - بلوك 15/14 شارع 32 متفرع من هدى شعراوى فيلا 10",
+      "location_link": "",
+      "selected_labs_text": "kidny-hba1c",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-12-21",
+      "deleted_at": null,
+      "city": "المتميز",
+      "district": "غرب سوميد"
     }
   ]
 }
