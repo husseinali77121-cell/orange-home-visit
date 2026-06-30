@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:15:19.678065",
-  "total": 664,
+  "exported_at": "2026-06-30T14:15:21.785973",
+  "total": 665,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -19921,6 +19921,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "كومباوند البستان"
+    },
+    {
+      "id": "5d277d15-9bf7-4e6d-be11-edf4046ea4f5",
+      "created_at": "2026-06-30T13:19:43.629951",
+      "name": "هايدى عاطف ابراهيم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01205057876",
+      "visit_date": "2020-10-18",
+      "visit_time": "16:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "شارع 36 من شارع 32 من شارع د/على لطفى فيلا 4 (فوزى عباس) الدور الثاني شقه 3",
+      "location_link": "",
+      "selected_labs_text": "روشتة",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 90.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 90.0,
+      "payment_date": "2020-10-18",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "الحى الثالث"
     }
   ]
 }
