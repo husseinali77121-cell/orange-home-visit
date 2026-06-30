@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:55:08.884943",
-  "total": 850,
+  "exported_at": "2026-06-30T14:55:11.173284",
+  "total": 851,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -25501,6 +25501,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى السابع"
+    },
+    {
+      "id": "d961c7e0-9cf6-462d-b902-acccff0eaafd",
+      "created_at": "2026-06-30T13:19:43.636546",
+      "name": "منى مسعود",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01094897373",
+      "visit_date": "2021-10-28",
+      "visit_time": "13:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "عمارات الفتح- برج الاطباء عماره 14 برج 2 الدور الثاني شقه 3",
+      "location_link": "",
+      "selected_labs_text": "FBG,PPG,CBC,UREA,CREAT,ALT,AST\nHCV,HBS,VITD\nالتكلفه 1000 بالزياره",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 80.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 80.0,
+      "payment_date": "2021-10-28",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
