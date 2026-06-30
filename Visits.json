@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:18:04.326153",
-  "total": 749,
+  "exported_at": "2026-06-30T14:18:06.853678",
+  "total": 750,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -22471,6 +22471,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الحادى عشر"
+    },
+    {
+      "id": "13383d38-04f8-439f-91ef-6d80f136811d",
+      "created_at": "2026-06-30T13:19:43.632962",
+      "name": "حمدى حسن",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01001755088",
+      "visit_date": "2021-04-24",
+      "visit_time": "23:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج3-عقد تانى-شارع 17-عماره551-الدور الرابع شقه 8",
+      "location_link": "",
+      "selected_labs_text": "اشتباه",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2021-04-24",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
