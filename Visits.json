@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:10:46.582121",
-  "total": 514,
+  "exported_at": "2026-06-30T14:10:48.916081",
+  "total": 515,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -15421,6 +15421,36 @@
       "deleted_at": null,
       "city": "",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "97cc8c99-f71b-4693-a066-72a92e83da46",
+      "created_at": "2026-06-30T13:19:43.624913",
+      "name": "احمد سالم حسين",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01123358215",
+      "visit_date": "2018-05-31",
+      "visit_time": "13:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "ح1 مجاوره1 ابراج الحياه برج19 شقه1",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2018-05-31",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الاول"
     }
   ]
 }
