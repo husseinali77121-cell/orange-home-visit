@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:18:45.094632",
-  "total": 770,
+  "exported_at": "2026-06-30T14:18:47.248127",
+  "total": 771,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -23101,6 +23101,36 @@
       "deleted_at": null,
       "city": "طريق الواحات",
       "district": "ابني بيتك"
+    },
+    {
+      "id": "06599a36-2859-49fa-8c09-b9f825c6c392",
+      "created_at": "2026-06-30T13:19:43.633642",
+      "name": "مديحه معوض",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01002252918",
+      "visit_date": "2021-05-16",
+      "visit_time": "18:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج3 عقد اول عماره540 الدور 3 شقه يمين المصعد",
+      "location_link": "",
+      "selected_labs_text": "pt",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2021-05-16",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
