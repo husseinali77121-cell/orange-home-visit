@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:01:15.831716",
-  "total": 163,
+  "exported_at": "2026-06-30T14:01:17.496351",
+  "total": 164,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -4891,6 +4891,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "0a2b31e0-b0d2-4af8-88b0-c44b56b2cf35",
+      "created_at": "2026-06-30T13:19:43.617323",
+      "name": "زينب احمد ابراهيم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01009366477",
+      "visit_date": "2017-02-08",
+      "visit_time": "09:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "ح5 مج5 تقاطع شارع 25 مع 27 رقم المنزل 1011 من شارع الخزان ثانى يمين*اول شمال*ثانى يمين المنزل ع الشمال",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-02-08",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
