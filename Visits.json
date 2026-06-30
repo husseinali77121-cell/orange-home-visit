@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:04:33.556906",
-  "total": 293,
+  "exported_at": "2026-06-30T14:04:35.243774",
+  "total": 294,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -8791,6 +8791,36 @@
       "deleted_at": null,
       "city": "طريق الواحات",
       "district": ""
+    },
+    {
+      "id": "fa326772-14b8-4ce8-b99f-ab813fe73268",
+      "created_at": "2026-06-30T13:19:43.619606",
+      "name": "كارن كريم محمود",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "0109252518901006662385",
+      "visit_date": "2017-05-30",
+      "visit_time": "23:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "مج3 شارع17 عماره74 شقه204 الدور2",
+      "location_link": "",
+      "selected_labs_text": "cbc",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2017-05-30",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثامن"
     }
   ]
 }
