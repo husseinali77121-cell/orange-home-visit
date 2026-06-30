@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:15:53.123850",
-  "total": 681,
+  "exported_at": "2026-06-30T14:15:55.910397",
+  "total": 682,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -20431,6 +20431,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الاول"
+    },
+    {
+      "id": "097532ab-fd80-4d9b-8b8b-8bb6d165d183",
+      "created_at": "2026-06-30T13:19:43.630592",
+      "name": "فرح محمد نور",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01141577197",
+      "visit_date": "2022-01-14",
+      "visit_time": "14:00",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "كومباوند ريم ريزيدانس-طريق المدينة التعليميه فيلا 165",
+      "location_link": "",
+      "selected_labs_text": "cbc,crp",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 190.0,
+      "labs_price_after": 190.0,
+      "transport_fee": 100.0,
+      "total_price": 390.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 390.0,
+      "payment_date": "2022-01-14",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": ""
     }
   ]
 }
