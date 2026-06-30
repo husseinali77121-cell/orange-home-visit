@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:01:42.523563",
-  "total": 181,
+  "exported_at": "2026-06-30T14:01:44.444805",
+  "total": 182,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -5431,6 +5431,36 @@
       "deleted_at": null,
       "city": "الطريق الصحراوى",
       "district": "بيفرلى هيلز"
+    },
+    {
+      "id": "83c9176e-6b36-471e-aa7b-c2bb61c70173",
+      "created_at": "2026-06-30T13:19:43.617670",
+      "name": "ليلى محمد على",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01010877710",
+      "visit_date": "2017-02-24",
+      "visit_time": "16:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "المستثمر الصغير - بجوار قريه الياسمين-عماره 9 - شقه 11 -الدور 2",
+      "location_link": "",
+      "selected_labs_text": "abo-rh",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 60.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 60.0,
+      "payment_date": "2017-02-24",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى السادس"
     }
   ]
 }
