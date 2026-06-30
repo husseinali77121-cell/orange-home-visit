@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:47.212870",
-  "total": 375,
+  "exported_at": "2026-06-30T14:06:49.167906",
+  "total": 376,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -11251,6 +11251,36 @@
       "deleted_at": null,
       "city": "الشيخ زايد",
       "district": "بيفرلى هيلز"
+    },
+    {
+      "id": "49f905ae-5606-43fd-b790-c388ba82c89f",
+      "created_at": "2026-06-30T13:19:43.620994",
+      "name": "اشرف قاسم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01001751153",
+      "visit_date": "2017-09-18",
+      "visit_time": "10:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "فيلا 815 - بوابه 3",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 0.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "2017-09-18",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "زايد2000"
     }
   ]
 }
