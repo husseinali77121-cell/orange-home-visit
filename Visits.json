@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:17:55.301541",
-  "total": 744,
+  "exported_at": "2026-06-30T14:17:57.396190",
+  "total": 745,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -22321,6 +22321,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "384157cb-41c7-43f3-b7c3-436966415a1c",
+      "created_at": "2026-06-30T13:19:43.632781",
+      "name": "حياة فريد السعيد",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01006605892",
+      "visit_date": "2021-04-18",
+      "visit_time": "23:00",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "العمرانيه الثانيه",
+      "location_link": "",
+      "selected_labs_text": "pcr",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2021-04-18",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الحادى عشر"
     }
   ]
 }
