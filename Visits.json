@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:56:11.953626",
-  "total": 880,
+  "exported_at": "2026-06-30T14:56:14.589740",
+  "total": 881,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -26401,6 +26401,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الاول"
+    },
+    {
+      "id": "42cc5622-a282-4f98-a44d-4b7ebae6e3e0",
+      "created_at": "2026-06-30T13:19:43.637461",
+      "name": "مروه حسين",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01017284871",
+      "visit_date": "2022-08-22",
+      "visit_time": "14:00",
+      "doctor_name": "ايه جمال",
+      "branch": "La Cite",
+      "address": "الحى 8 - مج3- عماره 111 شقه 101 الدور الاول امام مسجد الرحمه",
+      "location_link": "",
+      "selected_labs_text": "ft3-ft4-tsh",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 3",
+      "labs_price_before": 235.0,
+      "labs_price_after": 235.0,
+      "transport_fee": 30.0,
+      "total_price": 295.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 295.0,
+      "payment_date": "2022-08-22",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثامن"
     }
   ]
 }
