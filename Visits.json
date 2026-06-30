@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:09:25.310878",
-  "total": 467,
+  "exported_at": "2026-06-30T14:09:27.130226",
+  "total": 468,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -14011,6 +14011,36 @@
       "deleted_at": null,
       "city": "المتميز",
       "district": "السياحيه الرابعه"
+    },
+    {
+      "id": "a2de82bf-c99a-4dd6-b53e-9e79ece2ec1b",
+      "created_at": "2026-06-30T13:19:43.622739",
+      "name": "امال مصطفى كمال",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "0106745674001068267613",
+      "visit_date": "2017-12-18",
+      "visit_time": "09:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "كومباوند ريهام خلف طيبه جاردن عماره17 الدور 3 شقه304",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2017-12-18",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "كومباوند ريهام"
     }
   ]
 }
