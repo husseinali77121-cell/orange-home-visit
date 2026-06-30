@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:56:01.381424",
-  "total": 875,
+  "exported_at": "2026-06-30T14:56:04.054752",
+  "total": 876,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -26251,6 +26251,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الاول"
+    },
+    {
+      "id": "c7fde251-d078-4736-bcf0-3151ba3df952",
+      "created_at": "2026-06-30T13:19:43.637304",
+      "name": "محمد يوسف نسيم",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01121168123",
+      "visit_date": "2021-12-08",
+      "visit_time": "12:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "الحى 6 عماره 11ع شقه 3 عمارات الشباب بجوار اسواق مروان بجوار مسجد الابرار",
+      "location_link": "",
+      "selected_labs_text": "esr-crp-uric-rf-anticcp-ana-urine\nالمبلغ مدفوع",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 850.0,
+      "labs_price_after": 850.0,
+      "transport_fee": 75.0,
+      "total_price": 975.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 975.0,
+      "payment_date": "2021-12-08",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى السادس"
     }
   ]
 }
