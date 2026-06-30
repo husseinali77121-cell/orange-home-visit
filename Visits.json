@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:16:23.183602",
-  "total": 696,
+  "exported_at": "2026-06-30T14:16:25.579861",
+  "total": 697,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -20881,6 +20881,36 @@
       "deleted_at": null,
       "city": "",
       "district": "الحى الحادى عشر"
+    },
+    {
+      "id": "1bebfc30-8cfb-434c-a257-e8f1c3d89b87",
+      "created_at": "2026-06-30T13:19:43.631173",
+      "name": "نشوى عبد المجيد صبرى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01227744992",
+      "visit_date": "2021-01-12",
+      "visit_time": "13:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "ميدان الرمايه-عمارة 5-شقة 8- اعلى بازار برايت ستار",
+      "location_link": "",
+      "selected_labs_text": "اشتباه",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 150.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 150.0,
+      "payment_date": "2021-01-12",
+      "deleted_at": null,
+      "city": "",
+      "district": "الهرم"
     }
   ]
 }
