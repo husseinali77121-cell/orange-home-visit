@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:54:38.868292",
-  "total": 836,
+  "exported_at": "2026-06-30T14:54:40.849902",
+  "total": 837,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -25081,6 +25081,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الخامس"
+    },
+    {
+      "id": "f3e16a8b-52f0-4bdf-8a7a-74a622764d1d",
+      "created_at": "2026-06-30T13:19:43.636036",
+      "name": "هانى حسنى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01091588808",
+      "visit_date": "2025-07-08",
+      "visit_time": "13:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "فيلا 11 x - مينا جاردن سيتي \nالمصانع  - مصنع ارب",
+      "location_link": "",
+      "selected_labs_text": "عدد 2 فرد",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 3",
+      "labs_price_before": 4000.0,
+      "labs_price_after": 4000.0,
+      "transport_fee": 200.0,
+      "total_price": 4400.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 4400.0,
+      "payment_date": "2025-07-08",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "مينا جاردن سيتى"
     }
   ]
 }
