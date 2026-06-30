@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:32:31.541115",
-  "total": 150,
+  "exported_at": "2026-06-30T13:32:34.472973",
+  "total": 151,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -4501,6 +4501,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الورود"
+    },
+    {
+      "id": "2a3db588-fbaf-4752-82cd-58b646738308",
+      "created_at": "2026-06-30T13:19:43.617108",
+      "name": "منى كمال حبيب",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01222585606",
+      "visit_date": "2017-10-29",
+      "visit_time": "09:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "ح 5 عقد 2 مج 5 شارع 20 عماره 870 الدور 4 سقه 4",
+      "location_link": "",
+      "selected_labs_text": "روشته",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-10-29",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الخامس"
     }
   ]
 }
