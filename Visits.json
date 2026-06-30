@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:56:24.926272",
-  "total": 886,
+  "exported_at": "2026-06-30T14:56:27.604064",
+  "total": 887,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -26581,6 +26581,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الاول"
+    },
+    {
+      "id": "bd995927-dc0e-4a69-a8dd-03b8e08e986f",
+      "created_at": "2026-06-30T13:19:43.637731",
+      "name": "شيرين محمود الشهاوى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01227999264",
+      "visit_date": "2021-12-30",
+      "visit_time": "18:00",
+      "doctor_name": "محمد شفيق",
+      "branch": "La Cite",
+      "address": "الحى الثانى الشيخ زايد فيلا 16",
+      "location_link": "",
+      "selected_labs_text": "مسحه",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 700.0,
+      "labs_price_after": 700.0,
+      "transport_fee": 120.0,
+      "total_price": 940.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 940.0,
+      "payment_date": "2021-12-30",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "الحى الثانى"
     }
   ]
 }
