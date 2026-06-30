@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:03:35.094560",
-  "total": 255,
+  "exported_at": "2026-06-30T14:03:37.241585",
+  "total": 256,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -7651,6 +7651,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "غرب سوميد"
+    },
+    {
+      "id": "73417f9c-ee65-4e04-ad38-6a070dba6eaa",
+      "created_at": "2026-06-30T13:19:43.618940",
+      "name": "اسلام اشرف",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01150503337",
+      "visit_date": "2017-05-03",
+      "visit_time": "11:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "المجاوره 5-عماره 1347-الدور الخامس-الدور4-بجوار مدرسه جيل 2000",
+      "location_link": "",
+      "selected_labs_text": "cbc",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2017-05-03",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثانى"
     }
   ]
 }
