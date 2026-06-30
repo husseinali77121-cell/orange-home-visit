@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T13:23:39.884405",
-  "total": 94,
+  "exported_at": "2026-06-30T13:23:41.875600",
+  "total": 95,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -2821,6 +2821,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثامن"
+    },
+    {
+      "id": "f00d831b-df07-4f37-9c48-a62d09d8f765",
+      "created_at": "2026-06-30T13:19:43.616010",
+      "name": "حنان محمد بيومى",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01119633510",
+      "visit_date": "2016-09-18",
+      "visit_time": "16:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "مج2 عماره596 خلف المنوفى الكبابجى الدور6 شقه3",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 30.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 30.0,
+      "payment_date": "2016-09-18",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثانى"
     }
   ]
 }
