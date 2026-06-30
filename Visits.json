@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:14.055488",
-  "total": 354,
+  "exported_at": "2026-06-30T14:06:15.761861",
+  "total": 355,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -10621,6 +10621,36 @@
       "deleted_at": null,
       "city": "",
       "district": "السياحيه الرابعه"
+    },
+    {
+      "id": "2c8dc475-45fb-4505-89bd-145599bfc01f",
+      "created_at": "2026-06-30T13:19:43.620661",
+      "name": "عمر محمد عبد الفتاح",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01001566528",
+      "visit_date": "2017-08-21",
+      "visit_time": "10:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "فيلا 213",
+      "location_link": "",
+      "selected_labs_text": "cbc-ft4-tsh-ast-alt",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-08-21",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "السياحيه الاولى"
     }
   ]
 }
