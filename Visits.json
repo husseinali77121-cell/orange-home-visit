@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:22.792000",
-  "total": 360,
+  "exported_at": "2026-06-30T14:06:24.848405",
+  "total": 361,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -10801,6 +10801,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثانى"
+    },
+    {
+      "id": "474e2640-93e5-4e3e-8974-9e588589902e",
+      "created_at": "2026-06-30T13:19:43.620758",
+      "name": "عيسى عبد الحق",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01000034990",
+      "visit_date": "2017-08-28",
+      "visit_time": "12:30",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "فيلا 328",
+      "location_link": "",
+      "selected_labs_text": "خطاب",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 0.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 0.0,
+      "payment_date": "2017-08-28",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "الياسمين"
     }
   ]
 }
