@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:06:08.045882",
-  "total": 350,
+  "exported_at": "2026-06-30T14:06:10.022123",
+  "total": 351,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -10501,6 +10501,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الرابع"
+    },
+    {
+      "id": "f3c942a4-e52d-47ee-a3b8-3e2c98a809e8",
+      "created_at": "2026-06-30T13:19:43.620592",
+      "name": "مصطفى عبد العزيز",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01009935220",
+      "visit_date": "2017-09-30",
+      "visit_time": "14:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "حى الاشجار تاون243 البوابه2",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 2",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 70.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 70.0,
+      "payment_date": "2017-09-30",
+      "deleted_at": null,
+      "city": "",
+      "district": "حى الاشجار"
     }
   ]
 }
