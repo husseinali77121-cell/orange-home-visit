@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:55:03.812075",
-  "total": 848,
+  "exported_at": "2026-06-30T14:55:06.155586",
+  "total": 849,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -25441,6 +25441,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الثانى"
+    },
+    {
+      "id": "9fb6fff7-4948-4c0d-9f30-d6973df35fa9",
+      "created_at": "2026-06-30T13:19:43.636443",
+      "name": "وفاء عبد الفتاح",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01271684750",
+      "visit_date": "2021-10-25",
+      "visit_time": "13:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "مج2 شارع 10 عماره336 الدور الثاني شقه 6",
+      "location_link": "",
+      "selected_labs_text": "FBG,PPG,HbA1c \n2 زياره",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 80.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 80.0,
+      "payment_date": "2021-10-25",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثالث"
     }
   ]
 }
