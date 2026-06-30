@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:02:36.986280",
-  "total": 218,
+  "exported_at": "2026-06-30T14:02:38.744848",
+  "total": 219,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -6541,6 +6541,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الاول"
+    },
+    {
+      "id": "45af20ff-ccef-4b88-828f-60ea2009a554",
+      "created_at": "2026-06-30T13:19:43.618246",
+      "name": "امانى محمد محى الدين",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01141445252",
+      "visit_date": "2017-04-03",
+      "visit_time": "10:00",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "address": "امام هايبر وان فيلا427 فيلا هانى ياسين",
+      "location_link": "",
+      "selected_labs_text": "",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 50.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 50.0,
+      "payment_date": "2017-04-03",
+      "deleted_at": null,
+      "city": "الشيخ زايد",
+      "district": "كومباوند تاون هاوس"
     }
   ]
 }
