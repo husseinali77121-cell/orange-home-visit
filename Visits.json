@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-06-30T14:53:12.160792",
-  "total": 793,
+  "exported_at": "2026-06-30T14:53:14.445191",
+  "total": 794,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -23791,6 +23791,36 @@
       "deleted_at": null,
       "city": "6اكتوبر",
       "district": "الحى الخامس"
+    },
+    {
+      "id": "b296ef36-1929-4968-a166-4d4867ba33d8",
+      "created_at": "2026-06-30T13:19:43.634468",
+      "name": "عمر محمد عبد الحافظ",
+      "age": null,
+      "age_unit": "سنة",
+      "phone": "01004990073",
+      "visit_date": "2021-06-22",
+      "visit_time": "12:00",
+      "doctor_name": "",
+      "branch": "La Cite",
+      "address": "مج1-عماره19-شقه5",
+      "location_link": "",
+      "selected_labs_text": "pcr covid 19",
+      "notes": "بيانات مستوردة من النظام القديم — عدد الزيارات التاريخية: 1",
+      "labs_price_before": 0.0,
+      "labs_price_after": 0.0,
+      "transport_fee": 0.0,
+      "total_price": 40.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "",
+      "paid_amount": 40.0,
+      "payment_date": "2021-06-22",
+      "deleted_at": null,
+      "city": "6اكتوبر",
+      "district": "الحى الثامن"
     }
   ]
 }
