@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-07-04T07:14:57.861012",
+  "exported_at": "2026-07-04T07:42:14.130749",
   "total": 913,
   "visits": [
     {
@@ -27366,7 +27366,7 @@
       "id": "29ce82d0349a4337",
       "created_at": "2026-07-04T07:14:57.769586",
       "name": "رشا علي",
-      "age": 35,
+      "age": 42,
       "age_unit": "سنة",
       "phone": "01115946592",
       "visit_date": "2026-07-04",
@@ -27383,9 +27383,9 @@
       "labs_price_after": 2750.0,
       "transport_fee": 70.0,
       "total_price": 2820.0,
-      "status": "مجدولة",
+      "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "🆕 عميل جديد",
       "payment_status": "غير مدفوع",
       "payment_method": "",
       "paid_amount": 0.0,
