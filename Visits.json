@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-07-05T06:11:10.966338",
+  "exported_at": "2026-07-05T07:08:15.231621",
   "total": 915,
   "visits": [
     {
@@ -27431,7 +27431,7 @@
       "phone": "01065665664",
       "visit_date": "2026-07-05",
       "visit_time": "11:00 AM",
-      "doctor_name": "ايه جمال",
+      "doctor_name": "حسين علي",
       "branch": "Diamond",
       "city": "6 أكتوبر",
       "district": "بالم بركس",
@@ -27439,13 +27439,13 @@
       "location_link": "https://maps.app.goo.gl/xtHc5DEPvVPYQqCT8",
       "selected_labs_text": "CBC — 400 جنيه\nPT — 180 جنيه\nPTT — 200 جنيه\nBleeding Time — 70 جنيه\nALT (SGPT) — 150 جنيه\nAST (SGOT) — 150 جنيه\nHIV (I,II) Abs — 450 جنيه\nHCV IgG — 300 جنيه\nHBs Ag — 300 جنيه\nHbA1C — 400 جنيه\nProtein C Activity — 1000 جنيه\nProtein S Activity — 1000 جنيه\nUrea — 120 جنيه\nCreatinine (Serum) — 150 جنيه\nLipid Profile 700",
       "notes": "",
-      "labs_price_before": 5570.0,
+      "labs_price_before": 4870.0,
       "labs_price_after": 4500.0,
       "transport_fee": 200.0,
       "total_price": 4700.0,
       "status": "مجدولة",
       "rating": 0,
-      "tag": "",
+      "tag": "🆕 عميل جديد",
       "payment_status": "غير مدفوع",
       "payment_method": "",
       "paid_amount": 0.0,
