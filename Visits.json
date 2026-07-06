@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-07-06T09:15:52.988491",
+  "exported_at": "2026-07-06T11:18:26.111901",
   "total": 920,
   "visits": [
     {
@@ -27499,17 +27499,17 @@
       "location_link": "https://maps.app.goo.gl/7zinBX9cLZxSivTZA",
       "selected_labs_text": "فيتامين د لشخصين\ntsh .prl\nchol.ca.hba1c",
       "notes": "",
-      "labs_price_before": 2300.0,
-      "labs_price_after": 2300.0,
+      "labs_price_before": 4000.0,
+      "labs_price_after": 3400.0,
       "transport_fee": 100.0,
-      "total_price": 2400.0,
-      "status": "مجدولة",
+      "total_price": 3500.0,
+      "status": "تمت",
       "rating": 0,
-      "tag": "",
-      "payment_status": "غير مدفوع",
-      "payment_method": "",
-      "paid_amount": 0.0,
-      "payment_date": "",
+      "tag": "🆕 عميل جديد",
+      "payment_status": "مدفوع",
+      "payment_method": "نقدي",
+      "paid_amount": 3500.0,
+      "payment_date": "2026-07-06",
       "deleted_at": null
     },
     {
@@ -27563,7 +27563,7 @@
       "labs_price_after": 2200.0,
       "transport_fee": 150.0,
       "total_price": 2350.0,
-      "status": "مجدولة",
+      "status": "تمت",
       "rating": 0,
       "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
