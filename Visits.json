@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-07-06T08:18:14.082867",
+  "exported_at": "2026-07-06T09:15:52.988491",
   "total": 920,
   "visits": [
     {
@@ -27558,18 +27558,18 @@
       "address": "الحي الثالث - 6 اكتوبر - مجاورة 8 - عمارة 1799 فيلا الايمان الدور الارضي",
       "location_link": "https://maps.app.goo.gl/F31EuELq2ZQTf7NX7",
       "selected_labs_text": "",
-      "notes": "",
-      "labs_price_before": 1980.0,
-      "labs_price_after": 1600.0,
-      "transport_fee": 100.0,
-      "total_price": 1700.0,
+      "notes": "حالتين\n",
+      "labs_price_before": 2880.0,
+      "labs_price_after": 2200.0,
+      "transport_fee": 150.0,
+      "total_price": 2350.0,
       "status": "مجدولة",
       "rating": 0,
       "tag": "⭐ عميل منتظم",
-      "payment_status": "غير مدفوع",
-      "payment_method": "",
-      "paid_amount": 0.0,
-      "payment_date": "",
+      "payment_status": "مدفوع",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 2350.0,
+      "payment_date": "2026-07-06",
       "deleted_at": null
     },
     {
@@ -27595,7 +27595,7 @@
       "total_price": 1700.0,
       "status": "مجدولة",
       "rating": 0,
-      "tag": "",
+      "tag": "🆕 عميل جديد",
       "payment_status": "مدفوع",
       "payment_method": "تحويل بنكي",
       "paid_amount": 1700.0,
