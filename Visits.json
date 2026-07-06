@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-07-06T07:47:32.201365",
-  "total": 919,
+  "exported_at": "2026-07-06T08:18:14.082867",
+  "total": 920,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -27565,11 +27565,41 @@
       "total_price": 1700.0,
       "status": "مجدولة",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "غير مدفوع",
       "payment_method": "",
       "paid_amount": 0.0,
       "payment_date": "",
+      "deleted_at": null
+    },
+    {
+      "id": "83e671b275e44688",
+      "created_at": "2026-07-06T08:18:13.982935",
+      "name": "اسماء كمال عفيفي",
+      "age": 37,
+      "age_unit": "سنة",
+      "phone": "01126511322",
+      "visit_date": "2026-07-06",
+      "visit_time": "5:30 PM",
+      "doctor_name": "محمد شفيق",
+      "branch": "Diamond",
+      "city": "6 أكتوبر",
+      "district": "التوسعات الشماليه",
+      "address": "٩٢٥ جاردن هوم التوسعات الشمالية بوابة العلم",
+      "location_link": "https://maps.app.goo.gl/CASuoWhScYECfSFZ9",
+      "selected_labs_text": "TSH — 330 جنيه\nProlactin (PRL) — 330 جنيه\nCBC — 400 جنيه\nCreatinine (Serum) — 150 جنيه\nALT (SGPT) — 150 جنيه\nAST (SGOT) — 150 جنيه\nRBG — 120 جنيه\nPT — 180 جنيه\nPTT — 200 جنيه",
+      "notes": "",
+      "labs_price_before": 2010.0,
+      "labs_price_after": 1550.0,
+      "transport_fee": 150.0,
+      "total_price": 1700.0,
+      "status": "مجدولة",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 1700.0,
+      "payment_date": "2026-07-06",
       "deleted_at": null
     }
   ]
