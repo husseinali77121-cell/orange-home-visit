@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-07-06T15:12:18.342323",
-  "total": 921,
+  "exported_at": "2026-07-07T14:33:01.191143",
+  "total": 922,
   "visits": [
     {
       "id": "52e7d5f231204f82",
@@ -27625,11 +27625,41 @@
       "total_price": 1750.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
       "payment_method": "نقدي",
       "paid_amount": 1750.0,
       "payment_date": "2026-07-06",
+      "deleted_at": null
+    },
+    {
+      "id": "660392f09ea84cc5",
+      "created_at": "2026-07-07T14:33:01.089320",
+      "name": "عزة يوسف عبد الجواد",
+      "age": 64,
+      "age_unit": "سنة",
+      "phone": "01000089418",
+      "visit_date": "2026-07-08",
+      "visit_time": "10:45 AM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "city": "6 أكتوبر",
+      "district": "دريم لاند",
+      "address": "دريم لاند مدخل ٣ منطقة فلاور ريزورت فيلا ١٠٥ ... فيلا بلال",
+      "location_link": "https://maps.app.goo.gl/rqb4hUk5EHzbM4Ce9",
+      "selected_labs_text": "روشتة",
+      "notes": "",
+      "labs_price_before": 5120.0,
+      "labs_price_after": 3800.0,
+      "transport_fee": 300.0,
+      "total_price": 4100.0,
+      "status": "مجدولة",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 4100.0,
+      "payment_date": "2026-07-07",
       "deleted_at": null
     }
   ]
