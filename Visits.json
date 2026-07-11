@@ -1,5 +1,5 @@
 {
-  "exported_at": "2026-07-11T07:46:02.379281",
+  "exported_at": "2026-07-11T10:48:36.733008",
   "total": 925,
   "visits": [
     {
@@ -39,7 +39,7 @@
       "age": 33,
       "age_unit": "سنة",
       "phone": "01155330299",
-      "visit_date": "2026-07-08",
+      "visit_date": "2026-07-12",
       "visit_time": "2:00 PM",
       "doctor_name": "حسين علي",
       "branch": "Diamond",
@@ -51,8 +51,8 @@
       "notes": "",
       "labs_price_before": 600.0,
       "labs_price_after": 500.0,
-      "transport_fee": 100.0,
-      "total_price": 600.0,
+      "transport_fee": 200.0,
+      "total_price": 700.0,
       "status": "مجدولة",
       "rating": 0,
       "tag": "🆕 عميل جديد",
