@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-07-11T11:01:59.464930",
-  "total": 927,
+  "exported_at": "2026-07-13T17:24:44.448823",
+  "total": 928,
   "visits": [
     {
       "id": "42482d9bc994460c",
@@ -27810,6 +27810,36 @@
       "payment_method": "نقدي",
       "paid_amount": 1400.0,
       "payment_date": "2026-07-11",
+      "deleted_at": null
+    },
+    {
+      "id": "7c92e0e41c7e44b4",
+      "created_at": "2026-07-13T17:24:44.324598",
+      "name": "محمد عبد القادر محمد",
+      "age": 35,
+      "age_unit": "سنة",
+      "phone": "01031345392",
+      "visit_date": "2026-07-13",
+      "visit_time": "10:00 AM",
+      "doctor_name": "حسين علي",
+      "branch": "Diamond",
+      "city": "6 أكتوبر",
+      "district": "الحي الثاني",
+      "address": "الحي الثاني عمارة 1430 الدور الرابع شقة 19",
+      "location_link": "https://maps.app.goo.gl/3NqnWN87TLEteGJH7",
+      "selected_labs_text": "Cbc\nTSH\nFT4\nRbg\nHbA1c",
+      "notes": "",
+      "labs_price_before": 1520.0,
+      "labs_price_after": 1250.0,
+      "transport_fee": 100.0,
+      "total_price": 1350.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "نقدي",
+      "paid_amount": 1350.0,
+      "payment_date": "2026-07-13",
       "deleted_at": null
     }
   ]
