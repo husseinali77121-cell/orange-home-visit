@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-07-13T17:30:31.442166",
-  "total": 930,
+  "exported_at": "2026-07-14T16:51:47.405829",
+  "total": 931,
   "visits": [
     {
       "id": "42482d9bc994460c",
@@ -27865,12 +27865,12 @@
       "total_price": 2200.0,
       "status": "تمت",
       "rating": 0,
-      "tag": "",
+      "tag": "⭐ عميل منتظم",
       "payment_status": "مدفوع",
       "payment_method": "تحويل بنكي",
       "paid_amount": 2200.0,
       "payment_date": "2026-07-13",
-      "deleted_at": null
+      "deleted_at": "2026-07-14T16:48:01.980455"
     },
     {
       "id": "32ac3f50fa614175",
@@ -27900,6 +27900,36 @@
       "payment_method": "تحويل بنكي",
       "paid_amount": 2200.0,
       "payment_date": "2026-07-13",
+      "deleted_at": null
+    },
+    {
+      "id": "cb83a7feaca14283",
+      "created_at": "2026-07-14T16:51:47.310481",
+      "name": "ايلين وائل",
+      "age": 2,
+      "age_unit": "شهر",
+      "phone": "01024726643",
+      "visit_date": "2026-07-14",
+      "visit_time": "11:00 AM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "city": "6 أكتوبر",
+      "district": "الحي الثامن",
+      "address": "مجاورة 2 - عمارة 31 / 8 الدور 3 شقة 6",
+      "location_link": "",
+      "selected_labs_text": "TSH — 330 جنيه",
+      "notes": "",
+      "labs_price_before": 330.0,
+      "labs_price_after": 330.0,
+      "transport_fee": 50.0,
+      "total_price": 380.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "نقدي",
+      "paid_amount": 380.0,
+      "payment_date": "2026-07-14",
       "deleted_at": null
     }
   ]
