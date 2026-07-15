@@ -1,6 +1,6 @@
 {
-  "exported_at": "2026-07-14T17:35:24.098018",
-  "total": 933,
+  "exported_at": "2026-07-15T10:17:38.669051",
+  "total": 934,
   "visits": [
     {
       "id": "42482d9bc994460c",
@@ -27870,7 +27870,7 @@
       "payment_method": "تحويل بنكي",
       "paid_amount": 2200.0,
       "payment_date": "2026-07-13",
-      "deleted_at": "2026-07-14T16:48:01.980455"
+      "deleted_at": null
     },
     {
       "id": "32ac3f50fa614175",
@@ -27990,6 +27990,36 @@
       "payment_method": "نقدي",
       "paid_amount": 650.0,
       "payment_date": "2026-07-14",
+      "deleted_at": null
+    },
+    {
+      "id": "00f36bab8eef4258",
+      "created_at": "2026-07-15T10:17:38.600229",
+      "name": "مى محمد خليل",
+      "age": 45,
+      "age_unit": "سنة",
+      "phone": "01001484396",
+      "visit_date": "2026-07-15",
+      "visit_time": "12:30 PM",
+      "doctor_name": "حسين علي",
+      "branch": "La Cite",
+      "city": "6 أكتوبر",
+      "district": "الحي المتميز",
+      "address": "30 ش الشيخ محمد رفعت - المجاوره 3 - الدور 5 شقه 9 ",
+      "location_link": "https://maps.app.goo.gl/gAjxsx8ivVX2hsiz5?g_st=ac",
+      "selected_labs_text": "CBC — 400 جنيه\nFerritin — 400 جنيه\nUrine Examination — 120 جنيه",
+      "notes": "",
+      "labs_price_before": 920.0,
+      "labs_price_after": 780.0,
+      "transport_fee": 150.0,
+      "total_price": 930.0,
+      "status": "تمت",
+      "rating": 0,
+      "tag": "",
+      "payment_status": "مدفوع",
+      "payment_method": "تحويل بنكي",
+      "paid_amount": 930.0,
+      "payment_date": "2026-07-15",
       "deleted_at": null
     }
   ]
