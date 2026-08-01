@@ -6,6 +6,18 @@
 # ============================================================
 
 LABS_DB = {
+    # ══════════════════════════════════════════════════════════════════
+    #  ⭐ الباقات (Profiles) — سعر الباقة كاملة كبند واحد
+    #  ملاحظة: السعر هنا **أقل** من مجموع التحاليل المفردة (ده الخصم).
+    #  متضفش الباقة + تحاليلها المفردة مع بعض، هيتحسب مرتين.
+    #  اتحطت أول القائمة عشان تطلع في أول الـ dropdown.
+    # ══════════════════════════════════════════════════════════════════
+    "⭐ Profiles (باقات)": [
+        {"name": "Lipid profile",   "price": 700, "result_days": 1, "collection_notes": "2 ml serum — صيام ١٢ ساعة"},
+        {"name": "Kidney profile",  "price": 850, "result_days": 1, "collection_notes": "2 ml serum"},
+        {"name": "Liver profile",   "price": 850, "result_days": 1, "collection_notes": "2 ml serum"},
+        {"name": "Thyroid profile", "price": 870, "result_days": 1, "collection_notes": "2 ml serum"},
+    ],
     "Allergy Screen": [
         {"name": "IgE Food allergy test panel", "price": 2500, "result_days": 5, "collection_notes": "2 ml serum, refrigerated"},
         {"name": "IgE for milk allergy Rast", "price": 1300, "result_days": 5, "collection_notes": "2 ml serum, refrigerated"},

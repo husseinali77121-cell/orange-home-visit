@@ -87,6 +87,82 @@ def format_money(value):
         return "0 جنيه"
 
 # ══════════════════════════════════════════════════════════════════════════════
+# 👥 الحالات الإضافية في نفس الزيارة (v6)
+# ══════════════════════════════════════════════════════════════════════════════
+# ليه عمود منفصل مش سطر في الملاحظات؟
+#   • الملاحظات **مش بتظهر أصلًا** في رسالة العميل ولا رسالة الجروب —
+#     بتظهر في الرسالة الداخلية بس. يعني لو اتكتبت هناك العميل عمره ما هيشوفها.
+#   • أخطر: قايمة تحاليل مدموجة تحت اسم واحد = خطر عيّنة على مريض غلط.
+#     الدكتور لازم يعرف الأنبوبة دي بتاعة مين قبل ما يسحب.
+#   • السعر بيدخل الإجمالي أوتوماتيك بدل ما يتحسب بالدماغ.
+# التخزين: JSON في عمود TEXT واحد — الزيارة تفضل صف واحد (انتقال واحد، فاتورة واحدة).
+XP_MAX = 6   # حد أقصى للحالات الإضافية في الزيارة الواحدة
+
+def _lab_price(entry):
+    """يستخرج السعر من سطر تحليل بصيغة 'CBC — 400 جنيه'. يرجّع 0 لو مفيش سعر."""
+    m = re_module.search(r'(\d+)\s*جنيه', str(entry or ""))
+    return int(m.group(1)) if m else 0
+
+def parse_extra_persons(raw):
+    """يقرأ عمود extra_persons ويرجّع list of dicts. أي داتا بايظة → [] بدل ما يكسر."""
+    if not raw:
+        return []
+    data = raw if isinstance(raw, list) else None
+    if data is None:
+        try:
+            data = json.loads(raw)
+        except Exception:
+            return []
+    if not isinstance(data, list):
+        return []
+    out = []
+    seen = set()
+    for p in data:
+        if not isinstance(p, dict):
+            continue
+        labs = p.get("labs") or []
+        if isinstance(labs, str):
+            labs = [l.strip() for l in labs.splitlines() if l.strip()]
+        # uid مكرر = مفتاحين widget بنفس الاسم = Streamlit بيرمي DuplicateWidgetID
+        # ويقفل الصفحة كلها. بنولّد واحد جديد بدل ما البرنامج يقع.
+        uid = str(p.get("uid") or "")
+        if not uid or uid in seen:
+            uid = uuid_lib.uuid4().hex[:8]
+            while uid in seen:
+                uid = uuid_lib.uuid4().hex[:8]
+        seen.add(uid)
+        out.append({
+            "uid":      uid,
+            "name":     str(p.get("name") or "").strip(),
+            "age":      str(p.get("age") or "").strip(),
+            "age_unit": str(p.get("age_unit") or "سنة"),
+            "relation": str(p.get("relation") or "").strip(),
+            "labs":     [str(l).strip() for l in labs if str(l).strip()],
+        })
+    return out
+
+def dump_extra_persons(persons):
+    """يحوّل للـ JSON للتخزين — بيتجاهل أي صف من غير اسم (صفوف فاضية اتفتحت وماتملتش)."""
+    clean = [p for p in (persons or []) if str(p.get("name", "")).strip()]
+    return json.dumps(clean, ensure_ascii=False) if clean else ""
+
+def extra_persons_total(persons):
+    """إجمالي أسعار تحاليل كل الحالات الإضافية."""
+    return sum(_lab_price(l) for p in (persons or []) for l in p.get("labs", []))
+
+def extra_persons_labs_count(persons):
+    return sum(len(p.get("labs", [])) for p in (persons or []))
+
+def extra_person_title(p):
+    """سطر تعريف الحالة: الاسم — العمر (الصلة)."""
+    who = p.get("name", "") or "بدون اسم"
+    if p.get("age"):
+        who += f" — {p['age']} {p.get('age_unit','سنة')}"
+    if p.get("relation"):
+        who += f" ({p['relation']})"
+    return who
+
+# ══════════════════════════════════════════════════════════════════════════════
 # شاشة تسجيل الدخول
 # ══════════════════════════════════════════════════════════════════════════════
 if not st.session_state.authenticated:
@@ -156,7 +232,7 @@ DB_FILE      = os.path.join(_DATA_DIR, "visits.db")
 BACKUP_DIR   = os.path.join(_DATA_DIR, "backups")
 BACKUP_EXCEL = "visits_export.xlsx"
 BACKUP_JSON  = os.path.join(_DATA_DIR, "visits_backup.json")
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 # ── GitHub API للحفظ الدائم (كل القيم من الأسرار فقط — لا شيء ظاهر في الكود) ──
 GITHUB_TOKEN  = st.secrets.get("github_token", "")
@@ -860,6 +936,7 @@ def init_db():
             district TEXT DEFAULT '',
             address TEXT NOT NULL, location_link TEXT,
             selected_labs_text TEXT, notes TEXT,
+            extra_persons TEXT DEFAULT '',
             labs_price_before REAL DEFAULT 0, labs_price_after REAL DEFAULT 0,
             transport_fee REAL DEFAULT 0, total_price REAL DEFAULT 0,
             status TEXT DEFAULT 'مجدولة',
@@ -990,6 +1067,8 @@ def init_db():
             ("visits", "archived", "INTEGER DEFAULT 0"),
             # v5 migrations
             ("visits", "updated_at", "TEXT DEFAULT ''"),
+            # v6 migrations — حالات إضافية في نفس الزيارة (JSON)
+            ("visits", "extra_persons", "TEXT DEFAULT ''"),
         ]
         for table, col, defn in columns_to_add:
             add_column_if_missing(table, col, defn)
@@ -1272,9 +1351,10 @@ def insert_visit(record):
         INSERT INTO visits (
             id,created_at,name,age,age_unit,phone,visit_date,visit_time,
             doctor_name,branch,city,district,address,location_link,selected_labs_text,notes,
+            extra_persons,
             labs_price_before,labs_price_after,transport_fee,total_price,status,
             payment_status,payment_method,paid_amount,payment_date,updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         record["id"], record["created_at"], record["name"], record["age"],
         record.get("age_unit","سنة"), record["phone"],
@@ -1283,6 +1363,7 @@ def insert_visit(record):
         record.get("city",""), record.get("district",""),
         record["address"], record["location_link"],
         record["selected_labs_text"], record["notes"],
+        record.get("extra_persons","") or "",
         record["labs_price_before"], record["labs_price_after"],
         record["transport_fee"], record["total_price"],
         record.get("status","مجدولة"),
@@ -1319,9 +1400,10 @@ def _load_insert_visit(conn, rec, upsert=False, archived=0):
         {_verb} INTO visits (
             id,created_at,name,age,age_unit,phone,visit_date,visit_time,
             doctor_name,branch,city,district,address,location_link,selected_labs_text,notes,
+            extra_persons,
             labs_price_before,labs_price_after,transport_fee,total_price,status,rating,tag,
             payment_status,payment_method,paid_amount,payment_date,deleted_at,archived,updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         rec.get("id",""), rec.get("created_at") or datetime.now().isoformat(),
         rec.get("name","") or "", _to_num(rec.get("age"), int, 0),
@@ -1331,6 +1413,7 @@ def _load_insert_visit(conn, rec, upsert=False, archived=0):
         rec.get("city","") or "", rec.get("district","") or "",
         rec.get("address","") or "", rec.get("location_link","") or "",
         rec.get("selected_labs_text","") or "", rec.get("notes","") or "",
+        rec.get("extra_persons","") or "",
         _to_num(rec.get("labs_price_before")), _to_num(rec.get("labs_price_after")),
         _to_num(rec.get("transport_fee")), _to_num(rec.get("total_price")),
         rec.get("status","مجدولة") or "مجدولة", _to_num(rec.get("rating"), int, 0),
@@ -1396,11 +1479,21 @@ if _local_n == 0 and GITHUB_TOKEN and GITHUB_REPO:
 def update_visit(record):
     conn = get_connection()
     old = fetch_visit_by_id(record["id"])
+    # ★ حارس ضد المسح الصامت للحالات الإضافية.
+    #   استيراد الإكسيل و restore من باك أب قديم بيبنوا record من الأعمدة اللي يعرفوها بس،
+    #   فـ extra_persons بيبقى **مش موجود** خالص في الـ dict → لو كتبنا "" كنا هنمسح
+    #   الحالات الإضافية من زيارة محفوظة من غير ما حد يطلب.
+    #   الفرق المهم: مفتاح **غايب** = المصدر مايعرفش الحقل → سيبه زي ما هو.
+    #                مفتاح **موجود وقيمته ""** = الفورم قال امسحه → امسحه.
+    _xp = record.get("extra_persons", None)
+    if _xp is None:
+        _xp = (old or {}).get("extra_persons", "") or ""
+    _xp = _xp or ""
     conn.execute("""
         UPDATE visits SET
             name=?,age=?,age_unit=?,phone=?,visit_date=?,visit_time=?,
             doctor_name=?,branch=?,city=?,district=?,address=?,location_link=?,
-            selected_labs_text=?,notes=?,labs_price_before=?,
+            selected_labs_text=?,notes=?,extra_persons=?,labs_price_before=?,
             labs_price_after=?,transport_fee=?,total_price=?,status=?,
             payment_status=?,payment_method=?,paid_amount=?,payment_date=?,
             updated_at=?
@@ -1411,7 +1504,8 @@ def update_visit(record):
         record["doctor_name"], record.get("branch","La Cite"),
         record.get("city",""), record.get("district",""),
         record["address"], record["location_link"], record["selected_labs_text"],
-        record["notes"], record["labs_price_before"], record["labs_price_after"],
+        record["notes"], _xp,
+        record["labs_price_before"], record["labs_price_after"],
         record["transport_fee"], record["total_price"],
         record.get("status","مجدولة"),
         record.get("payment_status","غير مدفوع"),
@@ -1423,7 +1517,7 @@ def update_visit(record):
     conn.commit()
     _clear_tag_cache(record["phone"])
     if old:
-        for field in ["name","age","phone","visit_date","doctor_name","branch","city","district","address","labs_price_before","labs_price_after","transport_fee","total_price","status","payment_status"]:
+        for field in ["name","age","phone","visit_date","doctor_name","branch","city","district","address","extra_persons","labs_price_before","labs_price_after","transport_fee","total_price","status","payment_status"]:
             if old.get(field) != record.get(field):
                 _log_audit(record.get("_user",""), "update", "visits", record["id"],
                            field_name=field, old_value=old.get(field), new_value=record.get(field))
@@ -1644,6 +1738,18 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
         str(v.get("created_at") or ""),
     ))
     df = pd.DataFrame(visits)
+    # ── عمود مقروء للحالات الإضافية (الـ JSON الخام مايتعرضش في إكسيل) ──
+    if not df.empty:
+        def _xp_cell(raw):
+            ps = parse_extra_persons(raw)
+            if not ps:
+                return ""
+            return "\n".join(
+                extra_person_title(p) + ": " + (" • ".join(p.get("labs", [])) or "بدون تحاليل")
+                for p in ps
+            )
+        df["extra_persons_text"] = (df["extra_persons"].apply(_xp_cell)
+                                    if "extra_persons" in df.columns else "")
     ORANGE = "FF6B00"; ORANGE_LIGHT = "FFF3E8"; DOC_HDR_BG = "2C3E50"; WHITE = "FFFFFF"
     STATUS_FILL = {"تمت":"D5F5E3","ملغية":"FADBD8","في الطريق":"FEF9E7","مجدولة":"D6EAF8"}
     thin = Side(style="thin", color="FFBB80")
@@ -1653,15 +1759,16 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
     MAIN_COLS = [
         ("status","الحالة"),("total_price","الإجمالي"),("transport_fee","بدل الانتقال"),
         ("labs_price_after","السعر بعد الخصم"),("labs_price_before","السعر قبل الخصم"),
-        ("selected_labs_text","التحاليل"),("address","العنوان"),("doctor_name","الدكتور"),
+        ("selected_labs_text","التحاليل"),("extra_persons_text","حالات إضافية"),
+        ("address","العنوان"),("doctor_name","الدكتور"),
         ("visit_date","تاريخ الزيارة"),("phone","التليفون"),("name","الاسم"),
     ]
     PRICE_KEYS = {"labs_price_before","labs_price_after","transport_fee","total_price"}
     col_keys = [c[0] for c in MAIN_COLS]; col_labels = [c[1] for c in MAIN_COLS]
     n_cols = len(MAIN_COLS)
     WIDTHS_MAIN = {"status":10,"total_price":14,"transport_fee":14,"labs_price_after":16,
-                   "labs_price_before":16,"selected_labs_text":28,"address":32,
-                   "doctor_name":14,"visit_date":13,"phone":15,"name":20}
+                   "labs_price_before":16,"selected_labs_text":28,"extra_persons_text":30,
+                   "address":32,"doctor_name":14,"visit_date":13,"phone":15,"name":20}
     if date_from and date_to:
         month_label = f"{date_from} → {date_to}"
         period = f"{date_from}_to_{date_to}"
@@ -1704,7 +1811,7 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
             c.font = Font(name="Cairo",size=10); c.fill = PatternFill("solid",fgColor=fc); c.border = BORDER
             if key in PRICE_KEYS:
                 c.number_format = '#,##0 "ج"'; c.alignment = Alignment(horizontal="center",vertical="center")
-            elif key == "selected_labs_text":
+            elif key in ("selected_labs_text", "extra_persons_text"):
                 c.alignment = Alignment(horizontal="right",vertical="top",wrap_text=True)
             else: c.alignment = RIGHT
         ws.row_dimensions[ri].height = 22
@@ -2061,6 +2168,25 @@ def make_whatsapp_msg(v, target="internal"):
         labs_lines = "\n".join(f"🧪 {l.strip()}" for l in lt.splitlines() if l.strip()) + "\n"
     else:
         labs_lines = "🚫 لا توجد تحاليل\n"
+
+    # ── 👥 حالات إضافية في نفس الزيارة ──
+    # لما يبقى فيه أكتر من حالة، عنوان تحاليل الحالة الأساسية بياخد اسمها
+    # عشان محدش يخلط الأنبوبة بتاعة مين — ده أهم سطر في الرسالة كلها للدكتور.
+    xps = parse_extra_persons(v.get("extra_persons",""))
+    n_cases = 1 + len(xps)
+    labs_header = f"تحاليل {cname}" if (xps and cname) else "التحاليل المطلوبة"
+    if xps:
+        xp_block = "👥 *حالات إضافية في نفس الزيارة:*\n"
+        for p in xps:
+            xp_block += f"\n👤 *{extra_person_title(p)}*\n"
+            xp_block += ("".join(f"🧪 {l}\n" for l in p.get("labs",[]))
+                         or "🚫 لا توجد تحاليل\n")
+        xp_block += "━━━━━━━━━━━━━━\n"
+    else:
+        xp_block = ""
+    # بيظهر بس لو أكتر من حالة — الدكتور يعرف يجهّز أنابيب كفاية
+    cases_line = f"👥 *عدد الحالات:* {n_cases}\n" if n_cases > 1 else ""
+
     loc_line = f"🗺️ *الموقع:* {loc}\n" if loc else ""
     br_line  = f"🏥 *الفرع:* {br}\n"   if br  else ""
     status   = v.get("status","مجدولة")
@@ -2077,7 +2203,7 @@ def make_whatsapp_msg(v, target="internal"):
         return (f"🟠 *Orange Lab Home Visit Management System*\n🏠 أهلاً بك {cname}\n━━━━━━━━━━━━━━\n"
                 f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doc}\n📅 *موعد الزيارة:* {dt_str}\n━━━━━━━━━━━━━━\n"
                 f"📍 *عنوان الزيارة:*\n{full_addr}\n{loc_line}{br_line}━━━━━━━━━━━━━━\n"
-                f"🧪 *التحاليل المطلوبة:*\n{labs_lines}━━━━━━━━━━━━━━\n"
+                f"🧪 *{labs_header}:*\n{labs_lines}━━━━━━━━━━━━━━\n{xp_block}"
                 f"💰 *السعر قبل الخصم:* {lpb} جنيه\n💰 *السعر بعد الخصم:* {lpa} جنيه\n"
                 f"🚗 *بدل الانتقال:* {tf} جنيه\n💵 *الإجمالي المطلوب:* {total} جنيه\n━━━━━━━━━━━━━━\n"
                 f"✏️ *برجاء تأكيد حجزك بالرد برقم:*\n  1 - تأكيد الزيارة\n  2 - تأجيل الزيارة\n  3 - إلغاء الزيارة\n\n"
@@ -2086,7 +2212,7 @@ def make_whatsapp_msg(v, target="internal"):
         location_header = loc_header if loc_header else addr
         return (f"🟠 *زيارة منزلية*\n━━━━━━━━━━━━━━\n"
                 f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doc}\n📅 *الموعد:* {dt_str}\n"
-                f"📍 *عنوان الزيارة:* {location_header}")
+                f"{cases_line}📍 *عنوان الزيارة:* {location_header}")
     else:
         notes_line = f"📝 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
         return (f"🟠 *Orange Lab Home Visit Management System*\n━━━━━━━━━━━━━━\n"
@@ -2094,7 +2220,7 @@ def make_whatsapp_msg(v, target="internal"):
                 f"📅 *الموعد:* {dt_str}\n👨‍⚕️ *دكتور الزيارة:* {doc}\n"
                 f"🏥 *الفرع:* {br}\n🔖 *الحالة:* {STATUS_ICONS.get(status,'')} {status}\n━━━━━━━━━━━━━━\n"
                 f"📍 *العنوان:*\n{full_addr}\n{loc_line}━━━━━━━━━━━━━━\n"
-                f"🧪 *التحاليل المطلوبة:*\n{labs_lines}━━━━━━━━━━━━━━\n"
+                f"{cases_line}🧪 *{labs_header}:*\n{labs_lines}━━━━━━━━━━━━━━\n{xp_block}"
                 f"💰 *السعر قبل الخصم:* {lpb} جنيه\n💰 *السعر بعد الخصم:* {lpa} جنيه\n"
                 f"🚗 *بدل الانتقال:* {tf} جنيه\n💵 *الإجمالي:* {total} جنيه\n━━━━━━━━━━━━━━\n{notes_line}")
 
@@ -2111,6 +2237,26 @@ def generate_visit_print_html(v):
     lt = v.get("selected_labs_text","")
     labs_rows = "".join(f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee;'>🔹 {l.strip()}</td></tr>"
         for l in lt.splitlines() if l.strip()) if lt.strip() else "<tr><td>لا توجد تحاليل</td></tr>"
+    # ── 👥 حالات إضافية — كل حالة في بلوك منفصل عشان الأنابيب تتعلّم صح ──
+    _xps = parse_extra_persons(v.get("extra_persons",""))
+    labs_title = f"🧪 تحاليل {v.get('name','')}" if _xps else "🧪 التحاليل المطلوبة"
+    if _xps:
+        _blocks = ""
+        for _p in _xps:
+            _rows = "".join(
+                f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee;'>🔹 {l}</td></tr>"
+                for l in _p.get("labs", [])
+            ) or "<tr><td style='padding:6px 10px;'>لا توجد تحاليل</td></tr>"
+            _blocks += (
+                f'<div style="border:1.5px solid #FFBB80;border-radius:10px;padding:10px 12px;margin-bottom:10px;">'
+                f'<div style="font-weight:800;font-size:13px;color:#FF6B00;margin-bottom:6px;">'
+                f'👤 {extra_person_title(_p)}</div>'
+                f'<table><tbody>{_rows}</tbody></table></div>'
+            )
+        extra_html = (f'<div class="section"><div class="section-title">'
+                      f'👥 حالات إضافية في نفس الزيارة ({len(_xps)})</div>{_blocks}</div>')
+    else:
+        extra_html = ""
     status = v.get("status","مجدولة")
     s_color = STATUS_COLORS.get(status,"#888"); s_icon = STATUS_ICONS.get(status,"")
     loc_html = f'<p style="font-size:12px;color:#FF6B00;">🗺️ {v.get("location_link","")}</p>' if v.get("location_link") else ""
@@ -2148,8 +2294,9 @@ table{{width:100%;border-collapse:collapse;font-size:13px;}}
 </div>
 <div class="section"><div class="section-title">📍 العنوان</div>
 <p style="margin:6px 0;font-size:13px;">{v.get('address','')}</p>{loc_html}</div>
-<div class="section"><div class="section-title">🧪 التحاليل المطلوبة</div>
+<div class="section"><div class="section-title">{labs_title}</div>
 <table><tbody>{labs_rows}</tbody></table></div>
+{extra_html}
 {notes_html}
 <div class="price-box">
 <div class="price-row"><span>⭐ السعر قبل الخصم</span><span>{v.get('labs_price_before',0)} جنيه</span></div>
@@ -2356,6 +2503,16 @@ def go(page, prefill=None, visit_id=None, client_phone=None):
             st.session_state.pop("added_labs_new_visit", None)
         for _wk in _VISIT_FORM_KEYS:
             st.session_state.pop(_wk, None)
+        # ★ الحالات الإضافية: بتتمسح مع **كل** دخول للفورم (جديد أو تعديل).
+        #   السبب: مفاتيحها ديناميكية (uid لكل حالة)، ولو سِبناها في الـ session
+        #   كانت هتفضل عايشة بعد «رجوع بدون حفظ» وترجع تظهر تاني كأنها اتحفظت.
+        #   المسح هنا بس — الفورم بيعمل st.rerun() لوحده من غير ما يعدّي على go()،
+        #   يعني الحالات مابتضيعش وانت لسه بتكتب.
+        for _k in [k for k in st.session_state
+                   if str(k).startswith(("extra_persons_", "xpn_", "xpr_", "xpa_", "xpu_",
+                                         "xps_", "xpm_", "xpd_", "xpb_", "xpmb_",
+                                         "xpdel_", "xpadd_"))]:
+            st.session_state.pop(_k, None)
     st.session_state.page = page
     if prefill      is not None: st.session_state.prefill             = prefill
     if visit_id     is not None: st.session_state.selected_id         = visit_id
@@ -3043,6 +3200,7 @@ elif st.session_state.page == "new":
                         "address": last_v.get("address",""), "location_link": last_v.get("location_link",""),
                         "doctor_name": last_v.get("doctor_name",""), "branch": last_v.get("branch","La Cite"),
                         "selected_labs_text": last_v.get("selected_labs_text",""),
+                        "extra_persons": last_v.get("extra_persons","") or "",   # ★ الحالات الإضافية تتنقل مع الطلب
                         "labs_price_before": last_v.get("labs_price_before",0),
                         "labs_price_after": last_v.get("labs_price_after",0),
                         "transport_fee": last_v.get("transport_fee",100),
@@ -3235,12 +3393,120 @@ elif st.session_state.page == "new":
             if manual_entry.strip(): st.session_state[labs_ss_key].append(manual_entry.strip()); st.rerun()
     selected_labs_text = "\n".join(st.session_state[labs_ss_key])
     selected_labs      = st.session_state[labs_ss_key][:]
+
+    # ══════════════════════════════════════════════════════════════════
+    # 👥 حالات إضافية في نفس الزيارة
+    # ══════════════════════════════════════════════════════════════════
+    # ⚠️ مفاتيح الـ widgets مبنية على uid ثابت لكل حالة — **مش** على رقم الترتيب.
+    #    لو استخدمنا الترتيب، حذف الحالة رقم ١ يخلّي الـ widget القديم يلزق
+    #    ببيانات الحالة اللي بعدها (نفس بق الحي القديم). الـ uid بيقفل الباب ده.
+    st.markdown("---")
+    st.markdown('<div class="section-title">👥 حالات إضافية في نفس الزيارة</div>', unsafe_allow_html=True)
+    st.caption("لو في أكتر من شخص هيتسحب منه في نفس العنوان — ضيفه هنا بتحاليله، "
+               "هيطلع منفصل باسمه في رسالة العميل وورقة الدكتور، وسعره بيدخل الإجمالي.")
+    xp_ss_key = f"extra_persons_{vid_key}"
+    if xp_ss_key not in st.session_state:
+        st.session_state[xp_ss_key] = parse_extra_persons(pf.get("extra_persons",""))
+    xp_list = st.session_state[xp_ss_key]
+
+    xp_remove_uid = None
+    for p in xp_list:
+        u = p["uid"]
+        with st.expander(f"👤 {p.get('name') or 'حالة جديدة — اكتب الاسم'}"
+                         + (f"  ({len(p.get('labs',[]))} تحليل)" if p.get("labs") else ""),
+                         expanded=not p.get("name")):
+            xc1, xc2 = st.columns([3,2])
+            with xc1:
+                p["name"] = st.text_input("اسم الحالة *", value=p.get("name",""),
+                                          key=f"xpn_{vid_key}_{u}", placeholder="الاسم الكامل")
+            with xc2:
+                p["relation"] = st.text_input("صلة القرابة (اختياري)", value=p.get("relation",""),
+                                              key=f"xpr_{vid_key}_{u}", placeholder="الزوجة / الابن...")
+            xa1, xa2 = st.columns([2,3])
+            with xa1:
+                p["age"] = st.text_input("العمر", value=p.get("age",""),
+                                         key=f"xpa_{vid_key}_{u}", placeholder="مثال: 32")
+            with xa2:
+                _au = p.get("age_unit","سنة")
+                if _au not in ["سنة","شهر"]: _au = "سنة"
+                p["age_unit"] = st.radio("الوحدة", ["سنة","شهر"], index=["سنة","شهر"].index(_au),
+                                         horizontal=True, key=f"xpu_{vid_key}_{u}")
+            # ── تحاليل الحالة ──
+            if ALL_LABS:
+                xs1, xs2 = st.columns([4,1])
+                with xs1:
+                    _sel = st.selectbox("اختر تحليل من القائمة", lab_options, key=f"xps_{vid_key}_{u}",
+                                        label_visibility="collapsed")
+                with xs2:
+                    if st.button("➕", key=f"xpb_{vid_key}_{u}", use_container_width=True, help="أضف للحالة"):
+                        if _sel not in p["labs"]:
+                            p["labs"].append(_sel)
+                        st.rerun()
+            xm1, xm2 = st.columns([4,1])
+            with xm1:
+                _man = st.text_input("أو اكتب يدوياً", key=f"xpm_{vid_key}_{u}",
+                                     placeholder="BHCG — 500 جنيه", label_visibility="collapsed")
+            with xm2:
+                if st.button("➕", key=f"xpmb_{vid_key}_{u}", use_container_width=True, help="أضف يدوياً"):
+                    # الشرط الثاني ضد الدبل-تاب على الموبايل (نفس السطر مايتضافش مرتين)
+                    if _man.strip() and _man.strip() not in p["labs"]:
+                        p["labs"].append(_man.strip())
+                        st.rerun()
+            if p["labs"]:
+                _lab_del = None
+                for li, _lab in enumerate(p["labs"]):
+                    lc1, lc2 = st.columns([10,1])
+                    with lc1:
+                        st.markdown(f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333">🔹 {_lab}</div>',
+                                    unsafe_allow_html=True)
+                    with lc2:
+                        if st.button("✕", key=f"xpd_{vid_key}_{u}_{li}", help="احذف التحليل"):
+                            _lab_del = li
+                if _lab_del is not None:
+                    p["labs"].pop(_lab_del); st.rerun()
+                _psub = sum(_lab_price(l) for l in p["labs"])
+                st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-top:6px">'
+                            f'💰 إجمالي الحالة: {_psub:,} جنيه</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<div style="color:#aaa;font-size:13px;padding:6px 0">لا توجد تحاليل لهذه الحالة</div>',
+                            unsafe_allow_html=True)
+            if st.button("🗑️ احذف الحالة دي", key=f"xpdel_{vid_key}_{u}", use_container_width=True):
+                xp_remove_uid = u
+    if xp_remove_uid is not None:
+        st.session_state[xp_ss_key] = [q for q in xp_list if q["uid"] != xp_remove_uid]
+        st.rerun()
+
+    if len(xp_list) < XP_MAX:
+        if st.button("➕ أضف حالة أخرى في نفس الزيارة", key=f"xpadd_{vid_key}", use_container_width=True):
+            st.session_state[xp_ss_key].append({
+                "uid": uuid_lib.uuid4().hex[:8], "name": "", "age": "",
+                "age_unit": "سنة", "relation": "", "labs": [],
+            })
+            st.rerun()
+    else:
+        st.caption(f"وصلت الحد الأقصى ({XP_MAX} حالات إضافية) — لو أكتر من كده اعملها زيارة منفصلة.")
+
+    extra_persons_list  = st.session_state[xp_ss_key]
+    extra_persons_json  = dump_extra_persons(extra_persons_list)
+    extra_total         = extra_persons_total(extra_persons_list)
+    if extra_total:
+        st.markdown(f'<div style="background:#FFF3E8;border-radius:8px;padding:8px 12px;margin-top:8px;'
+                    f'font-size:13px;color:#FF6B00;font-weight:800">'
+                    f'👥 {len(extra_persons_list)} حالة إضافية — '
+                    f'{extra_persons_labs_count(extra_persons_list)} تحليل — {extra_total:,} جنيه</div>',
+                    unsafe_allow_html=True)
+
     st.markdown("---")
     st.markdown('<div class="section-title">📌 ملاحظات</div>', unsafe_allow_html=True)
     notes = st.text_area("ملاحظات خاصة", value=pf.get("notes",""), height=75)
     st.markdown("---")
     st.markdown('<div class="section-title">💰 الأسعار</div>', unsafe_allow_html=True)
-    auto_labs_total = sum(int(m.group(1)) for e in selected_labs for m in [re_module.search(r'(\d+)\s*جنيه', e)] if m)
+    # ★ الإجمالي الآلي = تحاليل الحالة الأساسية + تحاليل كل الحالات الإضافية
+    _main_labs_total = sum(_lab_price(e) for e in selected_labs)
+    auto_labs_total  = _main_labs_total + extra_total
+    if extra_total:
+        st.caption(f"الحساب الآلي: {_main_labs_total:,} ({name or 'الحالة الأساسية'}) "
+                   f"+ {extra_total:,} (حالات إضافية) = {auto_labs_total:,} جنيه")
     pp1,pp2,pp3 = st.columns(3)
     with pp1: labs_price_before = st.number_input("⭐ السعر قبل الخصم", min_value=0, step=10, value=auto_labs_total if auto_labs_total>0 else int(pf.get("labs_price_before",0) or 0))
     with pp2: labs_price_after  = st.number_input("⭐ السعر بعد الخصم",  min_value=0, step=10, value=int(pf.get("labs_price_after",0) or 0))
@@ -3288,6 +3554,9 @@ elif st.session_state.page == "new":
             st.error("⛔ التاريخ فايت — اختار الأول من فوق: هتعدّل التاريخ ولا الزيارة دي نسيتها؟")
         elif not name or not phone or not address:
             st.error("⚠️ من فضلك املأ الاسم والتليفون والعنوان")
+        elif any(p.get("labs") and not str(p.get("name","")).strip() for p in extra_persons_list):
+            # ★ حالة ليها تحاليل ومن غير اسم = أنبوبة من غير صاحب. ممنوع تتحفظ.
+            st.error("⚠️ في حالة إضافية ليها تحاليل ومن غير اسم — اكتب الاسم أو احذف الحالة")
         else:
             record = {
                 "id": pf.get("id", uuid_lib.uuid4().hex[:16]),
@@ -3299,6 +3568,7 @@ elif st.session_state.page == "new":
                 "city": city, "district": district,
                 "address": address, "location_link": location_link,
                 "selected_labs_text": selected_labs_text, "notes": notes,
+                "extra_persons": extra_persons_json,
                 "labs_price_before": labs_price_before, "labs_price_after": labs_price_after,
                 "transport_fee": transport_fee, "total_price": total_price,
                 "status": status,
@@ -3394,7 +3664,9 @@ elif st.session_state.page == "detail":
             st.markdown(f'<a href="{v["location_link"]}" target="_blank" style="color:#FF6B00;font-weight:700;font-size:13px;">🗺️ فتح الموقع على الخريطة</a>', unsafe_allow_html=True)
         st.markdown("---")
 
-        st.markdown('<div class="section-title">🧪 التحاليل المطلوبة</div>', unsafe_allow_html=True)
+        _xps_d = parse_extra_persons(v.get("extra_persons",""))
+        _labs_title_d = f"🧪 تحاليل {v['name']}" if _xps_d else "🧪 التحاليل المطلوبة"
+        st.markdown(f'<div class="section-title">{_labs_title_d}</div>', unsafe_allow_html=True)
         lt = v.get("selected_labs_text","")
         if lt.strip():
             labs_count = 0
@@ -3405,6 +3677,24 @@ elif st.session_state.page == "detail":
             st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-top:8px;">إجمالي: {labs_count} تحليل</div>', unsafe_allow_html=True)
         else:
             st.markdown('<div style="color:#aaa;font-size:13px;">لا توجد تحاليل مسجلة</div>', unsafe_allow_html=True)
+
+        # ── 👥 حالات إضافية في نفس الزيارة ──
+        if _xps_d:
+            st.markdown("---")
+            st.markdown(f'<div class="section-title">👥 حالات إضافية ({len(_xps_d)})</div>',
+                        unsafe_allow_html=True)
+            for _p in _xps_d:
+                _rows_html = "".join(
+                    f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333;">🔹 {l}</div>'
+                    for l in _p.get("labs", [])
+                ) or '<div style="color:#aaa;font-size:13px;">لا توجد تحاليل</div>'
+                _sub = sum(_lab_price(l) for l in _p.get("labs", []))
+                st.markdown(
+                    f'<div style="border:1.5px solid #FFBB80;border-radius:10px;padding:10px 12px;margin-bottom:10px;">'
+                    f'<div style="font-weight:800;font-size:14px;color:#FF6B00;margin-bottom:6px;">'
+                    f'👤 {extra_person_title(_p)}</div>{_rows_html}'
+                    f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-top:6px;">'
+                    f'💰 {_sub:,} جنيه</div></div>', unsafe_allow_html=True)
 
         if v.get("notes"):
             st.markdown("---")
