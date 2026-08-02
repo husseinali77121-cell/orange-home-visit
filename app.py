@@ -2508,10 +2508,11 @@ def go(page, prefill=None, visit_id=None, client_phone=None):
         #   كانت هتفضل عايشة بعد «رجوع بدون حفظ» وترجع تظهر تاني كأنها اتحفظت.
         #   المسح هنا بس — الفورم بيعمل st.rerun() لوحده من غير ما يعدّي على go()،
         #   يعني الحالات مابتضيعش وانت لسه بتكتب.
+        #   البادئة "xp" عامة بقصد: كل مفاتيح الحالات الإضافية بتبدأ بيها (xpn/xpa/xps/
+        #   xpopen/xptg/...). لستة صريحة كانت هتنسى أي مفتاح جديد يتضاف بعدين.
+        #   (اتأكدت إن مفيش أي مفتاح تاني في البرنامج بيبدأ بـ "xp".)
         for _k in [k for k in st.session_state
-                   if str(k).startswith(("extra_persons_", "xpn_", "xpr_", "xpa_", "xpu_",
-                                         "xps_", "xpm_", "xpd_", "xpb_", "xpmb_",
-                                         "xpdel_", "xpadd_"))]:
+                   if str(k).startswith(("extra_persons_", "xp"))]:
             st.session_state.pop(_k, None)
     st.session_state.page = page
     if prefill      is not None: st.session_state.prefill             = prefill
@@ -2974,23 +2975,32 @@ if st.session_state.page == "home":
                 "والملف الحي بيصغّر فيخف على كل حفظ. تقدر ترجّعها للعرض في أي وقت من تحت."
             )
             _cut = st.date_input("أرشِف كل الزيارات حتى تاريخ (شامل)", value=date(2026, 5, 31), key="arch_cut")
-            _cut_iso = _cut.isoformat()
-            _n_old = _c.execute(
-                "SELECT COUNT(*) FROM visits WHERE COALESCE(archived,0)=0 AND visit_date<=?",
-                (_cut_iso,)).fetchone()[0]
-            st.markdown(f"➡️ هيتأرشف **{_n_old}** زيارة — هيفضل في الملف الحي **{_live - _n_old}**")
-            _ok_arch = st.checkbox("أنا فاهم إن الزيارات هتتنقل للأرشيف وتختفي من القوائم اليومية",
-                                   key="arch_confirm")
-            if st.button("📦 أرشِف وقلّم دلوقتي", key="do_archive",
-                         use_container_width=True, disabled=not (_ok_arch and _n_old > 0)):
-                with st.spinner("بيرفع الأرشيف ويتحقق منه قبل أي تقليم..."):
-                    _r = archive_and_prune(_cut_iso, user_email=st.session_state.user_email or "")
-                if _r["ok"]:
-                    st.success(f"✅ اتأرشف {_r['archived']} زيارة → `{_r['path']}` — فاضل في الملف الحي {_r['kept']}")
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error(f"❌ {_r['err']}")
+            # ★ st.date_input بترجّع None لو المستخدم مسح نص الخانة (سهل جدًا على الموبايل)،
+            #   وبترجّع tuple في وضع الـ range. الاتنين مالهمش .isoformat() → AttributeError.
+            #   isinstance بتغطي الحالتين مع بعض، أقوى من `is None`.
+            #   بنقفل بلوك الأرشفة بس — مش الصفحة كلها — عشان اللي تحت (قائمة الزيارات
+            #   وآخر نسخة احتياطية) يفضل شغال. st.stop() كانت هتوقف الرن كله وتفضّي
+            #   الصفحة من تحت، والأدمن هيفتكرها كراش.
+            if not isinstance(_cut, date):
+                st.error("⚠️ اختر تاريخ صحيح للأرشفة — الخانة فاضية")
+            else:
+                _cut_iso = _cut.isoformat()
+                _n_old = _c.execute(
+                    "SELECT COUNT(*) FROM visits WHERE COALESCE(archived,0)=0 AND visit_date<=?",
+                    (_cut_iso,)).fetchone()[0]
+                st.markdown(f"➡️ هيتأرشف **{_n_old}** زيارة — هيفضل في الملف الحي **{_live - _n_old}**")
+                _ok_arch = st.checkbox("أنا فاهم إن الزيارات هتتنقل للأرشيف وتختفي من القوائم اليومية",
+                                       key="arch_confirm")
+                if st.button("📦 أرشِف وقلّم دلوقتي", key="do_archive",
+                             use_container_width=True, disabled=not (_ok_arch and _n_old > 0)):
+                    with st.spinner("بيرفع الأرشيف ويتحقق منه قبل أي تقليم..."):
+                        _r = archive_and_prune(_cut_iso, user_email=st.session_state.user_email or "")
+                    if _r["ok"]:
+                        st.success(f"✅ اتأرشف {_r['archived']} زيارة → `{_r['path']}` — فاضل في الملف الحي {_r['kept']}")
+                        st.balloons()
+                        st.rerun()
+                    else:
+                        st.error(f"❌ {_r['err']}")
             with st.expander("📂 ملفات الأرشيف / استعراض", expanded=False):
                 _files = list_archive_files()
                 if not _files:
@@ -3250,6 +3260,15 @@ elif st.session_state.page == "new":
             try: default_date = datetime.strptime(pf["visit_date"],"%Y-%m-%d").date()
             except: pass
         visit_date = st.date_input("📅 تاريخ الزيارة *", value=default_date, key="visit_date_inp")
+        # ★ نفس بق الأرشفة بالظبط، بس أخطر — الفورم ده بيتفتح كل يوم من كل المستخدمين.
+        #   لو المستخدم مسح نص الخانة، visit_date=None و `_egg_vd = visit_date.isoformat()`
+        #   تحت بـ ٢٠ سطر بتتنفّذ **من غير أي شرط** → الصفحة كلها تقع.
+        #   بنرجع للتاريخ الافتراضي عشان الرسم يكمل، وبنقفل الحفظ لحد ما يختار تاريخ
+        #   فعلي — عشان مايتسجلش تاريخ هو ما اختاروش.
+        _date_ok = isinstance(visit_date, date)
+        if not _date_ok:
+            st.error("⚠️ خانة تاريخ الزيارة فاضية — اختر تاريخ قبل الحفظ")
+            visit_date = default_date
     with dc2:
         st.markdown("🕐 وقت الزيارة")
         tc1,tc2,tc3 = st.columns([2,2,3])
@@ -3412,9 +3431,35 @@ elif st.session_state.page == "new":
     xp_remove_uid = None
     for p in xp_list:
         u = p["uid"]
-        with st.expander(f"👤 {p.get('name') or 'حالة جديدة — اكتب الاسم'}"
-                         + (f"  ({len(p.get('labs',[]))} تحليل)" if p.get("labs") else ""),
-                         expanded=not p.get("name")):
+        # ★ كان st.expander وكان بيتقفل لوحده بعد كل تحليل. سببين مع بعض:
+        #   ١) expanded=not p.get("name") — دي قيمة **بتتفرض من جديد كل rerun**،
+        #      فأول ما الحالة يبقى ليها اسم، أي rerun بيقفل المربع غصب.
+        #   ٢) عنوان الـ expander كان فيه عدد التحاليل، والعنوان بيتغير مع كل إضافة.
+        #      Streamlit بيحدد هوية الـ expander من عنوانه — العنوان يتغير = عنصر
+        #      جديد عنده = بيرمي حالة الفتح اللي المستخدم عملها ويرجع للافتراضي.
+        #   الحل: container عادي + حالة فتح/قفل بأيدينا في session_state. مفيش rerun
+        #   يقدر يغيّرها، والعنوان بقى نص عادي مالوش أي علاقة بهوية العنصر.
+        _open_key = f"xpopen_{vid_key}_{u}"
+        if _open_key not in st.session_state:
+            st.session_state[_open_key] = True      # الافتراضي مفتوح
+        _is_open = st.session_state[_open_key]
+        with st.container(border=True):
+            _hc1, _hc2 = st.columns([8,2])
+            with _hc1:
+                _cnt = len(p.get("labs", []))
+                st.markdown(
+                    '<div style="font-weight:800;font-size:14px;color:#FF6B00;padding-top:6px">'
+                    f'👤 {p.get("name") or "حالة جديدة — اكتب الاسم"}'
+                    + (f'<span style="color:#888;font-weight:600"> — {_cnt} تحليل</span>' if _cnt else '')
+                    + '</div>', unsafe_allow_html=True)
+            with _hc2:
+                if st.button("🔼" if _is_open else "🔽", key=f"xptg_{vid_key}_{u}",
+                             use_container_width=True, help="اطوي / افتح"):
+                    st.session_state[_open_key] = not _is_open
+                    st.rerun()
+        if not _is_open:
+            continue                                # مطوي → متعرضش باقي الحقول
+        with st.container(border=True):
             xc1, xc2 = st.columns([3,2])
             with xc1:
                 p["name"] = st.text_input("اسم الحالة *", value=p.get("name",""),
@@ -3438,10 +3483,12 @@ elif st.session_state.page == "new":
                     _sel = st.selectbox("اختر تحليل من القائمة", lab_options, key=f"xps_{vid_key}_{u}",
                                         label_visibility="collapsed")
                 with xs2:
+                    # ★ مفيش st.rerun() هنا بقصد: قايمة التحاليل بتترسم **تحت** الزرار،
+                    #   فالإضافة بتظهر في نفس الرن على طول. الـ rerun كان بيرجّع الصفحة
+                    #   لفوق ويعمل رفرفة كل مرة من غير أي فايدة.
                     if st.button("➕", key=f"xpb_{vid_key}_{u}", use_container_width=True, help="أضف للحالة"):
                         if _sel not in p["labs"]:
                             p["labs"].append(_sel)
-                        st.rerun()
             xm1, xm2 = st.columns([4,1])
             with xm1:
                 _man = st.text_input("أو اكتب يدوياً", key=f"xpm_{vid_key}_{u}",
@@ -3450,8 +3497,7 @@ elif st.session_state.page == "new":
                 if st.button("➕", key=f"xpmb_{vid_key}_{u}", use_container_width=True, help="أضف يدوياً"):
                     # الشرط الثاني ضد الدبل-تاب على الموبايل (نفس السطر مايتضافش مرتين)
                     if _man.strip() and _man.strip() not in p["labs"]:
-                        p["labs"].append(_man.strip())
-                        st.rerun()
+                        p["labs"].append(_man.strip())     # برضه من غير rerun
             if p["labs"]:
                 _lab_del = None
                 for li, _lab in enumerate(p["labs"]):
@@ -3474,6 +3520,7 @@ elif st.session_state.page == "new":
                 xp_remove_uid = u
     if xp_remove_uid is not None:
         st.session_state[xp_ss_key] = [q for q in xp_list if q["uid"] != xp_remove_uid]
+        st.session_state.pop(f"xpopen_{vid_key}_{xp_remove_uid}", None)
         st.rerun()
 
     if len(xp_list) < XP_MAX:
@@ -3552,6 +3599,8 @@ elif st.session_state.page == "new":
     if st.button("💾 حفظ الزيارة" if not is_edit else "💾 حفظ التعديلات", use_container_width=True):
         if not egg_allow_save:
             st.error("⛔ التاريخ فايت — اختار الأول من فوق: هتعدّل التاريخ ولا الزيارة دي نسيتها؟")
+        elif not _date_ok:
+            st.error("⛔ اختر تاريخ الزيارة الأول — الخانة فاضية")
         elif not name or not phone or not address:
             st.error("⚠️ من فضلك املأ الاسم والتليفون والعنوان")
         elif any(p.get("labs") and not str(p.get("name","")).strip() for p in extra_persons_list):
@@ -4477,10 +4526,11 @@ elif st.session_state.page == "follow_ups":
         with fnc3: fn_date   = st.date_input("تاريخ المتابعة *", value=date.today() + timedelta(days=7), key="fn_date")
         with fnc4: fn_reason = st.text_input("السبب *", key="fn_reason")
         if st.button("💾 حفظ المتابعة", key="save_fn", use_container_width=True):
-            if fn_name.strip() and fn_reason.strip():
+            # ★ fn_date كانت ناقصة من الشرط — لو الخانة اتمسحت، .isoformat() تقع
+            if fn_name.strip() and fn_reason.strip() and isinstance(fn_date, date):
                 insert_follow_up("", fn_name.strip(), fn_phone.strip(), fn_date.isoformat(), fn_reason.strip(), created_by=st.session_state.user_email or "")
                 st.success("✅ تم إضافة المتابعة!"); st.rerun()
-            else: st.error("أدخل الاسم والسبب")
+            else: st.error("أدخل الاسم والسبب والتاريخ")
     st.markdown("---")
     def render_fu_list(fu_list, title, icon, card_extra_cls=""):
         if not fu_list: return
