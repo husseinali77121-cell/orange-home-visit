@@ -22,6 +22,16 @@ except Exception:
     egg = _EggStub()
 
 # ══════════════════════════════════════════════════════════════════════════════
+# 🔎 محرك التحاليل الذكي + 🔐 الجهاز الموثوق (ملفات منفصلة)
+# ══════════════════════════════════════════════════════════════════════════════
+import lab_picker as lp
+import device_auth as dev
+try:
+    import login_theme
+except Exception:
+    login_theme = None
+
+# ══════════════════════════════════════════════════════════════════════════════
 # إعدادات الصفحة
 # ══════════════════════════════════════════════════════════════════════════════
 st.set_page_config(
@@ -79,6 +89,14 @@ LACITE_EMAIL  = "Huossein721@gmail.com"
 # ══════════════════════════════════════════════════════════════════════════════
 # دوال مساعدة للتنسيق
 # ══════════════════════════════════════════════════════════════════════════════
+def _esc(txt):
+    """
+    تهريب HTML لأي نص جاي من المستخدم قبل ما يتحط في markdown بـ
+    unsafe_allow_html. سطر تحليل مكتوب يدوي فيه < أو > كان بيبوّظ التنسيق.
+    """
+    return (str(txt or "").strip().replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;"))
+
 def format_money(value):
     try:
         val = float(value or 0)
@@ -165,34 +183,79 @@ def extra_person_title(p):
 # ══════════════════════════════════════════════════════════════════════════════
 # شاشة تسجيل الدخول
 # ══════════════════════════════════════════════════════════════════════════════
+def _user_type_for(email_clean):
+    e = str(email_clean or "").lower()
+    if e == ADMIN_EMAIL.lower():     return "admin"
+    if e == DIAMOND_EMAIL.lower():   return "diamond"
+    if e == LACITE_EMAIL.lower():    return "lacite"
+    return "other"
+
+def _grant(email_clean, utype=None):
+    st.session_state.authenticated = True
+    st.session_state.user_email    = email_clean
+    st.session_state.user_type     = utype or _user_type_for(email_clean)
+    st.session_state.need_password = False
+
+def _logout(forget=False):
+    """خروج. forget=True → ينسى الجهاز خالص (يمسح التوكن من الـ URL والكوكي)."""
+    if forget:
+        dev.forget_device(st)
+        # ⚠️ مسح الكوكي بيتم بـ JS، والـ rerun ممكن يقطعه قبل ما يشتغل.
+        #    فبنسيب علم مرفوع ونعيد المسح كل رن لحد ما الكوكي تختفي فعلاً.
+        st.session_state["_pending_forget"] = True
+    st.session_state.authenticated = False
+    st.session_state.user_email    = None
+    st.session_state.user_type     = None
+    st.session_state.need_password = False
+    st.session_state["_skip_auto_login"] = True
+    st.rerun()
+
+# ── 🔐 محاولة الدخول التلقائي من الجهاز الموثوق ──
+if (not st.session_state.authenticated) and (not st.session_state.get("_skip_auto_login")):
+    _auto = dev.try_auto_login(st, ALLOWED_EMAILS)
+    if _auto:
+        _em = _auto["email"]
+        if _user_type_for(_em) == "admin" and not _auto["is_admin"]:
+            st.session_state.login_email   = _em      # أدمن → لسه محتاج الباسورد
+            st.session_state.need_password = True
+        else:
+            _grant(_em)
+            st.session_state["_auto_login_via"] = _auto["via"]
+
 if not st.session_state.authenticated:
+    # إعادة محاولة مسح الجهاز لحد ما تنجح
+    if st.session_state.get("_pending_forget"):
+        dev.forget_device(st)
+        if not dev.read_cookie(st):
+            st.session_state["_pending_forget"] = False
+    if login_theme:
+        login_theme.render(st)
     st.title("🔒 تسجيل الدخول")
     params     = st.query_params
-    saved_mail = params.get("remember", "")
+    saved_mail = params.get("remember", "")   # توافق مع الروابط القديمة
     email      = st.text_input("📧 أدخل بريدك الإلكتروني للدخول", value=saved_mail)
-    remember_me = st.checkbox("تذكرني في هذا الجهاز", value=bool(saved_mail))
+    remember_me = st.checkbox("🔓 خليك فاكر الجهاز ده (دخول تلقائي)", value=True,
+                              help="بيحفظ توكن موقّع على الجهاز ده لمدة ٩٠ يوم. "
+                                   "متعملهاش على جهاز مش بتاعك.")
     if st.button("دخول"):
         email_clean = email.strip()
         if email_clean not in ALLOWED_EMAILS:
             st.error("هذا البريد غير مصرح له بالدخول. راجع الأدمن.")
         else:
-            if remember_me:
-                st.query_params["remember"] = email_clean
-            else:
-                st.query_params.clear()
+            st.session_state["_skip_auto_login"] = False
+            st.session_state["_remember_me"]     = remember_me
             if email_clean.lower() == ADMIN_EMAIL.lower():
                 st.session_state.login_email   = email_clean
                 st.session_state.need_password = True
                 st.rerun()
             else:
-                st.session_state.authenticated = True
-                st.session_state.user_email    = email_clean
-                if email_clean.lower() == DIAMOND_EMAIL.lower():
-                    st.session_state.user_type = "diamond"
-                elif email_clean.lower() == LACITE_EMAIL.lower():
-                    st.session_state.user_type = "lacite"
+                if remember_me:
+                    st.session_state["_pending_cookie"] = \
+                        dev.remember_device(st, email_clean, is_admin=False)
+                    st.session_state["_cookie_tries"] = 0
                 else:
-                    st.session_state.user_type = "other"
+                    dev.forget_device(st)
+                _grant(email_clean)
                 st.rerun()
     if st.session_state.get("need_password"):
         st.markdown("---")
@@ -202,15 +265,18 @@ if not st.session_state.authenticated:
             correct_password = st.secrets.get("admin_password", "123456")
             if password == correct_password:
                 st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن")
-                st.session_state.authenticated  = True
-                st.session_state.user_email     = st.session_state.login_email
-                st.session_state.user_type      = "admin"
-                st.session_state.need_password  = False
+                if st.session_state.get("_remember_me", True):
+                    st.session_state["_pending_cookie"] = dev.remember_device(
+                        st, st.session_state.login_email, is_admin=True)
+                    st.session_state["_cookie_tries"] = 0
+                _grant(st.session_state.login_email, "admin")
                 st.rerun()
             else:
                 st.error("كلمة مرور خاطئة")
         if st.button("رجوع"):
             st.session_state.need_password = False
+            # من غير السطر ده، الدخول التلقائي بيرجّعه لشاشة الباسورد فوراً
+            st.session_state["_skip_auto_login"] = True
             st.rerun()
     st.markdown("---")
     st.markdown("""
@@ -221,6 +287,19 @@ if not st.session_state.authenticated:
       <div style="direction:ltr;unicode-bidi:embed;">📧 Email: hussein.ali77121@gmail.com</div>
     </div>""", unsafe_allow_html=True)
     st.stop()
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🍪 كتابة كوكي الجهاز الموثوق (بعد الدخول)
+# ══════════════════════════════════════════════════════════════════════════════
+# الـ JS بيتنفّذ في المتصفح، والكوكي بتوصل للسيرفر في الطلب **اللي بعده** —
+# عشان كده بنعيد المحاولة لحد ما نشوفها، بحد أقصى ٣ مرات عشان مندخلش لوب.
+_pc = st.session_state.get("_pending_cookie")
+if _pc:
+    if dev.read_cookie(st) == _pc or st.session_state.get("_cookie_tries", 0) >= 3:
+        st.session_state["_pending_cookie"] = None   # نجحت أو الكوكيز مقفولة
+    else:
+        st.session_state["_cookie_tries"] = st.session_state.get("_cookie_tries", 0) + 1
+        dev.write_cookie(st, _pc)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # قاعدة البيانات + Migrations + الإعدادات الجديدة
@@ -2066,9 +2145,11 @@ try:
     from labs_price_list import LABS_DB
     ALL_LABS = [{"name":t["name"],"price":t["price"],"category":cat} for cat, tests in LABS_DB.items() for t in tests]
     LABS_PRICE_LOOKUP = {t["name"]: t["price"] for t in ALL_LABS}
+    LAB_CATEGORIES    = list(LABS_DB.keys())
+    LAB_INDEX         = lp.build_lab_index(LABS_DB)   # للبحث عن الأنبوبة/مدة النتيجة
 except Exception as e:
     st.error(f"خطأ في استيراد labs_price_list: {e}")
-    ALL_LABS = []; LABS_PRICE_LOOKUP = {}
+    ALL_LABS = []; LABS_PRICE_LOOKUP = {}; LAB_CATEGORIES = []; LAB_INDEX = {}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # دوال مساعدة
@@ -2235,7 +2316,7 @@ def whatsapp_link(msg, phone=None):
 
 def generate_visit_print_html(v):
     lt = v.get("selected_labs_text","")
-    labs_rows = "".join(f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee;'>🔹 {l.strip()}</td></tr>"
+    labs_rows = "".join(f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee;'>🔹 {_esc(l)}</td></tr>"
         for l in lt.splitlines() if l.strip()) if lt.strip() else "<tr><td>لا توجد تحاليل</td></tr>"
     # ── 👥 حالات إضافية — كل حالة في بلوك منفصل عشان الأنابيب تتعلّم صح ──
     _xps = parse_extra_persons(v.get("extra_persons",""))
@@ -2244,7 +2325,7 @@ def generate_visit_print_html(v):
         _blocks = ""
         for _p in _xps:
             _rows = "".join(
-                f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee;'>🔹 {l}</td></tr>"
+                f"<tr><td style='padding:6px 10px;border-bottom:1px solid #eee;'>🔹 {_esc(l)}</td></tr>"
                 for l in _p.get("labs", [])
             ) or "<tr><td style='padding:6px 10px;'>لا توجد تحاليل</td></tr>"
             _blocks += (
@@ -2704,8 +2785,8 @@ if _utype == "admin":
         fu_label = f"⏰ متابعات ({_pf_count})" if _pf_count>0 else "⏰ متابعات"
         if st.button(fu_label, use_container_width=True): go("follow_ups")
     with nc8:
-        if st.button("🚪", help="تسجيل الخروج", use_container_width=True):
-            st.session_state.authenticated = False; st.rerun()
+        if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
+            _logout(forget=True)
     with nc1:
         if st.button("🏠 الرئيسية", use_container_width=True): go("home")
     with nc2:
@@ -2720,8 +2801,8 @@ elif _utype in ["diamond","lacite"]:
         fu_label = f"⏰ متابعات ({_pf_count})" if _pf_count>0 else "⏰ متابعات"
         if st.button(fu_label, use_container_width=True): go("follow_ups")
     with nc6:
-        if st.button("🚪", help="تسجيل الخروج", use_container_width=True):
-            st.session_state.authenticated = False; st.rerun()
+        if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
+            _logout(forget=True)
     with nc1:
         if st.button("🏠 الرئيسية", use_container_width=True): go("home")
     with nc2:
@@ -2735,8 +2816,8 @@ else:
     with nc1:
         if st.button("➕ زيارة جديدة", use_container_width=True): go("new", prefill={})
     with nc2:
-        if st.button("🚪", help="تسجيل الخروج", use_container_width=True):
-            st.session_state.authenticated = False; st.rerun()
+        if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
+            _logout(forget=True)
 
 st.markdown("---")
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3376,12 +3457,11 @@ elif st.session_state.page == "new":
             st.markdown(f'<div style="font-size:12px;margin-bottom:6px"><b style="color:#FF6B00">{panel["name"]}</b> — {" • ".join(panel["tests"])}</div>', unsafe_allow_html=True)
     st.markdown("---")
     if ALL_LABS:
-        st.markdown('<div class="section-title">📋 إضافة تحليل من قائمة الأسعار</div>', unsafe_allow_html=True)
-        lab_options = [f"{lab['name']} — {lab['price']} جنيه" for lab in ALL_LABS]
-        sel_lab     = st.selectbox("اختر التحليل", lab_options, key=f"lps_{vid_key}")
-        if st.button("➕ أضف من القائمة", key=f"alp_{vid_key}", use_container_width=True):
-            if sel_lab not in st.session_state[labs_ss_key]: st.session_state[labs_ss_key].append(sel_lab)
-            st.rerun()
+        st.markdown('<div class="section-title">🔎 بحث ذكي في قائمة الأسعار</div>', unsafe_allow_html=True)
+        st.caption("اكتب بالعربي أو الإنجليزي — «سكر»، «صورة دم»، «فيتامين د»، «مزرعة بول». "
+                   "تقدر تحدد أكتر من تحليل وتضيفهم مرة واحدة.")
+        lp.render_lab_picker(st, ALL_LABS, LAB_CATEGORIES, f"mainlab_{vid_key}",
+                             ss_key=labs_ss_key)
     else:
         st.warning("قائمة الأسعار غير متاحة حالياً")
     st.markdown("---")
@@ -3391,10 +3471,13 @@ elif st.session_state.page == "new":
         st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-bottom:8px">✅ {len(st.session_state[labs_ss_key])} تحليل{"  —  إجمالي: "+f"{auto_total:,} جنيه" if auto_total else ""}</div>', unsafe_allow_html=True)
         # ── 🍊 تعليق على عدد التحاليل ──
         egg.render_caption(st, egg.tests_comment(len(st.session_state[labs_ss_key]), vid_key))
+        # ── ⚠️ بوابة الازدواج + 🧫 ملخص العيّنات ──
+        lp.render_conflicts(st, st.session_state[labs_ss_key], f"cfl_{vid_key}", ss_key=labs_ss_key)
+        lp.render_sample_box(st, st.session_state[labs_ss_key], LAB_INDEX)
         to_remove = None
         for i,entry in enumerate(st.session_state[labs_ss_key]):
             ca,cb = st.columns([10,1])
-            with ca: st.markdown(f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333">🔹 {entry}</div>', unsafe_allow_html=True)
+            with ca: st.markdown(f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333">🔹 {_esc(entry)}</div>', unsafe_allow_html=True)
             with cb:
                 if st.button("✕", key=f"del_{vid_key}_{i}", help="احذف"): to_remove = i
         if to_remove is not None: st.session_state[labs_ss_key].pop(to_remove); st.rerun()
@@ -3476,19 +3559,12 @@ elif st.session_state.page == "new":
                 if _au not in ["سنة","شهر"]: _au = "سنة"
                 p["age_unit"] = st.radio("الوحدة", ["سنة","شهر"], index=["سنة","شهر"].index(_au),
                                          horizontal=True, key=f"xpu_{vid_key}_{u}")
-            # ── تحاليل الحالة ──
+            # ── تحاليل الحالة (نفس البحث الذكي بتاع الحالة الأساسية) ──
+            # ★ الـ picker بيضيف في p["labs"] مباشرة من غير st.rerun() — القايمة
+            #   بتترسم تحته فالإضافة بتظهر في نفس الرن، ومفيش رفرفة ولا رجوع لفوق.
             if ALL_LABS:
-                xs1, xs2 = st.columns([4,1])
-                with xs1:
-                    _sel = st.selectbox("اختر تحليل من القائمة", lab_options, key=f"xps_{vid_key}_{u}",
-                                        label_visibility="collapsed")
-                with xs2:
-                    # ★ مفيش st.rerun() هنا بقصد: قايمة التحاليل بتترسم **تحت** الزرار،
-                    #   فالإضافة بتظهر في نفس الرن على طول. الـ rerun كان بيرجّع الصفحة
-                    #   لفوق ويعمل رفرفة كل مرة من غير أي فايدة.
-                    if st.button("➕", key=f"xpb_{vid_key}_{u}", use_container_width=True, help="أضف للحالة"):
-                        if _sel not in p["labs"]:
-                            p["labs"].append(_sel)
+                lp.render_lab_picker(st, ALL_LABS, LAB_CATEGORIES, f"xplab_{vid_key}_{u}",
+                                     target_list=p["labs"], compact=True)
             xm1, xm2 = st.columns([4,1])
             with xm1:
                 _man = st.text_input("أو اكتب يدوياً", key=f"xpm_{vid_key}_{u}",
@@ -3503,7 +3579,7 @@ elif st.session_state.page == "new":
                 for li, _lab in enumerate(p["labs"]):
                     lc1, lc2 = st.columns([10,1])
                     with lc1:
-                        st.markdown(f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333">🔹 {_lab}</div>',
+                        st.markdown(f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333">🔹 {_esc(_lab)}</div>',
                                     unsafe_allow_html=True)
                     with lc2:
                         if st.button("✕", key=f"xpd_{vid_key}_{u}_{li}", help="احذف التحليل"):
@@ -3513,6 +3589,8 @@ elif st.session_state.page == "new":
                 _psub = sum(_lab_price(l) for l in p["labs"])
                 st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-top:6px">'
                             f'💰 إجمالي الحالة: {_psub:,} جنيه</div>', unsafe_allow_html=True)
+                lp.render_conflicts(st, p["labs"], f"xpcfl_{vid_key}_{u}", target_list=p["labs"])
+                lp.render_sample_box(st, p["labs"], LAB_INDEX)
             else:
                 st.markdown('<div style="color:#aaa;font-size:13px;padding:6px 0">لا توجد تحاليل لهذه الحالة</div>',
                             unsafe_allow_html=True)
@@ -3721,7 +3799,7 @@ elif st.session_state.page == "detail":
             labs_count = 0
             for lab in lt.splitlines():
                 if lab.strip():
-                    st.markdown(f'<div style="font-size:13px;padding:5px 0;border-bottom:1px solid #f5f5f5;color:#333;">🔹 {lab.strip()}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div style="font-size:13px;padding:5px 0;border-bottom:1px solid #f5f5f5;color:#333;">🔹 {_esc(lab)}</div>', unsafe_allow_html=True)
                     labs_count += 1
             st.markdown(f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-top:8px;">إجمالي: {labs_count} تحليل</div>', unsafe_allow_html=True)
         else:
@@ -3734,7 +3812,7 @@ elif st.session_state.page == "detail":
                         unsafe_allow_html=True)
             for _p in _xps_d:
                 _rows_html = "".join(
-                    f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333;">🔹 {l}</div>'
+                    f'<div style="font-size:13px;padding:4px 0;border-bottom:1px solid #f5f5f5;color:#333;">🔹 {_esc(l)}</div>'
                     for l in _p.get("labs", [])
                 ) or '<div style="color:#aaa;font-size:13px;">لا توجد تحاليل</div>'
                 _sub = sum(_lab_price(l) for l in _p.get("labs", []))
