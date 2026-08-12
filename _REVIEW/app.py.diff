@@ -1,0 +1,816 @@
+--- orange-home-visit-main/app.py	2026-08-12 13:59:22.000000000 +0000
++++ fixed/app.py	2026-08-12 21:34:10.518929333 +0000
+@@ -8,6 +8,20 @@
+ import re as re_module
+ import json
+ import hashlib
++import hmac
++
++# ══════════════════════════════════════════════════════════════════════════════
++# 🔑 قراءة آمنة للأسرار
++# ══════════════════════════════════════════════════════════════════════════════
++# لو مفيش ملف .streamlit/secrets.toml خالص، Streamlit بيرمي StreamlitSecretNotFoundError
++# (مش KeyError) — يعني st.secrets.get("x","") **مابتمسكهاش** والبرنامج بيقع وقت
++# الاستيراد قبل ما يرسم أي حاجة. ده بيحصل لأي حد يعمل clone ويشغّل محليًا.
++# الدالة دي بتوحّد التعامل: أي فشل → القيمة الافتراضية.
++def _sec(key, default=None):
++    try:
++        return st.secrets.get(key, default)
++    except Exception:
++        return default
+ 
+ # ══════════════════════════════════════════════════════════════════════════════
+ # 🕒 المنطقة الزمنية — القاهرة
+@@ -108,7 +122,7 @@
+ # Auth Constants
+ # ══════════════════════════════════════════════════════════════════════════════
+ try:
+-    ALLOWED_EMAILS = st.secrets.get("allowed_emails", [])
++    ALLOWED_EMAILS = _sec("allowed_emails", [])
+ except Exception:
+     ALLOWED_EMAILS = []
+ ADMIN_EMAIL   = "Hussein.ali77121@gmail.com"
+@@ -133,6 +147,15 @@
+     except (ValueError, TypeError):
+         return "0 جنيه"
+ 
++def _safe_url(url):
++    """
++    رابط آمن للحقن في href. رابط الموقع بيتكتب بإيد المستخدم، ولو حد كتب
++    `javascript:...` كان هيتنفّذ كود لما أي حد يضغط على «فتح الموقع».
++    بنسمح بـ http/https بس، وأي حاجة تانية بترجع فاضية (الرابط مايتعرضش).
++    """
++    u = str(url or "").strip()
++    return _esc(u) if u.lower().startswith(("http://", "https://")) else ""
++
+ # ══════════════════════════════════════════════════════════════════════════════
+ # 👥 الحالات الإضافية في نفس الزيارة (v6)
+ # ══════════════════════════════════════════════════════════════════════════════
+@@ -146,9 +169,22 @@
+ XP_MAX = 6   # حد أقصى للحالات الإضافية في الزيارة الواحدة
+ 
+ def _lab_price(entry):
+-    """يستخرج السعر من سطر تحليل بصيغة 'CBC — 400 جنيه'. يرجّع 0 لو مفيش سعر."""
+-    m = re_module.search(r'(\d+)\s*جنيه', str(entry or ""))
+-    return int(m.group(1)) if m else 0
++    """
++    يستخرج السعر من سطر تحليل بصيغة 'CBC — 400 جنيه'. يرجّع 0 لو مفيش سعر.
++
++    ★ اتصلّح بقّين كانوا بيضيّعوا فلوس في صمت — الاتنين بيتفعّلوا من خانة
++      «أضف تحليل يدوياً» اللي بتقبل أي نص:
++        ١) الفاصلة: "Test — 1,200 جنيه" كانت بترجّع 200 (السعر اتقص عند الفاصلة).
++        ٢) أول تطابق: "تحليل 25 جنيه شامل — 300 جنيه" كانت بترجّع 25.
++      الحل: نقبل الفواصل جوّه الرقم، وناخد **آخر** تطابق (السعر دايمًا في آخر السطر).
++    """
++    m = re_module.findall(r'(\d[\d,]*)\s*جنيه', str(entry or ""))
++    if not m:
++        return 0
++    try:
++        return int(m[-1].replace(",", ""))
++    except ValueError:
++        return 0
+ 
+ def parse_extra_persons(raw):
+     """يقرأ عمود extra_persons ويرجّع list of dicts. أي داتا بايظة → [] بدل ما يكسر."""
+@@ -268,9 +304,14 @@
+                                    "متعملهاش على جهاز مش بتاعك.")
+     if st.button("دخول"):
+         email_clean = email.strip()
+-        if email_clean not in ALLOWED_EMAILS:
++        # ★ المقارنة كانت حرفية بينما _user_type_for بتعمل .lower() — يعني حرف كبير
++        #   واحد غلط في الإيميل = رفض من غير سبب مفهوم. بنقارن lowercase ونرجّع
++        #   الشكل الأصلي من القايمة عشان سجل التدقيق يفضل متسق.
++        _allowed_map = {str(e).strip().lower(): str(e).strip() for e in (ALLOWED_EMAILS or [])}
++        if email_clean.lower() not in _allowed_map:
+             st.error("هذا البريد غير مصرح له بالدخول. راجع الأدمن.")
+         else:
++            email_clean = _allowed_map[email_clean.lower()]   # الشكل القانوني من القايمة
+             st.session_state["_skip_auto_login"] = False
+             st.session_state["_remember_me"]     = remember_me
+             if email_clean.lower() == ADMIN_EMAIL.lower():
+@@ -291,8 +332,15 @@
+         st.markdown(f"البريد: **{st.session_state.login_email}**")
+         password = st.text_input("🔑 كلمة المرور", type="password")
+         if st.button("تأكيد كلمة المرور"):
+-            correct_password = st.secrets.get("admin_password", "123456")
+-            if password == correct_password:
++            # ★ من غير fallback لـ "123456": لو السر مش متظبّط في Secrets، الأأمن
++            #   إن دخول الأدمن يتقفل تمامًا بدل ما يفتح بباسورد معروف لأي حد شايف الكود.
++            correct_password = str(_sec("admin_password", "") or "")
++            if not correct_password:
++                st.error("⛔ `admin_password` مش متظبّط في Secrets — دخول الأدمن مقفول.")
++            # ★ .encode() مش زيادة: hmac.compare_digest بيرمي TypeError على str
++            #   فيه أي حرف مش ASCII. باسورد فيه حرف عربي واحد كان هيقفل الدخول.
++            elif hmac.compare_digest(str(password).encode("utf-8"),
++                                     correct_password.encode("utf-8")):
+                 st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن")
+                 if st.session_state.get("_remember_me", True):
+                     st.session_state["_pending_cookie"] = dev.remember_device(
+@@ -343,10 +391,10 @@
+ SCHEMA_VERSION = 6
+ 
+ # ── GitHub API للحفظ الدائم (كل القيم من الأسرار فقط — لا شيء ظاهر في الكود) ──
+-GITHUB_TOKEN  = st.secrets.get("github_token", "")
+-GITHUB_REPO   = st.secrets.get("github_repo", "")
+-GITHUB_BRANCH = st.secrets.get("github_branch", "main")
+-GITHUB_JSON_PATH  = st.secrets.get("github_json_path", "Visits.json")
++GITHUB_TOKEN  = _sec("github_token", "")
++GITHUB_REPO   = _sec("github_repo", "")
++GITHUB_BRANCH = _sec("github_branch", "main")
++GITHUB_JSON_PATH  = _sec("github_json_path", "Visits.json")
+ 
+ # ══════════════════════════════════════════════════════════════════════════════
+ # ★ المزامنة الشهرية (v5) — ملف لكل شهر بدل ملف واحد ضخم
+@@ -362,9 +410,9 @@
+ #     (نفس تكلفة النهاردة، صفر مخاطرة). بعد ما تتأكد أسبوع → خليها False
+ #     وساعتها بس هتاخد فايدة الـ commits الصغيرة.
+ #   • USE_MONTHLY_SYNC=False → رجوع فوري للسلوك القديم بالكامل (سطر واحد).
+-USE_MONTHLY_SYNC   = st.secrets.get("use_monthly_sync", True)
+-KEEP_LEGACY_MIRROR = st.secrets.get("keep_legacy_mirror", True)   # ← خليها False بعد التأكد
+-GITHUB_MONTHLY_DIR = st.secrets.get("github_monthly_dir", "visits")
++USE_MONTHLY_SYNC   = _sec("use_monthly_sync", True)
++KEEP_LEGACY_MIRROR = _sec("keep_legacy_mirror", True)   # ← خليها False بعد التأكد
++GITHUB_MONTHLY_DIR = _sec("github_monthly_dir", "visits")
+ 
+ # ── حالة اتصال GitHub (تعيش طول عمر السيرفر، بتتحدث مع كل قراءة/كتابة) ──
+ _GH_STATE = {
+@@ -384,7 +432,7 @@
+     "legacy_total": None,     # عدد الصفوف في Visits.json القديم (للمقارنة/العرض)
+     "last_months_written": [],# آخر شهور اتكتبت فعلًا
+ }
+-GITHUB_ARCHIVE_DIR = st.secrets.get("github_archive_dir", "archive")
++GITHUB_ARCHIVE_DIR = _sec("github_archive_dir", "archive")
+ 
+ def _github_headers():
+     return {
+@@ -479,9 +527,19 @@
+ # ★ v5 — أدوات التقسيم الشهري
+ # ══════════════════════════════════════════════════════════════════════════════
+ def _month_of(rec):
+-    """'2026-06-14' → '2026-06'. أي تاريخ غلط/فاضي → '0000-00' (سلة مستقلة، مش بتضيع)."""
++    """
++    '2026-06-14' → '2026-06'. أي تاريخ غلط/فاضي → '0000-00' (سلة مستقلة، مش بتضيع).
++
++    ★ الفحص القديم (len>=7 and d[4]=='-') كان بيعدّي تواريخ بايظة وينتج أسماء
++      ملفات مكسورة: "2026-8-1" → "2026-8-" → visits/2026-8-.json
++      (وفعلًا فيه سجل في الأرشيف تاريخه "19:00:00"). التحقق الحقيقي بيقفل الباب ده.
++    """
+     d = str(rec.get("visit_date") or "").strip()
+-    return d[:7] if len(d) >= 7 and d[4] == "-" else "0000-00"
++    try:
++        date.fromisoformat(d[:10])
++        return d[:7]
++    except Exception:
++        return "0000-00"
+ 
+ def _month_path(month):
+     return f"{GITHUB_MONTHLY_DIR}/{month}.json"
+@@ -1269,32 +1327,39 @@
+ 
+ def restore_from_json(json_bytes):
+     """Restore من JSON — يدمج البيانات بدون حذف الموجود"""
++    inserted = 0; updated = 0          # ★ بره الـ try عشان الـ except يشوفهم
+     try:
+         payload = json.loads(json_bytes.decode("utf-8"))
+         visits = payload.get("visits", [])
+         conn = get_connection()
+-        inserted = 0; updated = 0
++        # ★ sync=False داخل اللوب ورفع واحد في الآخر — قبل كده استرجاع ملف فيه
++        #   ٨٠٠ زيارة كان بيعمل ٣٢٠٠ طلب API ويقعد أكتر من نص ساعة.
+         for rec in visits:
+             rec.pop("_user", None)
+             existing = fetch_visit_by_id(rec.get("id",""))
+             if existing:
+-                # تحديث فقط لو في فرق
+                 try:
+                     rec["_user"] = "restore"
+-                    update_visit(rec)
++                    update_visit(rec, sync=False)
+                     updated += 1
+-                except Exception:
+-                    pass
++                except Exception as _e:
++                    log_error("restore", "restore_from_json", _e)
+             else:
+                 try:
+                     rec.setdefault("created_at", datetime.now().isoformat())
+                     rec["_user"] = "restore"
+-                    insert_visit(rec)
++                    insert_visit(rec, sync=False)
+                     inserted += 1
+-                except Exception:
+-                    pass
++                except Exception as _e:
++                    log_error("restore", "restore_from_json", _e)
++        if inserted or updated:
++            save_to_github_json()
+         return inserted, updated
+     except Exception as e:
++        log_error(st.session_state.get("user_email",""), "restore_from_json", e)
++        if inserted or updated:
++            save_to_github_json()
++            return inserted, updated
+         return 0, 0
+ 
+ def backup_to_excel_bytes():
+@@ -1348,10 +1413,10 @@
+ #   تقدر تغيّرها من Secrets بدون ما تلمس الكود: auto_done_grace_min = 0
+ # AUTO_DONE_FROM = الحالات اللي مسموح تتحوّل. لو عايز «مجدولة» بس، شيل "في الطريق".
+ # لإيقاف الخاصية كلها: auto_complete_enabled = false في Secrets.
+-AUTO_DONE_ENABLED   = str(st.secrets.get("auto_complete_enabled", True)).lower() not in ("false", "0", "no")
++AUTO_DONE_ENABLED   = str(_sec("auto_complete_enabled", True)).lower() not in ("false", "0", "no")
+ AUTO_DONE_FROM      = ["مجدولة", "في الطريق"]
+ try:
+-    AUTO_DONE_GRACE_MIN = int(st.secrets.get("auto_done_grace_min", 120))
++    AUTO_DONE_GRACE_MIN = int(_sec("auto_done_grace_min", 120))
+ except Exception:
+     AUTO_DONE_GRACE_MIN = 120
+ 
+@@ -1453,7 +1518,14 @@
+         rows = rows[:limit]
+     return [dict(r) for r in rows]
+ 
+-def insert_visit(record):
++def insert_visit(record, sync=True):
++    """
++    sync=False → بيحفظ محليًا بس من غير ما يرفع على GitHub.
++    ★ ليه؟ كل نداء save_to_github_json() = ~٤ طلبات API (قراءة sha + PUT للشهر +
++      قراءة sha + PUT للـ legacy). استيراد ٢٠٠ صف كان بيعمل ٨٠٠ طلب ويقعد دقايق
++      ويقرّب من حد الـ rate limit (5000/ساعة). دلوقتي الاستيراد بيرفع **مرة واحدة**
++      في الآخر. الحفظ العادي من الفورم لسه sync=True زي ما هو بالظبط.
++    """
+     conn = get_connection()
+     conn.execute("""
+         INSERT INTO visits (
+@@ -1483,7 +1555,8 @@
+     conn.commit()
+     _clear_tag_cache(record["phone"])
+     _log_audit(record.get("_user",""), "insert", "visits", record["id"], details=f"اسم: {record['name']}")
+-    save_to_github_json()
++    if sync:
++        save_to_github_json()
+ 
+ def _to_num(v, cast=float, default=0):
+     """تحويل رقمي آمن للاستيراد (يتعامل مع None و '' والنص)."""
+@@ -1584,7 +1657,8 @@
+     else:
+         _boot_pull_from_github.clear()     # لسه فاضي → خلّي المحاولة التلقائية شغالة
+ 
+-def update_visit(record):
++def update_visit(record, sync=True):
++    """sync=False → حفظ محلي بس (للاستيراد/الاسترجاع الجَماعي). شوف insert_visit."""
+     conn = get_connection()
+     old = fetch_visit_by_id(record["id"])
+     # ★ حارس ضد المسح الصامت للحالات الإضافية.
+@@ -1597,6 +1671,19 @@
+     if _xp is None:
+         _xp = (old or {}).get("extra_persons", "") or ""
+     _xp = _xp or ""
++
++    # ★ نفس منطق الحارس اللي فوق — بس معمّم على كل الحقول النصية الاختيارية.
++    #   قبل كده الحقول دي كانت بتتقرا بـ record["address"] مباشرة، وده كان بيعمل
++    #   حاجتين وحشين مع استيراد إكسيل ناقص عمود:
++    #     ١) KeyError → البرنامج يوقف نص الاستيراد ويطلع "0, 0" (رسالة كدّابة).
++    #     ٢) ولو حطينا "" افتراضي، كنا هنمسح عنوان زيارة محفوظة من غير ما حد يطلب.
++    #   القاعدة: مفتاح غايب = المصدر مايعرفش الحقل → سيب القديم.
++    def _keep(field, default=""):
++        val = record.get(field, None)
++        if val is None:
++            val = (old or {}).get(field, default)
++        return default if val is None else val
++
+     conn.execute("""
+         UPDATE visits SET
+             name=?,age=?,age_unit=?,phone=?,visit_date=?,visit_time=?,
+@@ -1607,18 +1694,18 @@
+             updated_at=?
+         WHERE id=?
+     """, (
+-        record["name"], record["age"], record.get("age_unit","سنة"),
+-        record["phone"], record["visit_date"], record["visit_time"],
+-        record["doctor_name"], record.get("branch","La Cite"),
+-        record.get("city",""), record.get("district",""),
+-        record["address"], record["location_link"], record["selected_labs_text"],
+-        record["notes"], _xp,
+-        record["labs_price_before"], record["labs_price_after"],
+-        record["transport_fee"], record["total_price"],
+-        record.get("status","مجدولة"),
+-        record.get("payment_status","غير مدفوع"),
+-        record.get("payment_method",""), record.get("paid_amount",0),
+-        record.get("payment_date",""),
++        record["name"], _keep("age", 0), _keep("age_unit", "سنة"),
++        record["phone"], record["visit_date"], _keep("visit_time"),
++        _keep("doctor_name"), _keep("branch", "La Cite"),
++        _keep("city"), _keep("district"),
++        _keep("address"), _keep("location_link"), _keep("selected_labs_text"),
++        _keep("notes"), _xp,
++        _keep("labs_price_before", 0), _keep("labs_price_after", 0),
++        _keep("transport_fee", 0), _keep("total_price", 0),
++        _keep("status", "مجدولة"),
++        _keep("payment_status", "غير مدفوع"),
++        _keep("payment_method"), _keep("paid_amount", 0),
++        _keep("payment_date"),
+         datetime.now().isoformat(),
+         record["id"]
+     ))
+@@ -1626,10 +1713,11 @@
+     _clear_tag_cache(record["phone"])
+     if old:
+         for field in ["name","age","phone","visit_date","doctor_name","branch","city","district","address","extra_persons","labs_price_before","labs_price_after","transport_fee","total_price","status","payment_status"]:
+-            if old.get(field) != record.get(field):
++            if field in record and old.get(field) != record.get(field):
+                 _log_audit(record.get("_user",""), "update", "visits", record["id"],
+                            field_name=field, old_value=old.get(field), new_value=record.get(field))
+-    save_to_github_json()
++    if sync:
++        save_to_github_json()
+ 
+ def soft_delete_visit(vid, user_email=""):
+     conn = get_connection()
+@@ -2010,7 +2098,18 @@
+ # 🔥 دالة الاستيراد الذكية الجديدة (نسخة مقاومة للأخطاء) 🔥
+ # ══════════════════════════════════════════════════════════════════════════════
+ def import_from_excel(uploaded_file):
++    # ★ العدادات بره الـ try عشان الـ except الخارجي يقدر يشوفها ويرجّع رقم صحيح
++    count_imported = 0
++    count_updated  = 0
++    count_failed   = 0
++    first_error    = ""
+     try:
++        # ★ مؤشر الملف ممكن يكون اتحرّك من getvalue()/قراءة سابقة — UploadedFile
++        #   بيفضل عايش في session_state عبر الـ reruns. seek(0) بيضمن قراءة من الأول.
++        try:
++            uploaded_file.seek(0)
++        except Exception:
++            pass
+         # قراءة ملف الإكسيل (الورقة الأولى دائماً)
+         df = pd.read_excel(uploaded_file, engine="openpyxl", sheet_name=0)
+         
+@@ -2021,9 +2120,6 @@
+             cleaned_cols.append(c)
+         df.columns = cleaned_cols
+ 
+-        count_imported = 0
+-        count_updated = 0
+-
+         # خريطة متطابقة مع كل أنواع الملفات (بما فيها الملفات اللي بعتها)
+         col_mapping = {}
+         name_mapping = {
+@@ -2058,8 +2154,13 @@
+                     col_mapping[internal_key] = col
+                     break
+ 
+-        # (للتصحيح فقط) عرض الأعمدة اللي التطبيق قدر يتعرف عليها في الشريط الجانبي
+-        st.sidebar.write("✅ الأعمدة التي تم التعرف عليها في الملف:", col_mapping)
++        # ★ كان st.sidebar.write() ظاهر لكل المستخدمين في كل استيراد. نقلناه لـ
++        #   expander مقفول — نفس فايدة التشخيص من غير ما يلوّث الشاشة.
++        with st.expander("🔍 الأعمدة اللي اتعرف عليها في الملف", expanded=False):
++            st.write(col_mapping)
++            _unmapped = [c for c in df.columns if c not in col_mapping.values()]
++            if _unmapped:
++                st.caption("أعمدة اتجاهلت: " + "، ".join(map(str, _unmapped)))
+ 
+         # 2. المرور على كل صف
+         for _, row in df.iterrows():
+@@ -2137,21 +2238,49 @@
+                 )
+ 
+             # 3. إما التحديث أو الإدراج
+-            if existing_record:
+-                record["id"] = existing_record["id"] # نستخدم الـ ID الموجود لتحديث السجل بشكل صحيح
+-                record["_user"] = st.session_state.get("user_email", "system_import")
+-                update_visit(record)
+-                count_updated += 1
+-            else:
+-                record["created_at"] = datetime.now().isoformat()
+-                record["_user"] = st.session_state.get("user_email", "system_import")
+-                insert_visit(record)
+-                count_imported += 1
++            #    ★ sync=False: الرفع على GitHub بيحصل **مرة واحدة** بعد اللوب كله.
++            #      قبل كده كل صف كان بيعمل ~٤ طلبات API — ٢٠٠ صف = ٨٠٠ طلب ودقايق انتظار.
++            #    ★ try/except لكل صف: صف واحد بايظ ما يوقّفش الاستيراد كله ويطلع
++            #      "0, 0" وهو مدخّل نص البيانات فعلًا (ده كان بيحصل قبل كده).
++            try:
++                if existing_record:
++                    record["id"] = existing_record["id"]  # نستخدم الـ ID الموجود لتحديث السجل صح
++                    record["_user"] = st.session_state.get("user_email", "system_import")
++                    update_visit(record, sync=False)
++                    count_updated += 1
++                else:
++                    # الإدراج مالوش صف قديم يرجع له، فالحقول الناقصة لازم تبقى ""
++                    for _k in ("address", "location_link", "selected_labs_text",
++                               "notes", "city", "district", "age_unit"):
++                        if record.get(_k) is None:
++                            record[_k] = ""
++                    record["created_at"] = datetime.now().isoformat()
++                    record["_user"] = st.session_state.get("user_email", "system_import")
++                    insert_visit(record, sync=False)
++                    count_imported += 1
++            except Exception as _row_err:
++                count_failed += 1
++                if not first_error:
++                    first_error = f"{type(_row_err).__name__}: {_row_err}"
++
++        # ── رفع واحد للدفعة كلها ──
++        if count_imported or count_updated:
++            if not save_to_github_json():
++                st.warning("⚠️ اتحفظ محليًا بس — الرفع على GitHub فشل: "
++                           + (_GH_STATE.get("last_save_blocked")
++                              or _GH_STATE.get("last_error") or "سبب غير معروف"))
++        if count_failed:
++            st.warning(f"⚠️ {count_failed} صف فشل استيرادهم — أول خطأ: {first_error}")
+ 
+         return count_imported, count_updated
+ 
+     except Exception as e:
+         st.error(f"حدث خطأ أثناء معالجة الملف: {e}")
++        # ★ مانرجّعش 0,0 لو فيه صفوف اتحفظت فعلًا — ده كان بيدّي رسالة كدّابة
++        #   ويخلّي الأدمن يعيد الاستيراد على بيانات موجودة أصلًا.
++        if count_imported or count_updated:
++            save_to_github_json()
++            return count_imported, count_updated
+         return 0, 0
+ 
+ # ══════════════════════════════════════════════════════════════════════════════
+@@ -2351,7 +2480,7 @@
+         for l in lt.splitlines() if l.strip()) if lt.strip() else "<tr><td>لا توجد تحاليل</td></tr>"
+     # ── 👥 حالات إضافية — كل حالة في بلوك منفصل عشان الأنابيب تتعلّم صح ──
+     _xps = parse_extra_persons(v.get("extra_persons",""))
+-    labs_title = f"🧪 تحاليل {v.get('name','')}" if _xps else "🧪 التحاليل المطلوبة"
++    labs_title = f"🧪 تحاليل {_esc(v.get('name',''))}" if _xps else "🧪 التحاليل المطلوبة"
+     if _xps:
+         _blocks = ""
+         for _p in _xps:
+@@ -2362,7 +2491,7 @@
+             _blocks += (
+                 f'<div style="border:1.5px solid #FFBB80;border-radius:10px;padding:10px 12px;margin-bottom:10px;">'
+                 f'<div style="font-weight:800;font-size:13px;color:#FF6B00;margin-bottom:6px;">'
+-                f'👤 {extra_person_title(_p)}</div>'
++                f'👤 {_esc(extra_person_title(_p))}</div>'
+                 f'<table><tbody>{_rows}</tbody></table></div>'
+             )
+         extra_html = (f'<div class="section"><div class="section-title">'
+@@ -2371,8 +2500,8 @@
+         extra_html = ""
+     status = v.get("status","مجدولة")
+     s_color = STATUS_COLORS.get(status,"#888"); s_icon = STATUS_ICONS.get(status,"")
+-    loc_html = f'<p style="font-size:12px;color:#FF6B00;">🗺️ {v.get("location_link","")}</p>' if v.get("location_link") else ""
+-    notes_html = f'<div class="section"><div class="section-title">📌 ملاحظات</div><p style="font-size:13px;">{v.get("notes","")}</p></div>' if v.get("notes") else ""
++    loc_html = f'<p style="font-size:12px;color:#FF6B00;">🗺️ {_esc(v.get("location_link",""))}</p>' if v.get("location_link") else ""
++    notes_html = f'<div class="section"><div class="section-title">📌 ملاحظات</div><p style="font-size:13px;">{_esc(v.get("notes",""))}</p></div>' if v.get("notes") else ""
+     pay_status = v.get("payment_status","غير مدفوع")
+     pay_color = PAYMENT_COLORS.get(pay_status,"#888")
+     return f"""<!DOCTYPE html><html dir="rtl">
+@@ -2395,26 +2524,26 @@
+ </style></head><body>
+ <div class="header"><h2>🟠 Orange Lab Home Visit Management System</h2><span>📅 {format_date_ar(v.get('visit_date',''))}</span></div>
+ <div class="section"><div class="section-title">👤 بيانات العميل</div>
+-<div class="row"><span class="label">الاسم</span><span class="value">{v['name']}</span></div>
+-<div class="row"><span class="label">السن</span><span class="value">{v.get('age','')} {v.get('age_unit','سنة')}</span></div>
+-<div class="row"><span class="label">التليفون</span><span class="value">{v.get('phone','')}</span></div>
+-<div class="row"><span class="label">الموعد</span><span class="value">{format_date_ar(v.get('visit_date',''))} — {v.get('visit_time','')}</span></div>
+-<div class="row"><span class="label">الدكتور</span><span class="value">{v.get('doctor_name','')}</span></div>
+-<div class="row"><span class="label">الفرع</span><span class="value">{v.get('branch','')}</span></div>
++<div class="row"><span class="label">الاسم</span><span class="value">{_esc(v.get('name',''))}</span></div>
++<div class="row"><span class="label">السن</span><span class="value">{_esc(v.get('age',''))} {_esc(v.get('age_unit','سنة'))}</span></div>
++<div class="row"><span class="label">التليفون</span><span class="value">{_esc(v.get('phone',''))}</span></div>
++<div class="row"><span class="label">الموعد</span><span class="value">{format_date_ar(v.get('visit_date',''))} — {_esc(v.get('visit_time',''))}</span></div>
++<div class="row"><span class="label">الدكتور</span><span class="value">{_esc(v.get('doctor_name',''))}</span></div>
++<div class="row"><span class="label">الفرع</span><span class="value">{_esc(v.get('branch',''))}</span></div>
+ <div class="row"><span class="label">الحالة</span><span class="value"><span class="status-badge">{s_icon} {status}</span></span></div>
+ <div class="row"><span class="label">الدفع</span><span class="value"><span class="pay-badge">{PAYMENT_ICONS.get(pay_status,'')} {pay_status}</span></span></div>
+ </div>
+ <div class="section"><div class="section-title">📍 العنوان</div>
+-<p style="margin:6px 0;font-size:13px;">{v.get('address','')}</p>{loc_html}</div>
++<p style="margin:6px 0;font-size:13px;">{_esc(v.get('address',''))}</p>{loc_html}</div>
+ <div class="section"><div class="section-title">{labs_title}</div>
+ <table><tbody>{labs_rows}</tbody></table></div>
+ {extra_html}
+ {notes_html}
+ <div class="price-box">
+-<div class="price-row"><span>⭐ السعر قبل الخصم</span><span>{v.get('labs_price_before',0)} جنيه</span></div>
+-<div class="price-row"><span>⭐ السعر بعد الخصم</span><span>{v.get('labs_price_after',0)} جنيه</span></div>
+-<div class="price-row"><span>🚗 بدل الانتقال</span><span>{v.get('transport_fee',0)} جنيه</span></div>
+-<div class="price-total"><span>💵 الإجمالي</span><span>{v.get('total_price',0)} جنيه</span></div>
++<div class="price-row"><span>⭐ السعر قبل الخصم</span><span>{format_money(v.get('labs_price_before',0))}</span></div>
++<div class="price-row"><span>⭐ السعر بعد الخصم</span><span>{format_money(v.get('labs_price_after',0))}</span></div>
++<div class="price-row"><span>🚗 بدل الانتقال</span><span>{format_money(v.get('transport_fee',0))}</span></div>
++<div class="price-total"><span>💵 الإجمالي</span><span>{format_money(v.get('total_price',0))}</span></div>
+ </div>
+ <div class="footer">Orange Lab Home Visit Management System — Developed by Dr / Hussein Ali 2026</div>
+ </body></html>"""
+@@ -2538,8 +2667,8 @@
+     addr      = (v.get("address","") or "")
+     addr_short = (loc_label + " — " + addr if loc_label else addr)[:42] + ("..." if len((loc_label+" "+addr))>42 else "")
+     lc        = len(v.get("selected_labs_text","").splitlines()) if v.get("selected_labs_text") else 0
+-    doc_show  = f" | 👨‍⚕️ {v.get('doctor_name','')}" if v.get("doctor_name") else ""
+-    br_show   = f" | 🏥 {v.get('branch','')}"        if v.get("branch")      else ""
++    doc_show  = f" | 👨‍⚕️ {_esc(v.get('doctor_name',''))}" if v.get("doctor_name") else ""
++    br_show   = f" | 🏥 {_esc(v.get('branch',''))}"        if v.get("branch")      else ""
+     age       = v.get("age",""); au = v.get("age_unit","سنة")
+     age_disp  = f"🎂 {age} {au}" if age else ""
+     status    = v.get("status","مجدولة")
+@@ -2551,16 +2680,20 @@
+     pay_status = v.get("payment_status","غير مدفوع")
+     pay_color  = PAYMENT_COLORS.get(pay_status,"#888")
+     pay_icon   = PAYMENT_ICONS.get(pay_status,"🔴")
++    # ★ كل قيمة جاية من المستخدم بتتلف بـ _esc() — قبل كده كانت بتتحقن خام في
++    #   markdown بـ unsafe_allow_html=True. اسم فيه < بيبوّظ التنسيق، واسم فيه
++    #   <img src=x onerror=...> كان بيشغّل JavaScript في متصفح كل مستخدم.
++    # ★ format_money() بدل {total:,} — العمود REAL في SQLite فكان بيطلع "450.0 جنيه".
+     return (
+         f'<div class="visit-card">'
+-        f'<span class="visit-badge">{total:,} جنيه</span>'
++        f'<span class="visit-badge">{format_money(total)}</span>'
+         f'<span class="status-badge" style="background:{sc}">{si} {status}</span>'
+         f'<span class="pay-badge" style="background:{pay_color}">{pay_icon} {pay_status}</span>'
+         f'<span style="background:{tag_color};color:#fff;border-radius:8px;'
+         f'padding:2px 8px;font-size:10px;font-weight:700;margin-right:4px;">{tag_auto}</span>'
+-        f'<div class="visit-name">👤 {v["name"]} {stars}</div>'
+-        f'<div class="visit-meta">📞 {v.get("phone","")} &nbsp;|&nbsp; 📅 {vdate} {vtime} &nbsp; {age_disp}</div>'
+-        f'<div class="visit-meta">📍 {addr_short}</div>'
++        f'<div class="visit-name">👤 {_esc(v.get("name",""))} {stars}</div>'
++        f'<div class="visit-meta">📞 {_esc(v.get("phone",""))} &nbsp;|&nbsp; 📅 {vdate} {vtime} &nbsp; {age_disp}</div>'
++        f'<div class="visit-meta">📍 {_esc(addr_short)}</div>'
+         f'<div class="visit-meta" style="margin-top:5px">🧪 {lc} تحليل{doc_show}{br_show}</div>'
+         f'</div>'
+     )
+@@ -2586,13 +2719,13 @@
+         f'<span class="vr-status" style="background:{sc}" title="{status}">{si}</span>'
+         f'<span class="vr-pay" style="background:{pay_color}" title="{pay_status}">{pay_icon}</span>'
+         f'<span class="vr-tag" style="background:{tag_color}" title="{tag_auto}">{tag_auto[:2]}</span>'
+-        f'<span class="vr-name">👤 {v["name"]}</span>'
+-        f'<span class="vr-phone">📞 {v.get("phone","")}</span>'
++        f'<span class="vr-name">👤 {_esc(v.get("name",""))}</span>'
++        f'<span class="vr-phone">📞 {_esc(v.get("phone",""))}</span>'
+         f'<span class="vr-date">📅 {vdate} {vtime}</span>'
+-        f'<span class="vr-loc">📍 {loc_label}</span>'
+-        f'<span class="vr-doc">👨‍⚕️ {doc_name}</span>'
+-        f'<span class="vr-branch">🏥 {branch}</span>'
+-        f'<span class="vr-price">{total:,} ج</span>'
++        f'<span class="vr-loc">📍 {_esc(loc_label)}</span>'
++        f'<span class="vr-doc">👨‍⚕️ {_esc(doc_name)}</span>'
++        f'<span class="vr-branch">🏥 {_esc(branch)}</span>'
++        f'<span class="vr-price">{format_money(total)}</span>'
+         f'</div>'
+     )
+ 
+@@ -2971,13 +3104,29 @@
+                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_home_final")
+     if st.session_state.user_type == "admin":
+         uf = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
++        # ★ حارس ضد لوب لانهائي: st.file_uploader بيفضل ماسك الملف بعد st.rerun()،
++        #   فالشرط `if uf:` كان بيرجع True تاني → استيراد → rerun → للأبد،
++        #   وكل دورة بتعمل commits على GitHub بعدد الصفوف. بنبصم الملف ونستورده مرة.
+         if uf:
+-            count_imported, count_updated = import_from_excel(uf)
+-            if count_updated > 0:
+-                st.success(f"✅ تم استيراد {count_imported} زيارة جديدة، وتحديث {count_updated} زيارة موجودة!")
++            _imp_sig = hashlib.md5(uf.getvalue()).hexdigest()
++            if st.session_state.get("_import_sig_home") != _imp_sig:
++                st.session_state["_import_sig_home"] = _imp_sig
++                with st.spinner("بيستورد ويرفع على GitHub..."):
++                    _ci, _cu = import_from_excel(uf)
++                # ★ st.rerun() ضروري: قايمة الزيارات فوق اتـ fetch قبل الاستيراد،
++                #   فمن غيره القايمة تفضل قديمة. بقى آمن دلوقتي لأن الحارس فوق
++                #   بيمنع إعادة الاستيراد بعد الـ rerun. والنتيجة بتتخزّن عشان
++                #   تتعرض بعد إعادة التشغيل بدل ما تضيع.
++                st.session_state["_import_msg_home"] = (_ci, _cu)
++                st.rerun()
+             else:
+-                st.success(f"✅ تم استيراد {count_imported} زيارة جديدة!")
+-            st.rerun()
++                _msg = st.session_state.pop("_import_msg_home", None)
++                if _msg:
++                    _ci, _cu = _msg
++                    st.success(f"✅ تم استيراد {_ci} زيارة جديدة"
++                               + (f"، وتحديث {_cu} زيارة موجودة!" if _cu else "!"))
++                else:
++                    st.caption("ℹ️ الملف ده اتستورد بالفعل — ارفع ملف تاني أو اضغط ✕ لمسحه.")
+ 
+     # ── زرار Backup / Restore لكل المستخدمين ──
+     with st.expander("💾 نسخ احتياطي واسترجاع", expanded=False):
+@@ -3324,14 +3473,14 @@
+             st.markdown(f"""<div style="background:#FFF3CD;border:2px solid #F39C12;border-radius:12px;padding:12px 16px;margin:8px 0;direction:rtl;">
+               <div style="font-weight:800;color:#E67E22;font-size:14px;margin-bottom:6px;">⚠️ هذا العميل موجود في النظام</div>
+               <div style="font-size:13px;color:#333;line-height:1.8;">
+-                👤 <b>{last_v.get('name','')}</b> &nbsp;|&nbsp;
++                👤 <b>{_esc(last_v.get('name',''))}</b> &nbsp;|&nbsp;
+                 <span style="background:{tag_color};color:#fff;border-radius:8px;padding:2px 8px;font-size:11px;">{tag_auto}</span><br>
+                 📋 إجمالي الزيارات: <b>{n_total}</b><br>
+                 📅 آخر زيارة: <b>{last_date}</b> — {last_stat}<br>
+-                🩺 آخر طبيب: {last_v.get('doctor_name','')}<br>
++                🩺 آخر طبيب: {_esc(last_v.get('doctor_name',''))}<br>
+                 📊 نشاط العميل: {churn}<br>
+-                🧪 آخر تحاليل: {last_v.get('selected_labs_text','')[:50] if last_v.get('selected_labs_text') else 'لا توجد'}<br>
+-                📍 آخر عنوان: {last_v.get('address','')[:60]}<br>
++                🧪 آخر تحاليل: {_esc(last_v.get('selected_labs_text','')[:50]) if last_v.get('selected_labs_text') else 'لا توجد'}<br>
++                📍 آخر عنوان: {_esc(last_v.get('address','')[:60])}<br>
+                 ⭐ آخر تقييم: {last_v.get('rating',0) or 'لم يقيم'}
+               </div></div>""", unsafe_allow_html=True)
+             # ── 🍊 تنبيه لو الزيارة السابقة اتسجلت من شوية ──
+@@ -3590,7 +3739,7 @@
+                 _cnt = len(p.get("labs", []))
+                 st.markdown(
+                     '<div style="font-weight:800;font-size:14px;color:#FF6B00;padding-top:6px">'
+-                    f'👤 {p.get("name") or "حالة جديدة — اكتب الاسم"}'
++                    f'👤 {_esc(p.get("name")) or "حالة جديدة — اكتب الاسم"}'
+                     + (f'<span style="color:#888;font-weight:600"> — {_cnt} تحليل</span>' if _cnt else '')
+                     + '</div>', unsafe_allow_html=True)
+             with _hc2:
+@@ -3692,7 +3841,11 @@
+                    f"+ {extra_total:,} (حالات إضافية) = {auto_labs_total:,} جنيه")
+     pp1,pp2,pp3 = st.columns(3)
+     with pp1: labs_price_before = st.number_input("⭐ السعر قبل الخصم", min_value=0, step=10, value=auto_labs_total if auto_labs_total>0 else int(pf.get("labs_price_before",0) or 0))
+-    with pp2: labs_price_after  = st.number_input("⭐ السعر بعد الخصم",  min_value=0, step=10, value=int(pf.get("labs_price_after",0) or 0))
++    # ★ كان بيبدأ من صفر دايمًا للزيارة الجديدة، والإجمالي = بعد الخصم + الانتقال —
++    #   يعني لو المستخدم نسي يملا الخانة دي، الفاتورة كانت بتطلع «بدل الانتقال بس».
++    #   دلوقتي بيبدأ من الحساب الآلي، والخصم بقى فعل مقصود مش نسيان.
++    with pp2: labs_price_after  = st.number_input("⭐ السعر بعد الخصم",  min_value=0, step=10,
++                                                  value=int(pf.get("labs_price_after",0) or auto_labs_total or 0))
+     with pp3: transport_fee     = st.number_input("⭐ بدل الانتقال",      min_value=0, step=10, value=int(pf.get("transport_fee",100) or 100))
+     total_price = labs_price_after + transport_fee
+     st.markdown(f"""<div class="price-box">
+@@ -3791,18 +3944,18 @@
+ 
+         st.markdown('<div class="section-title">👤 البيانات الشخصية</div>', unsafe_allow_html=True)
+         st.markdown(f"""
+-        <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{v['name']}</span></div>
++        <div class="detail-row"><span class="detail-label">👤 الاسم</span><span class="detail-value">{_esc(v.get('name',''))}</span></div>
+         <div class="detail-row"><span class="detail-label">🎂 السن</span><span class="detail-value">{age_str}</span></div>
+-        <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{v.get('phone','')}</span></div>
++        <div class="detail-row"><span class="detail-label">📞 التليفون</span><span class="detail-value">{_esc(v.get('phone',''))}</span></div>
+         <div class="detail-row"><span class="detail-label">📅 الموعد</span><span class="detail-value">{dt_disp}</span></div>
+-        <div class="detail-row"><span class="detail-label">👨‍⚕️ الدكتور</span><span class="detail-value">{v.get('doctor_name','')}</span></div>
+-        <div class="detail-row"><span class="detail-label">🏥 الفرع</span><span class="detail-value">{v.get('branch','')}</span></div>
++        <div class="detail-row"><span class="detail-label">👨‍⚕️ الدكتور</span><span class="detail-value">{_esc(v.get('doctor_name',''))}</span></div>
++        <div class="detail-row"><span class="detail-label">🏥 الفرع</span><span class="detail-value">{_esc(v.get('branch',''))}</span></div>
+         <div class="detail-row"><span class="detail-label">🔖 الحالة</span>
+           <span class="detail-value"><span class="status-badge" style="background:{sc}">{si} {status}</span></span></div>
+         <div class="detail-row"><span class="detail-label">💳 الدفع</span>
+           <span class="detail-value"><span class="pay-badge" style="background:{pay_color}">{pay_icon} {pay_status}</span>
+           {'  —  ' + str(v.get('paid_amount',0)) + ' جنيه' if pay_status=='مدفوع جزئياً' else ''}
+-          {'  —  ' + v.get('payment_method','') if v.get('payment_method') else ''}</span></div>
++          {'  —  ' + _esc(v.get('payment_method','')) if v.get('payment_method') else ''}</span></div>
+         """, unsafe_allow_html=True)
+ 
+         tag_auto  = get_client_tag(v.get("phone",""))
+@@ -3846,11 +3999,15 @@
+             st.markdown(f'<div style="background:#FFF3E8;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-weight:700;color:#FF6B00;font-size:13px;">🏙️ {loc_parts}</div>', unsafe_allow_html=True)
+         st.write(v.get("address",""))
+         if v.get("location_link"):
+-            st.markdown(f'<a href="{v["location_link"]}" target="_blank" style="color:#FF6B00;font-weight:700;font-size:13px;">🗺️ فتح الموقع على الخريطة</a>', unsafe_allow_html=True)
++            _loc_safe = _safe_url(v.get("location_link", ""))
++            if _loc_safe:
++                st.markdown(f'<a href="{_loc_safe}" target="_blank" rel="noopener noreferrer" style="color:#FF6B00;font-weight:700;font-size:13px;">🗺️ فتح الموقع على الخريطة</a>', unsafe_allow_html=True)
++            else:
++                st.caption("🗺️ رابط الموقع مش بصيغة صالحة (لازم يبدأ بـ https://)")
+         st.markdown("---")
+ 
+         _xps_d = parse_extra_persons(v.get("extra_persons",""))
+-        _labs_title_d = f"🧪 تحاليل {v['name']}" if _xps_d else "🧪 التحاليل المطلوبة"
++        _labs_title_d = f"🧪 تحاليل {_esc(v['name'])}" if _xps_d else "🧪 التحاليل المطلوبة"
+         st.markdown(f'<div class="section-title">{_labs_title_d}</div>', unsafe_allow_html=True)
+         lt = v.get("selected_labs_text","")
+         if lt.strip():
+@@ -3877,7 +4034,7 @@
+                 st.markdown(
+                     f'<div style="border:1.5px solid #FFBB80;border-radius:10px;padding:10px 12px;margin-bottom:10px;">'
+                     f'<div style="font-weight:800;font-size:14px;color:#FF6B00;margin-bottom:6px;">'
+-                    f'👤 {extra_person_title(_p)}</div>{_rows_html}'
++                    f'👤 {_esc(extra_person_title(_p))}</div>{_rows_html}'
+                     f'<div style="font-size:12px;color:#FF6B00;font-weight:700;margin-top:6px;">'
+                     f'💰 {_sub:,} جنيه</div></div>', unsafe_allow_html=True)
+ 
+@@ -4000,7 +4157,7 @@
+                 is_over  = fu.get("follow_up_date","") < date.today().isoformat()
+                 card_cls = "fu-card fu-overdue" if is_over else "fu-card"
+                 icon     = "🔴" if is_over else "⏰"
+-                st.markdown(f'<div class="{card_cls}">{icon} <b>{fu_date}</b> — {fu.get("reason","")}</div>', unsafe_allow_html=True)
++                st.markdown(f'<div class="{card_cls}">{icon} <b>{fu_date}</b> — {_esc(fu.get("reason",""))}</div>', unsafe_allow_html=True)
+             st.markdown("---")
+ 
+         # ── إنشاء متابعة جديدة ──
+@@ -4043,7 +4200,7 @@
+                 if st.button("❌ إلغاء", use_container_width=True):
+                     st.session_state["confirm_delete"] = False; st.rerun()
+ 
+-        st.markdown(f'<div class="repeat-banner">🔄 هتروح لـ {v["name"]} مرة تانية؟</div>', unsafe_allow_html=True)
++        st.markdown(f'<div class="repeat-banner">🔄 هتروح لـ {_esc(v["name"])} مرة تانية؟</div>', unsafe_allow_html=True)
+         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
+             go("new", prefill={
+                 "name":v["name"],"age":v.get("age",""),"age_unit":v.get("age_unit","سنة"),
+@@ -4473,13 +4630,23 @@
+                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_backup")
+     with ba2:
+         uf_dash = st.file_uploader("📤 استيراد بيانات", type=["xlsx"], key="import_dash")
++        # ★ نفس حارس اللوب اللانهائي بتاع الصفحة الرئيسية — شوف التعليق هناك.
+         if uf_dash:
+-            count_imported, count_updated = import_from_excel(uf_dash)
+-            if count_updated > 0:
+-                st.success(f"✅ تم استيراد {count_imported} زيارة جديدة، وتحديث {count_updated} زيارة موجودة!")
++            _imp_sig_d = hashlib.md5(uf_dash.getvalue()).hexdigest()
++            if st.session_state.get("_import_sig_dash") != _imp_sig_d:
++                st.session_state["_import_sig_dash"] = _imp_sig_d
++                with st.spinner("بيستورد ويرفع على GitHub..."):
++                    _ci, _cu = import_from_excel(uf_dash)
++                st.session_state["_import_msg_dash"] = (_ci, _cu)
++                st.rerun()   # ★ لتحديث إحصائيات الـ Dashboard — آمن بفضل الحارس فوق
+             else:
+-                st.success(f"✅ تم استيراد {count_imported} زيارة جديدة!")
+-            st.rerun()
++                _msg = st.session_state.pop("_import_msg_dash", None)
++                if _msg:
++                    _ci, _cu = _msg
++                    st.success(f"✅ تم استيراد {_ci} زيارة جديدة"
++                               + (f"، وتحديث {_cu} زيارة موجودة!" if _cu else "!"))
++                else:
++                    st.caption("ℹ️ الملف ده اتستورد بالفعل — ارفع ملف تاني أو اضغط ✕ لمسحه.")
+ 
+ # ══════════════════════════════════════════════════════════════════════════════
+ # صفحة بروفايل العميل
+@@ -4506,15 +4673,15 @@
+             st.markdown(f"""<div class="client-profile-header">
+               <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
+                 <div>
+-                  <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">👤 {cv.get('name','')}</div>
+-                  <div style="font-size:14px;color:rgba(255,255,255,0.8);direction:ltr;unicode-bidi:embed;">📞 {phone_cp}</div>
++                  <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:4px;">👤 {_esc(cv.get('name',''))}</div>
++                  <div style="font-size:14px;color:rgba(255,255,255,0.8);direction:ltr;unicode-bidi:embed;">📞 {_esc(phone_cp)}</div>
+                   <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">
+                     <span style="background:{tag_color};color:#fff;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;">{tag_auto}</span>
+                     <span style="background:rgba(255,255,255,0.15);color:#fff;border-radius:8px;padding:3px 10px;font-size:12px;">{churn}</span>
+                   </div>
+                 </div>
+                 <div style="text-align:center;background:rgba(255,107,0,0.3);border-radius:12px;padding:12px 16px;">
+-                  <div style="font-size:28px;font-weight:800;color:#FF9A3C;">{total_spend:,}</div>
++                  <div style="font-size:28px;font-weight:800;color:#FF9A3C;">{total_spend:,.0f}</div>
+                   <div style="font-size:11px;color:rgba(255,255,255,0.7);">إجمالي الإنفاق (جنيه)</div>
+                 </div>
+               </div>
+@@ -4522,7 +4689,7 @@
+             st.markdown(f"""<div class="stat-grid">
+               <div class="stat-box"><div class="stat-num">{len(all_client_visits)}</div><div class="stat-label">إجمالي الزيارات</div></div>
+               <div class="stat-box"><div class="stat-num" style="color:#27AE60">{done_count}</div><div class="stat-label">زيارات مكتملة</div></div>
+-              <div class="stat-box"><div class="stat-num" style="font-size:16px">{avg_spend:,}</div><div class="stat-label">متوسط الزيارة</div></div>
++              <div class="stat-box"><div class="stat-num" style="font-size:16px">{avg_spend:,.0f}</div><div class="stat-label">متوسط الزيارة</div></div>
+               <div class="stat-box"><div class="stat-num" style="color:#E74C3C">{unpaid_c}</div><div class="stat-label">غير مدفوع</div></div>
+             </div>""", unsafe_allow_html=True)
+             pa1,pa2 = st.columns(2)
+@@ -4547,9 +4714,12 @@
+                     card_cls = "fu-card fu-overdue" if is_over else "fu-card"
+                     fu_c1, fu_c2 = st.columns([5,2])
+                     with fu_c1:
+-                        st.markdown(f'<div class="{card_cls}">{"🔴" if is_over else "⏰"} <b>{format_date_ar(fu.get("follow_up_date",""))}</b><br>{fu.get("reason","")}</div>', unsafe_allow_html=True)
++                        st.markdown(f'<div class="{card_cls}">{"🔴" if is_over else "⏰"} <b>{format_date_ar(fu.get("follow_up_date",""))}</b><br>{_esc(fu.get("reason",""))}</div>', unsafe_allow_html=True)
+                     with fu_c2:
+-                        if st.button("✅ تم", key=f"cp_fu_{fu["id"]}", use_container_width=True):
++                        # ★ لازم quotes مفردة جوّه الـ f-string — إعادة استخدام نفس نوع
++                        #   الـ quote اتسمحت في Python 3.12 بس (PEP 701). على 3.11 أو أقل
++                        #   ده SyntaxError وقت الاستيراد والبرنامج مش بيفتح خالص.
++                        if st.button("✅ تم", key=f"cp_fu_{fu['id']}", use_container_width=True):
+                             complete_follow_up(fu["id"]); st.rerun()
+                 st.markdown("---")
+             st.markdown('<div class="section-title">📋 كل الزيارات</div>', unsafe_allow_html=True)
+@@ -4558,7 +4728,7 @@
+                 vstatus = v.get("status",""); vsc = STATUS_COLORS.get(vstatus,"#888")
+                 vpay = v.get("payment_status","غير مدفوع"); vpc = PAYMENT_COLORS.get(vpay,"#888")
+                 st.markdown(f'<div class="history-card">'
+-                            f'<b>📅 {vdate}</b> — 👨‍⚕️ {v.get("doctor_name","")} — 🏥 {v.get("branch","")}<br>'
++                            f'<b>📅 {vdate}</b> — 👨‍⚕️ {_esc(v.get("doctor_name",""))} — 🏥 {_esc(v.get("branch",""))}<br>'
+                             f'<span style="background:{vsc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{vstatus}</span> '
+                             f'<span style="background:{vpc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{PAYMENT_ICONS.get(vpay,"")} {vpay}</span>'
+                             f'<br>💰 {format_money(v.get("total_price",0))} — 🧪 {len((v.get("selected_labs_text","") or "").splitlines())} تحليل</div>', unsafe_allow_html=True)
+@@ -4598,8 +4768,8 @@
+         doc_c1, doc_c2, doc_c3 = st.columns([4,2,2])
+         with doc_c1:
+             transport_badge = ' <span style="background:#27AE60;color:#fff;border-radius:6px;padding:1px 8px;font-size:10px;">🚗 بدل انتقال</span>' if d.get("transport_eligible") else ""
+-            st.markdown(f'<div style="padding:8px 0;"><b style="font-size:14px;">{d["name"]}</b>{transport_badge}<br>'
+-                        f'<span style="font-size:12px;color:#888;">عمولة {d.get("commission_pct",5)}% | {d.get("phone","") or "لا يوجد تليفون"}</span></div>',
++            st.markdown(f'<div style="padding:8px 0;"><b style="font-size:14px;">{_esc(d["name"])}</b>{transport_badge}<br>'
++                        f'<span style="font-size:12px;color:#888;">عمولة {d.get("commission_pct",5)}% | {_esc(d.get("phone","")) or "لا يوجد تليفون"}</span></div>',
+                         unsafe_allow_html=True)
+         with doc_c2:
+             conn_d = get_connection()
+@@ -4616,7 +4786,7 @@
+         for d in inactive_drs:
+             dc1, dc2 = st.columns([5,2])
+             with dc1:
+-                st.markdown(f'<div style="padding:8px 0;opacity:0.6;"><b>{d["name"]}</b> — <span style="font-size:12px;color:#888;">متوقف</span></div>', unsafe_allow_html=True)
++                st.markdown(f'<div style="padding:8px 0;opacity:0.6;"><b>{_esc(d["name"])}</b> — <span style="font-size:12px;color:#888;">متوقف</span></div>', unsafe_allow_html=True)
+             with dc2:
+                 if st.button("✅ تفعيل", key=f"act_{d['id']}", use_container_width=True):
+                     toggle_doctor_active(d["id"]); st.rerun()
+@@ -4676,9 +4846,9 @@
+             fuc1, fuc2, fuc3 = st.columns([5,2,2])
+             with fuc1:
+                 st.markdown(f'<div class="fu-card {card_extra_cls}">'
+-                            f'<b>👤 {fu.get("client_name","")}</b>'
+-                            f'{" — 📞 " + fu.get("client_phone","") if fu.get("client_phone") else ""}<br>'
+-                            f'📅 {fu_date_disp} — {fu.get("reason","")}</div>', unsafe_allow_html=True)
++                            f'<b>👤 {_esc(fu.get("client_name",""))}</b>'
++                            f'{" — 📞 " + _esc(fu.get("client_phone","")) if fu.get("client_phone") else ""}<br>'
++                            f'📅 {fu_date_disp} — {_esc(fu.get("reason",""))}</div>', unsafe_allow_html=True)
+             with fuc2:
+                 if not fu.get("done"):
+                     if st.button("✅ تم", key=f"fu_done_{fu['id']}", use_container_width=True):

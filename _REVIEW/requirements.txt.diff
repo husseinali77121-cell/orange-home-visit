@@ -1,0 +1,15 @@
+--- orange-home-visit-main/requirements.txt	2026-08-12 13:59:22.000000000 +0000
++++ fixed/requirements.txt	2026-08-12 16:24:47.918363178 +0000
+@@ -1,4 +1,8 @@
+-streamlit>=1.32.0
+-pandas
+-openpyxl
+-plotly
++# ⚠️ streamlit>=1.45 مش اختياري:
++#    device_auth.py بيستخدم st.context.cookies (متاحة من 1.42)
++#    و st.context.ip_address (أحدث). على نسخة أقدم الكوكي بتفشل في **صمت**
++#    والدخول التلقائي بيرجع يعتمد على التوكن اللي في الـ URL بس.
++streamlit>=1.45
++pandas>=2.2
++openpyxl>=3.1
++plotly>=5.20
