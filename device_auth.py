@@ -23,6 +23,36 @@ TOKEN_PARAM = "dev"                 # ?dev=...
 COOKIE_NAME = "ol_hvms_dev"
 DEFAULT_DAYS = 90
 
+# ── P4: إلغاء الأجهزة ────────────────────────────────────────────────────────
+# كل توكن بيحمل رقم الإصدار اللي اتولد بيه. لو الرقم في Secrets اتغيّر،
+# كل التوكنات القديمة بتبطل فورًا.
+#
+# السيناريو اللي بيحلّه: موبايل فرع ضاع. قبل كده مكانش في طريقة تلغي توكنه
+# غير إنك تغيّر `device_secret` — وده بيفصل **كل** الأجهزة الموثوقة، ويضطرك
+# تعيد تسجيل الدخول من كل جهاز في المعمل.
+#
+# الاستخدام: زوّد الرقم في Secrets
+#     token_version = 2
+DEFAULT_TOKEN_VERSION = 1
+
+# مدة توكن الأدمن أقصر من الفروع: توكن الأدمن بيتخطّى الباسورد بالكامل
+# (admin_auto_login)، فالمخاطرة أعلى. للتغيير في Secrets: admin_days = 90
+DEFAULT_ADMIN_DAYS = 30
+
+
+def admin_days(st):
+    try:
+        return int(st.secrets.get("admin_days", DEFAULT_ADMIN_DAYS) or DEFAULT_ADMIN_DAYS)
+    except Exception:
+        return DEFAULT_ADMIN_DAYS
+
+
+def token_version(st):
+    try:
+        return int(st.secrets.get("token_version", DEFAULT_TOKEN_VERSION) or DEFAULT_TOKEN_VERSION)
+    except Exception:
+        return DEFAULT_TOKEN_VERSION
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # أدوات
@@ -82,6 +112,7 @@ def make_token(st, email, is_admin=False, device_id=None, days=DEFAULT_DAYS, ip=
         "a": 1 if is_admin else 0,
         "d": device_id or new_device_id(),
         "x": int(time.time()) + int(days) * 86400,
+        "v": token_version(st),          # P4 — رقم الإصدار للإلغاء الجماعي
     }
     if ip:
         payload["p"] = ip_prefix(ip)
@@ -108,6 +139,10 @@ def read_token(st, token):
             return None
         data = json.loads(raw)
         if int(data.get("x", 0)) < time.time():
+            return None
+        # P4 — التوكن من إصدار قديم = ملغي. التوكنات القديمة (من غير "v")
+        # بتتعامل كإصدار 1 عشان الترقية ماتفصلش الأجهزة الحالية.
+        if int(data.get("v", DEFAULT_TOKEN_VERSION)) != token_version(st):
             return None
         return data
     except Exception:
@@ -245,6 +280,17 @@ def try_auto_login(st, allowed_emails):
             if ip_prefix(ip) != data["p"]:
                 continue
         is_admin = bool(data.get("a")) and _flag(st, "admin_auto_login", True)
+        # ★ P2 — التوكن اللي جه من الـ URL بيتنقل للكوكي **ويتشال من العنوان
+        #   فورًا**. من غير الخطوة دي، أي مستخدم حالي عنده اللينك محفوظ هيفضل
+        #   ماشي بتوكن مكشوف للأبد حتى بعد إصلاح remember_device.
+        #   بنسيبه في الـ URL بس لو الاحتياطي مفعّل صراحة.
+        if via == "link" and not _flag(st, "allow_url_token", False):
+            try:
+                st.session_state["_pending_cookie"] = tok
+                st.session_state["_cookie_tries"] = 0
+                st.query_params.pop(TOKEN_PARAM, None)
+            except Exception:
+                pass
         return {"email": allowed_map[email], "is_admin": is_admin, "via": via,
                 "device_id": data.get("d", ""), "token": tok}
 
@@ -258,16 +304,31 @@ def try_auto_login(st, allowed_emails):
 
 def remember_device(st, email, is_admin=False, days=DEFAULT_DAYS):
     """
-    يولّد توكن ويحطه في الـ URL ويرجّعه.
+    يولّد توكن ويرجّعه عشان app.py يكتبه في الكوكي.
+
+    ★ P2 — التوكن **مابقاش** يتحط في الـ URL افتراضيًا.
+      كان: st.query_params[TOKEN_PARAM] = tok  ← وبيفضل هناك للأبد.
+      المشكلة إن الـ URL بيتحفظ في history المتصفح، وبيظهر في أي screenshot،
+      وبيتبعت لو حد شارك اللينك على واتساب. وأي حد يفتحه = **دخول 90 يوم**.
+      دلوقتي الكوكي هي المخزن الوحيد.
+
+      لو الكوكيز مقفولة عند مستخدم معيّن (سفاري في وضع خاص مثلاً)، يقدر
+      يفعّل الاحتياطي صراحة في Secrets:  allow_url_token = true
+
     ⚠️ الكوكي **مش** بتتكتب هنا: الـ JS بتاعها بيتنفّذ في المتصفح، وأي
        st.rerun() بعدها على طول بيلغي الفريم قبل ما يشتغل. عشان كده app.py
        بيحطّ التوكن في _pending_cookie ويكتبه في الرن اللي بعده.
     """
+    if is_admin and days == DEFAULT_DAYS:
+        days = admin_days(st)          # الأدمن ياخد المدة الأقصر افتراضيًا
     tok = make_token(st, email, is_admin=is_admin, days=days, ip=client_ip(st))
     if not tok:
         return ""
     try:
-        st.query_params[TOKEN_PARAM] = tok
+        if _flag(st, "allow_url_token", False):
+            st.query_params[TOKEN_PARAM] = tok
+        else:
+            st.query_params.pop(TOKEN_PARAM, None)
         st.query_params.pop("remember", None)
     except Exception:
         pass
