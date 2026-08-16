@@ -4,6 +4,7 @@ import os
 import uuid as uuid_lib
 import urllib.parse
 from datetime import date, datetime, timedelta, time as dt_time
+from collections import Counter
 import pandas as pd
 import re as re_module
 import json
@@ -67,6 +68,27 @@ except Exception:
 # 🔎 محرك التحاليل الذكي + 🔐 الجهاز الموثوق (ملفات منفصلة)
 # ══════════════════════════════════════════════════════════════════════════════
 import lab_picker as lp
+from import_rules import validate_row, fill_insert_defaults, ImportOptions
+# months_to_write / verify_before_prune متعرّفين في sync_guards ومختبرين هناك،
+# بس app.py لسه بيستخدم المنطق inline. مش بنستوردهم عشان مايبقوش استيراد ميت.
+from sync_guards import check_save_allowed
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🧱 الطبقة النقية — core.py
+# ══════════════════════════════════════════════════════════════════════════════
+# الدوال دي كانت متعرّفة هنا وانتقلت لملف مستقل مالوش أي اعتماد على Streamlit
+# ولا الداتابيز. الفايدة العملية: tests_pure.py بقى بيختبر **الكود الحقيقي**
+# مش نسخة منه، و repair_data.py بيقرا من نفس المصدر — مافيش انحراف.
+from core import (
+    _esc, format_money, _safe_url,
+    normalize_ar, clean_text, canonicalize_geo,
+    _payment_problems, _lab_price,
+    parse_extra_persons, dump_extra_persons,
+    extra_persons_total, extra_persons_labs_count, extra_person_title,
+    _month_of, _time_key, format_date_ar, get_client_tag_color, _hash_records,
+    revenue,
+    MONTHS_AR,
+)
 import device_auth as dev
 import phone_utils as phu
 try:
@@ -129,32 +151,52 @@ ADMIN_EMAIL   = "Hussein.ali77121@gmail.com"
 DIAMOND_EMAIL = "Orangelab511@gmail.com"
 LACITE_EMAIL  = "Huossein721@gmail.com"
 
-# ══════════════════════════════════════════════════════════════════════════════
-# دوال مساعدة للتنسيق
-# ══════════════════════════════════════════════════════════════════════════════
-def _esc(txt):
-    """
-    تهريب HTML لأي نص جاي من المستخدم قبل ما يتحط في markdown بـ
-    unsafe_allow_html. سطر تحليل مكتوب يدوي فيه < أو > كان بيبوّظ التنسيق.
-    """
-    return (str(txt or "").strip().replace("&", "&amp;").replace("<", "&lt;")
-            .replace(">", "&gt;"))
 
-def format_money(value):
+_OFFICIAL_PRICE_INDEX = None   # يتبني كسول بعد ما LABS_PRICE_LOOKUP تتحمّل
+
+def _official_price_for(entry):
+    """
+    بيدوّر على السعر الرسمي لتحليل من قائمة الأسعار بالاسم المكتوب يدويًا.
+    بيرجّع السعر، أو None لو التحليل مش في القايمة (سطر مخصص — مفيش مرجع نقارن بيه).
+
+    بيستخدم `lp.norm` — نفس تطبيع محرك البحث — عشان «Vit D» و«vitamin d»
+    و«VIT-D» يوصلوا لنفس البند بدل ما نطالب بتطابق حرفي.
+    """
+    global _OFFICIAL_PRICE_INDEX
+    name = lp.entry_name(entry)
+    if not name:
+        return None
+    if _OFFICIAL_PRICE_INDEX is None:
+        try:
+            _OFFICIAL_PRICE_INDEX = {lp.norm(k): int(vv or 0)
+                                     for k, vv in (LABS_PRICE_LOOKUP or {}).items()}
+        except Exception:
+            _OFFICIAL_PRICE_INDEX = {}
     try:
-        val = float(value or 0)
-        return f"{val:,.0f} جنيه"
-    except (ValueError, TypeError):
-        return "0 جنيه"
-
-def _safe_url(url):
+        return _OFFICIAL_PRICE_INDEX.get(lp.norm(name)) or None
+    except Exception:
+        return None
     """
-    رابط آمن للحقن في href. رابط الموقع بيتكتب بإيد المستخدم، ولو حد كتب
-    `javascript:...` كان هيتنفّذ كود لما أي حد يضغط على «فتح الموقع».
-    بنسمح بـ http/https بس، وأي حاجة تانية بترجع فاضية (الرابط مايتعرضش).
+    بيرجّع قائمة تناقضات مالية في السجل (فاضية = سليم).
+    الحالات دي مش أخطاء برمجية — دي بيانات بتقول حاجة مستحيلة، ولو عدّت
+    بتخرّب التقارير المالية والتحصيل من غير ما حد ياخد باله.
     """
-    u = str(url or "").strip()
-    return _esc(u) if u.lower().startswith(("http://", "https://")) else ""
+    def _n(x):
+        try: return float(x or 0)
+        except (TypeError, ValueError): return 0.0
+    st_pay = str(rec.get("payment_status") or "").strip()
+    paid   = _n(rec.get("paid_amount"))
+    total  = _n(rec.get("total_price"))
+    out = []
+    if st_pay == "مدفوع" and total > 0 and paid <= 0:
+        out.append(f"«مدفوع» والمبلغ المدفوع صفر (الإجمالي {total:,.0f})")
+    if st_pay == "مدفوع جزئياً" and paid <= 0:
+        out.append("«مدفوع جزئياً» والمبلغ المدفوع صفر")
+    if st_pay == "غير مدفوع" and paid > 0:
+        out.append(f"«غير مدفوع» ومسجّل مدفوع {paid:,.0f}")
+    if paid > total + 0.01 and total > 0:
+        out.append(f"المدفوع ({paid:,.0f}) أكبر من الإجمالي ({total:,.0f})")
+    return out
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 👥 الحالات الإضافية في نفس الزيارة (v6)
@@ -168,82 +210,6 @@ def _safe_url(url):
 # التخزين: JSON في عمود TEXT واحد — الزيارة تفضل صف واحد (انتقال واحد، فاتورة واحدة).
 XP_MAX = 6   # حد أقصى للحالات الإضافية في الزيارة الواحدة
 
-def _lab_price(entry):
-    """
-    يستخرج السعر من سطر تحليل بصيغة 'CBC — 400 جنيه'. يرجّع 0 لو مفيش سعر.
-
-    ★ اتصلّح بقّين كانوا بيضيّعوا فلوس في صمت — الاتنين بيتفعّلوا من خانة
-      «أضف تحليل يدوياً» اللي بتقبل أي نص:
-        ١) الفاصلة: "Test — 1,200 جنيه" كانت بترجّع 200 (السعر اتقص عند الفاصلة).
-        ٢) أول تطابق: "تحليل 25 جنيه شامل — 300 جنيه" كانت بترجّع 25.
-      الحل: نقبل الفواصل جوّه الرقم، وناخد **آخر** تطابق (السعر دايمًا في آخر السطر).
-    """
-    m = re_module.findall(r'(\d[\d,]*)\s*جنيه', str(entry or ""))
-    if not m:
-        return 0
-    try:
-        return int(m[-1].replace(",", ""))
-    except ValueError:
-        return 0
-
-def parse_extra_persons(raw):
-    """يقرأ عمود extra_persons ويرجّع list of dicts. أي داتا بايظة → [] بدل ما يكسر."""
-    if not raw:
-        return []
-    data = raw if isinstance(raw, list) else None
-    if data is None:
-        try:
-            data = json.loads(raw)
-        except Exception:
-            return []
-    if not isinstance(data, list):
-        return []
-    out = []
-    seen = set()
-    for p in data:
-        if not isinstance(p, dict):
-            continue
-        labs = p.get("labs") or []
-        if isinstance(labs, str):
-            labs = [l.strip() for l in labs.splitlines() if l.strip()]
-        # uid مكرر = مفتاحين widget بنفس الاسم = Streamlit بيرمي DuplicateWidgetID
-        # ويقفل الصفحة كلها. بنولّد واحد جديد بدل ما البرنامج يقع.
-        uid = str(p.get("uid") or "")
-        if not uid or uid in seen:
-            uid = uuid_lib.uuid4().hex[:8]
-            while uid in seen:
-                uid = uuid_lib.uuid4().hex[:8]
-        seen.add(uid)
-        out.append({
-            "uid":      uid,
-            "name":     str(p.get("name") or "").strip(),
-            "age":      str(p.get("age") or "").strip(),
-            "age_unit": str(p.get("age_unit") or "سنة"),
-            "relation": str(p.get("relation") or "").strip(),
-            "labs":     [str(l).strip() for l in labs if str(l).strip()],
-        })
-    return out
-
-def dump_extra_persons(persons):
-    """يحوّل للـ JSON للتخزين — بيتجاهل أي صف من غير اسم (صفوف فاضية اتفتحت وماتملتش)."""
-    clean = [p for p in (persons or []) if str(p.get("name", "")).strip()]
-    return json.dumps(clean, ensure_ascii=False) if clean else ""
-
-def extra_persons_total(persons):
-    """إجمالي أسعار تحاليل كل الحالات الإضافية."""
-    return sum(_lab_price(l) for p in (persons or []) for l in p.get("labs", []))
-
-def extra_persons_labs_count(persons):
-    return sum(len(p.get("labs", [])) for p in (persons or []))
-
-def extra_person_title(p):
-    """سطر تعريف الحالة: الاسم — العمر (الصلة)."""
-    who = p.get("name", "") or "بدون اسم"
-    if p.get("age"):
-        who += f" — {p['age']} {p.get('age_unit','سنة')}"
-    if p.get("relation"):
-        who += f" ({p['relation']})"
-    return who
 
 # ══════════════════════════════════════════════════════════════════════════════
 # شاشة تسجيل الدخول
@@ -254,6 +220,19 @@ def _user_type_for(email_clean):
     if e == DIAMOND_EMAIL.lower():   return "diamond"
     if e == LACITE_EMAIL.lower():    return "lacite"
     return "other"
+
+# أحداث الدخول بتحصل **قبل** ما get_connection و _log_audit يتعرّفوا في الملف،
+# فبنطبّرها في طابور وننزّلها أول ما الداتابيز تجهز (شوف _flush_auth_log).
+_AUTH_LOG_QUEUE = []
+
+def _queue_auth_log(email, action, details=""):
+    _AUTH_LOG_QUEUE.append((email, action, details))
+
+
+# محاولات الباسورد قبل القفل، ومدة القفل بالثواني
+PW_MAX_ATTEMPTS = 5
+PW_LOCK_SECONDS = 60
+
 
 def _grant(email_clean, utype=None):
     st.session_state.authenticated = True
@@ -314,42 +293,69 @@ if not st.session_state.authenticated:
             email_clean = _allowed_map[email_clean.lower()]   # الشكل القانوني من القايمة
             st.session_state["_skip_auto_login"] = False
             st.session_state["_remember_me"]     = remember_me
-            if email_clean.lower() == ADMIN_EMAIL.lower():
-                st.session_state.login_email   = email_clean
-                st.session_state.need_password = True
-                st.rerun()
-            else:
-                if remember_me:
-                    st.session_state["_pending_cookie"] = \
-                        dev.remember_device(st, email_clean, is_admin=False)
-                    st.session_state["_cookie_tries"] = 0
-                else:
-                    dev.forget_device(st)
-                _grant(email_clean)
-                st.rerun()
+            # ★ P1 — كل المستخدمين بقوا يعدّوا على شاشة الباسورد، مش الأدمن بس.
+            #   قبل كده: الإيميل لوحده = credential. أي حد يعرف إيميل الفرع
+            #   (وهو معلن على صفحة المعمل) كان بيدخل ويشوف بيانات 1,030 مريض.
+            #   الأدمن بياخد `admin_password`، وباقي الفروع `branch_password`.
+            st.session_state.login_email   = email_clean
+            st.session_state.need_password = True
+            st.rerun()
     if st.session_state.get("need_password"):
         st.markdown("---")
-        st.markdown(f"البريد: **{st.session_state.login_email}**")
-        password = st.text_input("🔑 كلمة المرور", type="password")
-        if st.button("تأكيد كلمة المرور"):
-            # ★ من غير fallback لـ "123456": لو السر مش متظبّط في Secrets، الأأمن
-            #   إن دخول الأدمن يتقفل تمامًا بدل ما يفتح بباسورد معروف لأي حد شايف الكود.
-            correct_password = str(_sec("admin_password", "") or "")
+        _login_email = st.session_state.login_email
+        _is_admin_login = _login_email.lower() == ADMIN_EMAIL.lower()
+        st.markdown(f"البريد: **{_login_email}**")
+
+        # ── تحديد المحاولات ────────────────────────────────────────────────
+        # ★ باسورد قصير أو متسلسل بيتخمّن آليًا في ثواني. التحديد ده بيحوّل
+        #   ٥ محاولات في الثانية لـ ٥ محاولات كل دقيقة — مش حماية كاملة، بس
+        #   بيرفع تكلفة التخمين من ثواني لأيام.
+        _fails   = int(st.session_state.get("_pw_fails", 0))
+        _lock_at = st.session_state.get("_pw_locked_until")
+        _now     = datetime.now()
+        _locked  = bool(_lock_at and _now < _lock_at)
+        if _locked:
+            _left = int((_lock_at - _now).total_seconds())
+            st.error(f"⛔ محاولات كتير. استنى {_left} ثانية.")
+
+        password = st.text_input("🔑 كلمة المرور", type="password",
+                                 disabled=_locked, key="pw_input")
+        if st.button("تأكيد كلمة المرور", disabled=_locked):
+            # ★ سرّين منفصلين: الأدمن له `admin_password`، والفروع
+            #   `branch_password` مشترك. مفيش fallback لقيمة في الكود —
+            #   السر اللي مش متظبّط = الدخول مقفول، مش مفتوح بقيمة معروفة.
+            _sec_key = "admin_password" if _is_admin_login else "branch_password"
+            correct_password = str(_sec(_sec_key, "") or "")
             if not correct_password:
-                st.error("⛔ `admin_password` مش متظبّط في Secrets — دخول الأدمن مقفول.")
+                st.error(f"⛔ `{_sec_key}` مش متظبّط في Secrets — الدخول مقفول.")
             # ★ .encode() مش زيادة: hmac.compare_digest بيرمي TypeError على str
             #   فيه أي حرف مش ASCII. باسورد فيه حرف عربي واحد كان هيقفل الدخول.
             elif hmac.compare_digest(str(password).encode("utf-8"),
                                      correct_password.encode("utf-8")):
-                st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن")
+                st.session_state["_pw_fails"] = 0
+                st.session_state.pop("_pw_locked_until", None)
+                st.success("صلِّ على رسول الله ﷺ - أهلاً بالأدمن" if _is_admin_login
+                           else "صلِّ على رسول الله ﷺ - أهلاً بيك")
                 if st.session_state.get("_remember_me", True):
                     st.session_state["_pending_cookie"] = dev.remember_device(
-                        st, st.session_state.login_email, is_admin=True)
+                        st, _login_email, is_admin=_is_admin_login)
                     st.session_state["_cookie_tries"] = 0
-                _grant(st.session_state.login_email, "admin")
+                else:
+                    dev.forget_device(st)
+                _grant(_login_email, "admin" if _is_admin_login else None)
+                _queue_auth_log(_login_email, "login",
+                                f"دخول ناجح ({'admin' if _is_admin_login else 'branch'})")
                 st.rerun()
             else:
-                st.error("كلمة مرور خاطئة")
+                _fails += 1
+                st.session_state["_pw_fails"] = _fails
+                _queue_auth_log(_login_email, "login_failed", f"محاولة فاشلة رقم {_fails}")
+                if _fails >= PW_MAX_ATTEMPTS:
+                    st.session_state["_pw_locked_until"] = _now + timedelta(seconds=PW_LOCK_SECONDS)
+                    st.session_state["_pw_fails"] = 0
+                    st.error(f"⛔ {PW_MAX_ATTEMPTS} محاولات فاشلة — مقفول {PW_LOCK_SECONDS} ثانية.")
+                else:
+                    st.error(f"كلمة مرور خاطئة ({PW_MAX_ATTEMPTS - _fails} محاولة فاضلة)")
         if st.button("رجوع"):
             st.session_state.need_password = False
             # من غير السطر ده، الدخول التلقائي بيرجّعه لشاشة الباسورد فوراً
@@ -385,7 +391,6 @@ if _pc:
 # ── مسار قاعدة البيانات الثابت (لا يتغير بعد restart) ──
 _DATA_DIR = "/data" if os.path.isdir("/data") else "."
 DB_FILE      = os.path.join(_DATA_DIR, "visits.db")
-BACKUP_DIR   = os.path.join(_DATA_DIR, "backups")
 BACKUP_EXCEL = "visits_export.xlsx"
 BACKUP_JSON  = os.path.join(_DATA_DIR, "visits_backup.json")
 SCHEMA_VERSION = 6
@@ -416,6 +421,8 @@ GITHUB_MONTHLY_DIR = _sec("github_monthly_dir", "visits")
 
 # ── حالة اتصال GitHub (تعيش طول عمر السيرفر، بتتحدث مع كل قراءة/كتابة) ──
 _GH_STATE = {
+    "file_sha": {},           # path → SHA وقت آخر قراءة (Compare-and-Swap)
+    "conflict": "",           # آخر ملف حصل عليه تعارض
     "connected": None,        # None = لسه ما اتفحصش، True/False بعد أول عملية
     "remote_total": None,     # آخر عدد زيارات معروف على GitHub
     "last_error": "",
@@ -440,6 +447,11 @@ def _github_headers():
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "orange-hvms",
     }
+
+def _remember_sha(path, sha):
+    """بيخزّن SHA ملف وقت القراءة — أساس الـCompare-and-Swap."""
+    _GH_STATE.setdefault("file_sha", {})[path] = sha or ""
+
 
 def _get_github_file_sha(path):
     """
@@ -495,8 +507,27 @@ def _gh_get_json(path):
     except Exception as e:
         return None, None, f"{type(e).__name__}: {e}"
 
-def _gh_put_json(path, payload, message):
-    """رفع أي ملف JSON على GitHub. بيرجّع True/False ويحدّث _GH_STATE['last_error']."""
+def _gh_put_json(path, payload, message, expected_sha=None):
+    """
+    رفع ملف JSON على GitHub. بيرجّع True/False ويحدّث _GH_STATE['last_error'].
+
+    ★★ حماية الكتابة المتزامنة (Compare-and-Swap):
+
+    الإصدار القديم كان بيجيب SHA **جديد** قبل الـPUT مباشرة، فGitHub كان
+    بيقبل أي كتابة دايمًا. النتيجة سيناريو فقد صامت:
+
+        الفرعين عندهم 1000، وGitHub عليه 1000
+        La Cité يضيف X  → 1001 → رفع → GitHub فيه X
+        Diamond لسه شايف remote=1000، يضيف Y → 1001 → رفع الملف كامل
+        ⇒ GitHub بقى 1001 (سليم عدديًا) بس **زيارة X ضاعت**
+
+    حارس العدد بيمنع 1000→999، لكن مش بيمنع 1001-A → 1001-B.
+
+    الحل: نبعت الـSHA اللي كنا **قرينا** الملف عنده. لو حد تاني كتب بعدنا،
+    GitHub بيرفض بـ 409 Conflict وإحنا بنعيد القراءة والدمج بدل ما ندوس.
+
+    expected_sha=None → السلوك القديم (للملفات الجديدة أو الكتابة المتعمّدة).
+    """
     if not (GITHUB_TOKEN and GITHUB_REPO):
         _GH_STATE["last_error"] = "secrets ناقصة"
         return False
@@ -505,7 +536,7 @@ def _gh_put_json(path, payload, message):
         # compact: مفيش indent → الملف أصغر ~35% وكل commit أخف على الريبو
         content_str = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         content_b64 = base64.b64encode(content_str.encode("utf-8")).decode("utf-8")
-        sha = _get_github_file_sha(path)
+        sha = expected_sha if expected_sha is not None else _get_github_file_sha(path)
         body = {"message": message, "content": content_b64, "branch": GITHUB_BRANCH}
         if sha:
             body["sha"] = sha
@@ -514,8 +545,28 @@ def _gh_put_json(path, payload, message):
             url, data=json.dumps(body).encode("utf-8"),
             headers={**_github_headers(), "Content-Type": "application/json"}, method="PUT")
         with urllib.request.urlopen(req, timeout=60) as r:
-            return r.status in (200, 201)
+            if r.status in (200, 201):
+                try:    # خزّن الـSHA الجديد عشان الكتابة اللي بعدها
+                    _GH_STATE.setdefault("file_sha", {})[path] = json.loads(
+                        r.read().decode("utf-8")).get("content", {}).get("sha", "")
+                except Exception:
+                    _GH_STATE.setdefault("file_sha", {}).pop(path, None)
+                return True
+            return False
     except urllib.error.HTTPError as he:
+        if he.code == 409 or (he.code == 422 and expected_sha):
+            # ★ حد تاني كتب على الملف ده بعد ما قرينا — تعارض حقيقي
+            # ★ مهم: **مانشيلش** الـSHA من الكاش هنا. لو شلناه، المحاولة
+            #   الجاية هتبعت expected_sha=None → الدالة تجيب SHA جديد →
+            #   GitHub يقبل → ندوس على شغل الفرع التاني. يعني التعارض
+            #   هيتحوّل لفقد بيانات بعد ضغطة واحدة زيادة.
+            #   بنسيب الـSHA القديم عشان كل محاولة تترفض لحد ما المستخدم
+            #   يعمل «تحديث من GitHub ودمج» اللي بيمسح الكاش ويعيد القراءة.
+            _GH_STATE["conflict"] = path
+            _GH_STATE["last_error"] = (
+                f"تعارض على {path}: فرع تاني عدّل نفس الملف. "
+                "اضغط «تحديث من GitHub ودمج» قبل ما تكمّل.")
+            return False
         _GH_STATE["connected"] = False
         _GH_STATE["last_error"] = f"فشل الرفع — HTTP {he.code}" + (" (توكن منتهي/صلاحيات ناقصة)" if he.code in (401, 403) else "")
         return False
@@ -523,23 +574,6 @@ def _gh_put_json(path, payload, message):
         _GH_STATE["last_error"] = f"{type(e).__name__}: {e}"
         return False
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ★ v5 — أدوات التقسيم الشهري
-# ══════════════════════════════════════════════════════════════════════════════
-def _month_of(rec):
-    """
-    '2026-06-14' → '2026-06'. أي تاريخ غلط/فاضي → '0000-00' (سلة مستقلة، مش بتضيع).
-
-    ★ الفحص القديم (len>=7 and d[4]=='-') كان بيعدّي تواريخ بايظة وينتج أسماء
-      ملفات مكسورة: "2026-8-1" → "2026-8-" → visits/2026-8-.json
-      (وفعلًا فيه سجل في الأرشيف تاريخه "19:00:00"). التحقق الحقيقي بيقفل الباب ده.
-    """
-    d = str(rec.get("visit_date") or "").strip()
-    try:
-        date.fromisoformat(d[:10])
-        return d[:7]
-    except Exception:
-        return "0000-00"
 
 def _month_path(month):
     return f"{GITHUB_MONTHLY_DIR}/{month}.json"
@@ -553,12 +587,6 @@ def _bucket_by_month(rows):
         out[m].sort(key=lambda x: str(x.get("id") or ""))
     return out
 
-def _hash_records(recs):
-    """بصمة محتوى ثابتة لمجموعة صفوف — بنقارن بيها بدل ما نرفع شهر ماتغيرش."""
-    canon = json.dumps(
-        sorted(recs, key=lambda x: str(x.get("id") or "")),
-        ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
-    return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]
 
 def _gh_list_month_files():
     """أسماء الشهور الموجودة على GitHub. يرجّع (["2026-06", …] | None) — None = فشل قراءة."""
@@ -578,6 +606,13 @@ def _gh_list_month_files():
             return None
         if not isinstance(entries, list):
             return []
+        # ★ خزّن SHA كل ملف وقت القراءة — ده أساس الـCompare-and-Swap.
+        #   عند الكتابة بنبعت الـSHA ده؛ لو فرع تاني كتب في الوقت ده،
+        #   GitHub بيرفض بـ409 بدل ما يدوس على شغله.
+        _shas = _GH_STATE.setdefault("file_sha", {})
+        for e in entries:
+            if isinstance(e, dict) and e.get("name", "").endswith(".json"):
+                _shas[f"{GITHUB_MONTHLY_DIR}/{e['name']}"] = e.get("sha", "")
         return sorted([e["name"][:-5] for e in entries
                        if isinstance(e, dict) and e.get("name", "").endswith(".json")])
     except Exception as e:
@@ -658,11 +693,26 @@ def save_to_github_json():
          (يعني الصفوف اتنقلت بين شهور، ما ضاعتش).
     """
     _GH_STATE["local_writes"] = _GH_STATE.get("local_writes", 0) + 1
+
+    def _block(msg):
+        """رفض موحّد — بيسجّل السبب ويزوّد عدّاد غير المحفوظ."""
+        _GH_STATE["last_save_blocked"] = msg
+        _GH_STATE["unsaved"] = _GH_STATE.get("unsaved", 0) + 1
+        return False
+
     if not (GITHUB_TOKEN and GITHUB_REPO):
         _GH_STATE["connected"] = False
         _GH_STATE["last_error"] = "github_token أو github_repo مش موجودين في Secrets"
         _GH_STATE["unsaved"] = _GH_STATE.get("unsaved", 0) + 1
         return False
+
+    # ★ حارس التعارض: طول ما فيه تعارض غير محلول، ممنوع أي رفع.
+    #   من غيره، المستخدم يقدر يعدّي على التعارض بمجرد إنه يعمل أي تعديل
+    #   تاني — والرفع وقتها بيدوس على شغل الفرع التاني.
+    if _GH_STATE.get("conflict"):
+        return _block(
+            f"تعارض غير محلول على {_GH_STATE['conflict']} — اضغط "
+            "«🔄 تحديث من GitHub ودمج» الأول. تعديلاتك محفوظة محليًا.")
     try:
         conn = get_connection()
         # archived=0 بس → الزيارات المؤرشفة عاشت في ملف الأرشيف ومش بترجع للملف الحي
@@ -672,34 +722,30 @@ def save_to_github_json():
             _d.pop("archived", None)
         local_total = len(all_data)
 
-        # ── الحارس 1: ملف فاضي = ممنوع ──
-        if local_total == 0:
-            _GH_STATE["last_save_blocked"] = "اترفض الحفظ: قاعدة البيانات المحلية فاضية — كان هيمسح كل اللي على GitHub"
-            _GH_STATE["unsaved"] = _GH_STATE.get("unsaved", 0) + 1
-            return False
-
-        # ── الحارس 2 و3: قارن بآخر عدد معروف على GitHub ──
-        remote_total = _GH_STATE.get("remote_total")
-        if remote_total is None:
+        # ── الحُرّاس ①②③ ──
+        # ★ منطق القرار اتنقل لـ sync_guards.py — دالة نقية قابلة للاختبار.
+        #   الحُرّاس دول أخطر كود في النظام (بيمنعوا مسح 1,030 سجل) وكانوا
+        #   مالهمش ولا اختبار مباشر لأنهم مدفونين وسط نداءات شبكة.
+        #   السلوك مطابق للأصل حرفيًا — الفرق إنه بقى يتختبر.
+        _d = check_save_allowed(local_total, _GH_STATE.get("remote_total"),
+                                has_credentials=True,
+                                allow_shrink_once=bool(_GH_STATE.get("allow_shrink_once")))
+        if not _d and _d.guard == "unverified":
+            # محاولة تانية: اقرا الحالة من GitHub وأعد الفحص
             # ملاحظة: لازم if/else كـ statement مش تعبير شرطي —
             # Streamlit magic بيلفّ أي تعبير سايب في st.write() ويطبع الناتج على الشاشة.
             if USE_MONTHLY_SYNC:
                 _gh_load_all_visits()
             else:
                 _gh_download_visits()
-            remote_total = _GH_STATE.get("remote_total")
-        if remote_total is None:
-            _GH_STATE["last_save_blocked"] = "اترفض الحفظ: تعذّر التحقق من GitHub — " + (_GH_STATE.get("last_error") or "اتصال فاشل")
-            _GH_STATE["unsaved"] = _GH_STATE.get("unsaved", 0) + 1
-            return False
-        shrink_ok = bool(_GH_STATE.get("allow_shrink_once"))
-        if local_total < remote_total and not shrink_ok:
-            _GH_STATE["last_save_blocked"] = (
-                f"اترفض الحفظ: المحلي فيه {local_total} زيارة وGitHub فيه {remote_total} — "
-                f"استرجع من GitHub الأول قبل أي تعديل"
-            )
-            _GH_STATE["unsaved"] = _GH_STATE.get("unsaved", 0) + 1
-            return False
+            _d = check_save_allowed(local_total, _GH_STATE.get("remote_total"),
+                                    has_credentials=True,
+                                    allow_shrink_once=bool(_GH_STATE.get("allow_shrink_once")))
+        if not _d:
+            _msg = _d.reason
+            if _d.guard == "unverified":
+                _msg += " — " + (_GH_STATE.get("last_error") or "اتصال فاشل")
+            return _block(_msg)
 
         ok_monthly, ok_legacy = True, True
         written = []
@@ -729,8 +775,12 @@ def save_to_github_json():
                     # الحارس 4: تصغير شهر مسموح بس لأن الحارس الكلي عدّى فوق
                     payload = {"month": m, "exported_at": datetime.now().isoformat(),
                                "total": len(recs), "visits": recs}
-                    if _gh_put_json(_month_path(m), payload,
-                                    f"sync {m} ({len(recs)} visits)"):
+                    # expected_sha = اللي قرينا عنده. غير موجود = ملف جديد.
+                    _p = _month_path(m)
+                    _exp = (_GH_STATE.get("file_sha") or {}).get(_p)
+                    if _gh_put_json(_p, payload,
+                                    f"sync {m} ({len(recs)} visits)",
+                                    expected_sha=_exp):
                         _GH_STATE["month_hash"][m]   = h_new
                         _GH_STATE["month_totals"][m] = len(recs)
                         written.append(m)
@@ -744,7 +794,8 @@ def save_to_github_json():
                        "total": local_total, "visits": all_data}
             ok_legacy = _gh_put_json(
                 GITHUB_JSON_PATH, payload,
-                f"auto-save {datetime.now().strftime('%Y-%m-%d %H:%M')} ({local_total} visits)")
+                f"auto-save {datetime.now().strftime('%Y-%m-%d %H:%M')} ({local_total} visits)",
+                expected_sha=(_GH_STATE.get("file_sha") or {}).get(GITHUB_JSON_PATH))
             if ok_legacy:
                 _GH_STATE["legacy_total"] = local_total
 
@@ -755,6 +806,7 @@ def save_to_github_json():
             _GH_STATE["remote_total"]      = local_total
             _GH_STATE["last_error"]        = ""
             _GH_STATE["last_save_blocked"] = ""
+            _GH_STATE["conflict"]          = ""    # التعارض اتحل
             _GH_STATE["unsaved"]           = 0     # كل حاجة وصلت GitHub
         else:
             _GH_STATE["unsaved"] = _GH_STATE.get("unsaved", 0) + 1
@@ -830,6 +882,9 @@ def _gh_download_visits():
             "User-Agent": "orange-hvms",
         }
         req = urllib.request.Request(url, headers=headers)
+        # ★ SHA وقت القراءة — أساس الـCompare-and-Swap عند الرفع.
+        #   raw media type مابيرجّعش SHA، فبنجيبه بنداء منفصل خفيف.
+        _remember_sha(GITHUB_JSON_PATH, _get_github_file_sha(GITHUB_JSON_PATH))
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
                 status = getattr(r, "status", 200)
@@ -1374,24 +1429,6 @@ def backup_to_excel_bytes():
     except Exception as e:
         return None, None
 
-def get_setting(key, default=None):
-    try:
-        conn = get_connection()
-        row = conn.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
-        return row[0] if row else default
-    except Exception:
-        return default
-
-def set_setting(key, value):
-    try:
-        conn = get_connection()
-        conn.execute("""
-            INSERT OR REPLACE INTO settings (key, value, updated_at)
-            VALUES (?, ?, ?)
-        """, (key, str(value), datetime.now().isoformat()))
-        conn.commit()
-    except Exception as e:
-        log_error(st.session_state.user_email, "set_setting", e)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ثوابت
@@ -1403,8 +1440,17 @@ PAYMENT_STATUS_OPTIONS = ["غير مدفوع", "مدفوع جزئياً", "مد�
 PAYMENT_METHODS        = ["نقدي", "محفظة إلكترونية", "تحويل بنكي", "بطاقة"]
 PAYMENT_COLORS  = {"غير مدفوع":"#E74C3C","مدفوع جزئياً":"#F39C12","مدفوع":"#27AE60"}
 PAYMENT_ICONS   = {"غير مدفوع":"🔴","مدفوع جزئياً":"🟡","مدفوع":"🟢"}
-MONTHS_AR = ["يناير","فبراير","مارس","أبريل","مايو","يونيو",
-             "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"]
+# ★ كانوا مكتوبين inline في 3 أماكن — التوحيد هنا يخلّي الاستيراد يقدر يتحقق منهم
+AGE_UNITS = ["سنة", "شهر"]
+BRANCHES  = ["La Cite", "Diamond"]
+
+# القيم المسموحة بتتبعت لـ import_rules عشان تفضل معرّفة في مكان واحد
+_IMPORT_OPTS = ImportOptions(
+    status_options=tuple(STATUS_OPTIONS),
+    payment_options=tuple(PAYMENT_STATUS_OPTIONS),
+    age_units=tuple(AGE_UNITS),
+    branches=tuple(BRANCHES),
+)
 CITY_OPTIONS = ["6 أكتوبر", "الشيخ زايد", "القاهرة", "الجيزة", "الإسكندرية", "أخرى..."]
 
 # ── ★ التحويل الآلي للحالة: (مجدولة / في الطريق) → تمت بعد انتهاء الموعد ──
@@ -1440,6 +1486,16 @@ def _log_audit(user_email, action, table_name, record_id, field_name="", old_val
         conn.commit()
     except Exception as e:
         log_error(user_email, "audit_log", e)
+
+def _flush_auth_log():
+    """بينزّل أحداث الدخول المطبورة بعد ما الداتابيز تجهز."""
+    while _AUTH_LOG_QUEUE:
+        _em, _ac, _dt = _AUTH_LOG_QUEUE.pop(0)
+        _log_audit(_em, _ac, "auth", "-", details=_dt)
+
+
+_flush_auth_log()   # ★ الداتابيز جاهزة هنا (init_db اتنادت في سطر 1238)
+
 
 def fetch_visit_by_unique_keys(name, phone, visit_date):
     conn = get_connection()
@@ -1758,16 +1814,80 @@ def update_tag(vid, tag):
     save_to_github_json()   # ★ كان ناقص
 
 def update_payment(vid, pay_status, pay_method, paid_amount, pay_date, user_email=""):
-    conn = get_connection()
+    """
+    بيرجّع (True, "") لو اتحفظ، أو (False, "السبب") لو اترفض.
+
+    ★ ده المكان الصح للحارس المالي: كل تحديثات الدفع السريعة (قايمة الزيارات
+      وصفحة التفاصيل) بتعدّي من هنا. الفورم الكبير بيتحقق عنده، وده بيغطّي
+      الباقي — قاعدة واحدة في مكان واحد بدل ما تتكرر في 3 شاشات وتتفرّق.
+    """
     old = fetch_visit_by_id(vid)
+    if not old:
+        return False, "الزيارة مش موجودة"
+    problems = _payment_problems({
+        "payment_status": pay_status,
+        "paid_amount":    paid_amount,
+        "total_price":    old.get("total_price", 0),
+    })
+    if problems:
+        return False, " · ".join(problems)
+
+    conn = get_connection()
     conn.execute(
         "UPDATE visits SET payment_status=?,payment_method=?,paid_amount=?,payment_date=?,updated_at=? WHERE id=?",
         (pay_status, pay_method, float(paid_amount), pay_date, datetime.now().isoformat(), vid)
     )
     conn.commit()
-    if old:
-        _log_audit(user_email, "update_payment", "visits", vid, field_name="payment_status", old_value=old.get("payment_status"), new_value=pay_status)
+    _log_audit(user_email, "update_payment", "visits", vid, field_name="payment_status",
+               old_value=old.get("payment_status"), new_value=pay_status)
     save_to_github_json()   # ★ كان ناقص → كل بيانات الدفع كانت بتضيع بعد الـ sleep
+    return True, ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AUDIT / ERROR LOG — قراءة
+# ══════════════════════════════════════════════════════════════════════════════
+# ★ الجدولين دول كان بيتكتب فيهم من 9 أماكن و**مفيش ولا استعلام قراءة واحد**
+#   في البرنامج كله. يعني لو حصلت مشكلة بكرة، مافيش طريقة تعرف مين عمل إيه
+#   غير إنك تفتح الـ DB بإيدك. الدوال دي بتحوّل البيانات الميتة دي لأداة فعلية.
+def fetch_audit_log(limit=200, user=None, action=None, since=None, record_id=None):
+    conn = get_connection()
+    q = "SELECT * FROM audit_log WHERE 1=1"
+    p = []
+    if user:      q += " AND user_email = ?";        p.append(user)
+    if action:    q += " AND action = ?";            p.append(action)
+    if since:     q += " AND timestamp >= ?";        p.append(since)
+    if record_id: q += " AND record_id = ?";         p.append(record_id)
+    q += " ORDER BY id DESC LIMIT ?"
+    p.append(int(limit))
+    return [dict(r) for r in conn.execute(q, tuple(p)).fetchall()]
+
+
+def fetch_error_log(limit=100):
+    conn = get_connection()
+    return [dict(r) for r in conn.execute(
+        "SELECT * FROM error_log ORDER BY id DESC LIMIT ?", (int(limit),)).fetchall()]
+
+
+_AUDIT_FILTER_COLS = {"user_email", "action", "table_name"}
+
+def audit_distinct(col):
+    """
+    قيم فريدة لعمود — لبناء الفلاتر من غير ما نكتبها بالإيد.
+
+    ★ اسم العمود مش بيتحط في استعلام مُعامَل (SQLite مابيسمحش بده)، فلازم
+      قائمة بيضاء. من غيرها أي مصدر للاسم بيبقى حقن SQL جاهز.
+    """
+    if col not in _AUDIT_FILTER_COLS:
+        return []
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            f"SELECT DISTINCT {col} FROM audit_log WHERE {col} IS NOT NULL AND {col} != '' "
+            "ORDER BY 1 LIMIT 60").fetchall()
+        return [r[0] for r in rows]
+    except Exception:
+        return []
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DOCTORS CRUD
@@ -1836,17 +1956,6 @@ def complete_follow_up(fu_id):
     conn.execute("UPDATE follow_ups SET done=1 WHERE id=?",(fu_id,))
     conn.commit()
 
-# ══════════════════════════════════════════════════════════════════════════════
-# Excel Export/Import
-# ══════════════════════════════════════════════════════════════════════════════
-def _time_key(t):
-    """'9:05 PM' → 1265 (دقائق من منتصف الليل). فاضي/غير معروف → -1 (أول اليوم)."""
-    m = re_module.match(r'\s*(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)?', str(t or ""), re_module.IGNORECASE)
-    if not m: return -1
-    h, mi, ap = int(m.group(1)), int(m.group(2)), (m.group(3) or "").upper()
-    if ap in ("PM", "م") and h != 12: h += 12
-    if ap in ("AM", "ص") and h == 12: h = 0
-    return h * 60 + mi
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ★ التحويل الآلي: زيارة عدّى ميعادها → «تمت» أوتوماتيك
@@ -2101,8 +2210,10 @@ def import_from_excel(uploaded_file):
     # ★ العدادات بره الـ try عشان الـ except الخارجي يقدر يشوفها ويرجّع رقم صحيح
     count_imported = 0
     count_updated  = 0
-    count_failed   = 0
-    first_error    = ""
+    # ★ count_failed/first_error اتشالوا: بقوا مكررين مع failed_rows اللي
+    #   بيحمل الرقم والسبب معاً. متغيّر بيتحدّث ومحدش بيقراه = بق مستقبلي جاهز.
+    failed_rows    = []   # صفوف مرفوضة + سبب الرفض (بتتعرض في جدول للأدمن)
+    warned_rows    = []   # صفوف اتحفظت لكن فيها ملاحظة (تناقض مالي/رقم غريب)
     try:
         # ★ مؤشر الملف ممكن يكون اتحرّك من getvalue()/قراءة سابقة — UploadedFile
         #   بيفضل عايش في session_state عبر الـ reruns. seek(0) بيضمن قراءة من الأول.
@@ -2162,8 +2273,8 @@ def import_from_excel(uploaded_file):
             if _unmapped:
                 st.caption("أعمدة اتجاهلت: " + "، ".join(map(str, _unmapped)))
 
-        # 2. المرور على كل صف
-        for _, row in df.iterrows():
+        # 2. المرور على كل صف — enumerate عشان نقدر نقول للأدمن رقم الصف بالظبط
+        for _idx, (_, row) in enumerate(df.iterrows()):
             record = {}
             
             # تعيين القيم من ملف الإكسيل
@@ -2172,49 +2283,23 @@ def import_from_excel(uploaded_file):
                 if pd.isna(val): val = None
                 record[key] = val
 
-            # معالجة الأرقام (ضمان إنها أرقام وليست نصوص)
-            for num_key in ["labs_price_before", "labs_price_after", "transport_fee", "total_price", "paid_amount", "age"]:
-                if num_key in record and record[num_key] is not None:
-                    try:
-                        if isinstance(record[num_key], str):
-                            record[num_key] = float(record[num_key].replace(",", ""))
-                        else:
-                            record[num_key] = float(record[num_key])
-                    except:
-                        record[num_key] = 0
-                elif num_key not in record:
-                    record[num_key] = 0
+            # ── التحقق من الصف ─────────────────────────────────────────────
+            # ★ كل منطق التحقق اتنقل لـ import_rules.py — دالة نقية قابلة
+            #   للاختبار. كان مدفون هنا وسط نداءات st.* يعني مستحيل يتختبر،
+            #   رغم إنه بيحمل كل إصلاحات جولات التقوية (التاريخ الفاسد،
+            #   التحقق المالي، الأرقام السالبة، قصر القيم التصنيفية).
+            record, _fatal, _warns = validate_row(record, _IMPORT_OPTS)
 
-            # معالجة القيم النصية الافتراضية
-            for txt_key in ["status", "branch", "payment_status", "payment_method", "doctor_name", "age_unit"]:
-                if txt_key not in record or record[txt_key] is None:
-                    if txt_key == "status": record[txt_key] = "مجدولة"
-                    elif txt_key == "branch": record[txt_key] = "La Cite"
-                    elif txt_key == "payment_status": record[txt_key] = "غير مدفوع"
-                    elif txt_key == "payment_method": record[txt_key] = "نقدي"
-                    elif txt_key == "age_unit": record[txt_key] = "سنة"
-                    else: record[txt_key] = ""
-
-            # معالجة التواريخ بدقة
-            if "visit_date" in record and record["visit_date"] is not None:
-                try:
-                    record["visit_date"] = pd.to_datetime(record["visit_date"]).strftime("%Y-%m-%d")
-                except:
-                    record["visit_date"] = date.today().isoformat()
-            else:
-                record["visit_date"] = date.today().isoformat()
-                
-            # إذا لم يكن هناك وقت، ضع فارغاً
-            if "visit_time" not in record or record["visit_time"] is None:
-                record["visit_time"] = ""
-
-            # حساب الإجمالي إذا لم يكن موجوداً
-            if record.get("total_price", 0) == 0:
-                record["total_price"] = record.get("labs_price_after", 0) + record.get("transport_fee", 0)
-
-            # التأكد من وجود البيانات الأساسية
-            if not record.get("name") or not record.get("phone"):
+            _row_no = _idx + 2   # +2 = صف العناوين + الفهرسة من 1
+            if _fatal:
+                failed_rows.append({"صف": _row_no,
+                                    "الاسم": str(record.get("name") or "—")[:30],
+                                    "السبب": " · ".join(_fatal)})
                 continue
+            if _warns:
+                warned_rows.append({"صف": _row_no,
+                                    "الاسم": str(record.get("name") or "—")[:30],
+                                    "الملاحظة": " · ".join(_warns)})
 
             # إنشاء ID إذا لم يكن موجوداً في الملف
             if "id" not in record or not record["id"]:
@@ -2249,19 +2334,19 @@ def import_from_excel(uploaded_file):
                     update_visit(record, sync=False)
                     count_updated += 1
                 else:
-                    # الإدراج مالوش صف قديم يرجع له، فالحقول الناقصة لازم تبقى ""
-                    for _k in ("address", "location_link", "selected_labs_text",
-                               "notes", "city", "district", "age_unit"):
-                        if record.get(_k) is None:
-                            record[_k] = ""
+                    # ★ الملء هنا بس — بعد ما اتأكدنا إن الصف جديد فعلاً.
+                    #   لو ملّينا قبل كشف التكرار، صف بيطابق زيارة موجودة
+                    #   بالاسم+التليفون+التاريخ (من غير ID) كان هيتحوّل لتحديث
+                    #   بـ address="" و notes="" → **مسح بيانات محفوظة**.
+                    record = fill_insert_defaults(record)
                     record["created_at"] = datetime.now().isoformat()
                     record["_user"] = st.session_state.get("user_email", "system_import")
                     insert_visit(record, sync=False)
                     count_imported += 1
             except Exception as _row_err:
-                count_failed += 1
-                if not first_error:
-                    first_error = f"{type(_row_err).__name__}: {_row_err}"
+                failed_rows.append({"صف": _idx + 2,
+                                    "الاسم": str(record.get("name") or "—")[:30],
+                                    "السبب": f"{type(_row_err).__name__}: {_row_err}"[:80]})
 
         # ── رفع واحد للدفعة كلها ──
         if count_imported or count_updated:
@@ -2269,8 +2354,16 @@ def import_from_excel(uploaded_file):
                 st.warning("⚠️ اتحفظ محليًا بس — الرفع على GitHub فشل: "
                            + (_GH_STATE.get("last_save_blocked")
                               or _GH_STATE.get("last_error") or "سبب غير معروف"))
-        if count_failed:
-            st.warning(f"⚠️ {count_failed} صف فشل استيرادهم — أول خطأ: {first_error}")
+        # ── تقرير الصفوف المرفوضة ──
+        # ★ الفلسفة: البرنامج مايخترعش بيانات عشان الاستيراد «ينجح». الصف اللي
+        #   ماينفعش يتقرا بيترفض ويتعرض للأدمن بسببه ورقمه عشان يصلّح المصدر.
+        if failed_rows:
+            st.error(f"❌ {len(failed_rows)} صف اترفض — البيانات دي **ماتحفظتش**")
+            st.dataframe(pd.DataFrame(failed_rows), use_container_width=True, hide_index=True)
+            st.caption("صلّح الصفوف دي في ملف الإكسيل وارفعه تاني — المستوردة خلاص مش هتتكرر.")
+        if warned_rows:
+            with st.expander(f"⚠️ {len(warned_rows)} صف اتحفظ لكن فيه ملاحظة", expanded=False):
+                st.dataframe(pd.DataFrame(warned_rows), use_container_width=True, hide_index=True)
 
         return count_imported, count_updated
 
@@ -2312,15 +2405,6 @@ except Exception as e:
     st.error(f"خطأ في استيراد labs_price_list: {e}")
     ALL_LABS = []; LABS_PRICE_LOOKUP = {}; LAB_CATEGORIES = []; LAB_INDEX = {}
 
-# ══════════════════════════════════════════════════════════════════════════════
-# دوال مساعدة
-# ══════════════════════════════════════════════════════════════════════════════
-def format_date_ar(d):
-    if not d: return ""
-    if isinstance(d, str):
-        try: d = datetime.strptime(d, "%Y-%m-%d").date()
-        except: return d
-    return f"{d.day} {MONTHS_AR[d.month-1]} {d.year}"
 
 def get_client_tag(phone):
     k = f"_ctag_{phone}"
@@ -2337,10 +2421,6 @@ def get_client_tag(phone):
     st.session_state[k] = tag
     return tag
 
-def get_client_tag_color(tag):
-    return {"🆕 عميل جديد":"#3498DB","⭐ عميل منتظم":"#27AE60",
-            "🌟 عميل متكرر":"#F39C12","👑 VIP":"#9B59B6",
-            "🏢 Corporate":"#E74C3C"}.get(tag,"#888")
 
 def get_churn_risk(phone):
     conn = get_connection()
@@ -2385,16 +2465,36 @@ def get_doctor_workload(doctor_name, visit_date):
     ).fetchone()[0]
 
 def cluster_visits_by_area(visits):
-    clusters = {}
+    """
+    بيجمّع زيارات اليوم حسب المنطقة عشان تتعمل في رحلة واحدة.
+
+    ★ النسخة القديمة كانت بتخمّن المنطقة من **نص العنوان** (تقسيم على «-» أو
+      «،» وإلا أول 20 حرف)، وبتتجاهل حقل `district` المنظّم اللي مليان 90%.
+      النتيجة كانت: «المجاوره السابعه عماره 1327» تبقى مجموعة، و«الحى التامن
+      النصر ١٧» مجموعة تانية، والاتنين في الحي التامن.
+
+      القياس على 156 زيارة حقيقية:
+          القديم : 99 مجموعة | 74 منها زيارة واحدة (بلا أي فايدة تشغيلية)
+          الجديد : 47 مجموعة | 26 منها زيارة واحدة
+
+      الترتيب: district (منظّم) ← city ← تخمين من العنوان (احتياطي بس).
+      والمخرجات مرتّبة بالأكبر عشان أكبر تجميعة تظهر فوق.
+    """
+    # التجميع بمفتاح المطابقة (بيلمّ كل الاختلافات الإملائية)، والعرض بالشكل
+    # القانوني — عشان العنوان يطلع «حدائق الأهرام» مش «حدايق الاهرام».
+    by_key, label_of = {}, {}
     for v in visits:
-        addr = v.get("address","") or ""
-        if "-" in addr:         area = addr.split("-")[0].strip()
-        elif "،" in addr:       area = addr.split("،")[0].strip()
-        elif "," in addr:       area = addr.split(",")[0].strip()
-        else:                   area = addr[:20].strip()
-        if not area: area = "غير محدد"
-        clusters.setdefault(area, []).append(v)
-    return clusters
+        raw = (clean_text(v.get("district")) or clean_text(v.get("city"))
+               or clean_text(re_module.split(r"[-،,]", str(v.get("address") or ""))[0])[:24])
+        key = normalize_ar(raw) or "غير محدد"
+        by_key.setdefault(key, []).append(v)
+        if key not in label_of:
+            label_of[key] = canonicalize_geo(raw) or "غير محدد"
+    clusters = {label_of[k]: vs for k, vs in by_key.items()}
+    # كل مجموعة مرتّبة زمنيًا جوّه، والمجموعات مرتّبة بالحجم
+    for area in clusters:
+        clusters[area].sort(key=lambda x: _time_key(x.get("visit_time", "")))
+    return dict(sorted(clusters.items(), key=lambda kv: (-len(kv[1]), kv[0])))
 
 def make_whatsapp_msg(v, target="internal"):
     lpb = v.get("labs_price_before",0); lpa = v.get("labs_price_after",0)
@@ -2870,6 +2970,31 @@ if _AUTO_DONE.get("changed"):
 
 def render_sync_banner():
     """بانر أحمر ثابت لو أي تعديل اتحفظ محليًا وفشل يوصل GitHub — مستحيل تعديه."""
+    # ★ بانر التعارض: فرع تاني كتب على نفس الملف بعد ما قرينا.
+    #   الفرق عن الفشل العادي: البيانات على GitHub **أحدث** من اللي عندنا،
+    #   فالرفع بالعافية هيدوس على شغل الفرع التاني. الحل إعادة القراءة.
+    _cf = _GH_STATE.get("conflict")
+    if _cf:
+        st.markdown(
+            f'<div style="background:#4a3300;border:2px solid #F39C12;border-radius:10px;'
+            f'padding:12px 14px;margin-bottom:10px;">'
+            f'<div style="color:#FFC94A;font-weight:800;font-size:15px;">'
+            f'🟠 تعارض مزامنة — فرع تاني عدّل نفس الملف</div>'
+            f'<div style="color:#ffe9b8;font-size:12.5px;margin-top:4px;">'
+            f'الملف: <code>{_esc(_cf)}</code></div>'
+            f'<div style="color:#fff3d6;font-size:12.5px;margin-top:6px;">'
+            f'تعديلاتك محفوظة محليًا. اضغط «تحديث من GitHub» عشان تجيب شغل الفرع '
+            f'التاني الأول، وبعدين ارفع — كده مفيش حاجة بتضيع من أي ناحية.</div></div>',
+            unsafe_allow_html=True)
+        if st.button("🔄 تحديث من GitHub ودمج", key="resolve_conflict",
+                     use_container_width=True):
+            _GH_STATE["conflict"] = ""
+            _GH_STATE["file_sha"] = {}
+            _GH_STATE["remote_total"] = None
+            load_from_github_json(upsert=True)
+            if save_to_github_json():
+                st.success("✅ اتدمج واترفع")
+            st.rerun()
     n = _GH_STATE.get("unsaved", 0)
     if not n:
         return
@@ -2973,6 +3098,7 @@ if _utype == "admin":
         if st.button("📊 Dashboard", use_container_width=True): go("dashboard")
     with nc6:
         if st.button("👨‍⚕️ أطباء", use_container_width=True): go("manage_doctors")
+        if st.button("🧾 سجل النشاط", use_container_width=True, key="nav_audit"): go("audit")
     with nc7:
         fu_label = f"⏰ متابعات ({_pf_count})" if _pf_count>0 else "⏰ متابعات"
         if st.button(fu_label, use_container_width=True): go("follow_ups")
@@ -3060,7 +3186,7 @@ if st.session_state.page == "home":
     bf_kpi  = "Diamond" if st.session_state.user_type=="diamond" else "La Cite" if st.session_state.user_type=="lacite" else None
     all_vs  = fetch_visits({"branch":bf_kpi} if bf_kpi else {}, page=None, page_size=None)[0]  # جلب الكل للإحصائيات
     t_today = sum(1 for v in all_vs if v.get("visit_date")==today_s)
-    t_rev   = sum(v.get("total_price",0) for v in all_vs if v.get("status")!="ملغية")
+    t_rev   = revenue(all_vs)
     t_done  = sum(1 for v in all_vs if v.get("status")=="تمت")
     t_unpaid = sum(1 for v in all_vs if v.get("payment_status","غير مدفوع")=="غير مدفوع" and v.get("status")!="ملغية")
     st.markdown(f"""<div class="stat-grid">
@@ -3372,7 +3498,7 @@ elif st.session_state.page == "today":
     st.markdown(f'<div class="today-header">📅 زيارات اليوم — {format_date_ar(date.today())} ({len(today_visits)} زيارة)</div>', unsafe_allow_html=True)
     done_t    = sum(1 for v in today_visits if v.get("status")=="تمت")
     pending_t = sum(1 for v in today_visits if v.get("status") in ["مجدولة","في الطريق"])
-    rev_t     = sum(v.get("total_price",0) for v in today_visits if v.get("status")!="ملغية")
+    rev_t     = revenue(today_visits)
     unpaid_t  = sum(1 for v in today_visits if v.get("payment_status","غير مدفوع")=="غير مدفوع" and v.get("status")!="ملغية")
     st.markdown(f"""<div class="stat-grid">
       <div class="stat-box"><div class="stat-num">{len(today_visits)}</div><div class="stat-label">إجمالي اليوم</div></div>
@@ -3418,8 +3544,12 @@ elif st.session_state.page == "today":
                                 else 0 if new_pay == "غير مدفوع"
                                 else float(v.get("paid_amount",0) or 0))
                         _pdate = date.today().isoformat() if new_pay in ("مدفوع","مدفوع جزئياً") else ""
-                        update_payment(v["id"], new_pay, v.get("payment_method",""), _amt, _pdate,
-                                       user_email=st.session_state.user_email or ""); st.rerun()
+                        _ok, _why = update_payment(v["id"], new_pay, v.get("payment_method",""), _amt, _pdate,
+                                                   user_email=st.session_state.user_email or "")
+                        if _ok:
+                            st.rerun()
+                        else:
+                            st.error(f"⛔ {_why}")
         else:
             clusters = cluster_visits_by_area(today_visits)
             for area, area_visits in clusters.items():
@@ -3433,6 +3563,11 @@ elif st.session_state.page == "today":
 # صفحة زيارة جديدة / تعديل
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "new":
+    # ★ حارس صلاحية — كان ناقص. الصفحة دي كانت مفتوحة لأي إيميل في
+    #   allowed_emails حتى لو مالوش دور معروف (user_type == "other").
+    #   الاكتشاف جه من تنفيذ الصفحات فعليًا، مش من قراءة الكود.
+    if st.session_state.user_type not in ["admin", "diamond", "lacite"]:
+        st.info("ليس لديك صلاحية عرض بيانات الزيارات."); st.stop()
     pf      = st.session_state.prefill or {}
     is_edit = pf.get("_edit", False)
 
@@ -3664,7 +3799,7 @@ elif st.session_state.page == "new":
                 st.rerun()
     with st.expander("👁️ شاهد محتوى الـ Panels"):
         for panel in QUICK_PANELS:
-            st.markdown(f'<div style="font-size:12px;margin-bottom:6px"><b style="color:#FF6B00">{panel["name"]}</b> — {" • ".join(panel["tests"])}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div style="font-size:12px;margin-bottom:6px"><b style="color:#FF6B00">{_esc(panel["name"])}</b> — {_esc(" • ".join(panel["tests"]))}</div>', unsafe_allow_html=True)
     st.markdown("---")
     if ALL_LABS:
         st.markdown('<div class="section-title">🔎 إضافة تحليل</div>', unsafe_allow_html=True)
@@ -3699,7 +3834,24 @@ elif st.session_state.page == "new":
     with cm2:
         st.markdown('<div style="margin-top:28px"></div>', unsafe_allow_html=True)
         if st.button("➕ أضف", key=f"manb_{vid_key}", use_container_width=True):
-            if manual_entry.strip(): st.session_state[labs_ss_key].append(manual_entry.strip()); st.rerun()
+            if manual_entry.strip():
+                st.session_state[labs_ss_key].append(manual_entry.strip()); st.rerun()
+    # ★ مراجعة السطر اليدوي قبل ما يتحفظ. البرنامج بيثق في أي سعر بيتكتب بالإيد،
+    #   وده في بيئة فروع بيخلّي سعر مخالف للقايمة الرسمية يعدّي من غير ما حد ياخد
+    #   باله. مش بنمنع — بنعرض المخالفة والمستخدم يقرر (ممكن يكون خصم مقصود).
+    if manual_entry.strip():
+        _mp = _lab_price(manual_entry)
+        if _mp <= 0:
+            st.warning("⚠️ مفيش سعر في السطر ده — اكتبه بالشكل: `CBC — 400 جنيه` "
+                       "وإلا التحليل هيتحسب بصفر في الإجمالي.")
+        else:
+            _official = _official_price_for(manual_entry)
+            if _official and _official != _mp:
+                _diff = _mp - _official
+                st.warning(
+                    f"⚠️ **سعر يدوي مخالف للقايمة** — الرسمي {format_money(_official)} · "
+                    f"المكتوب {format_money(_mp)} ({'+' if _diff>0 else ''}{_diff:,.0f}). "
+                    "لو ده خصم أو سعر خاص كمّل عادي.")
     selected_labs_text = "\n".join(st.session_state[labs_ss_key])
     selected_labs      = st.session_state[labs_ss_key][:]
 
@@ -3883,6 +4035,12 @@ elif st.session_state.page == "new":
     elif new_pay_status == "مدفوع جزئياً":
         paid_amount = st.number_input("المبلغ المدفوع", min_value=0, step=10,
                                       value=int(pf.get("paid_amount",0) or 0), key="paid_amount_input")
+        # ★ تنبيه فوري بدل ما التناقض يتكتشف بعد شهور في تقرير مالي
+        if paid_amount > float(total_price or 0) > 0:
+            st.warning(f"⚠️ المبلغ المدفوع ({format_money(paid_amount)}) أكبر من الإجمالي "
+                       f"({format_money(total_price)}) — راجع الرقم.")
+        elif paid_amount and paid_amount >= float(total_price or 0) > 0:
+            st.info("ℹ️ المبلغ ده بيغطي الإجمالي كله — الأنسب تختار «مدفوع».")
     else:
         paid_amount = 0
     if st.button("💾 حفظ الزيارة" if not is_edit else "💾 حفظ التعديلات", use_container_width=True):
@@ -3895,6 +4053,17 @@ elif st.session_state.page == "new":
         elif any(p.get("labs") and not str(p.get("name","")).strip() for p in extra_persons_list):
             # ★ حالة ليها تحاليل ومن غير اسم = أنبوبة من غير صاحب. ممنوع تتحفظ.
             st.error("⚠️ في حالة إضافية ليها تحاليل ومن غير اسم — اكتب الاسم أو احذف الحالة")
+        elif _payment_problems({"payment_status": new_pay_status,
+                                "paid_amount": paid_amount,
+                                "total_price": total_price}):
+            # ★ نفس دالة التحقق المستخدمة في الاستيراد — قاعدة واحدة لكل المداخل.
+            #   في البيانات الحالية 14 زيارة حالتها «مدفوع» ومبلغها صفر؛ الحارس
+            #   ده بيمنع تكرارها من الفورم.
+            for _p in _payment_problems({"payment_status": new_pay_status,
+                                         "paid_amount": paid_amount,
+                                         "total_price": total_price}):
+                st.error(f"⛔ {_p}")
+            st.caption("صحّح حالة الدفع أو المبلغ قبل الحفظ.")
         else:
             record = {
                 "id": pf.get("id", uuid_lib.uuid4().hex[:16]),
@@ -3903,7 +4072,10 @@ elif st.session_state.page == "new":
                 "phone": phone, "visit_date": visit_date.isoformat(),
                 "visit_time": visit_time, "doctor_name": doctor_name,
                 "branch": branch,
-                "city": city, "district": district,
+                # ★ لمّ على الشكل القانوني — يمنع «الحي/الحى» و«6اكتوبر/6 أكتوبر»
+                #   من تكوين تصنيفات وهمية، **من غير** تشويه إملاء («حدائق»
+                #   بتفضل «حدائق» مش «حدايق»). المناطق الجديدة بتتخزّن زي ما هي.
+                "city": canonicalize_geo(city), "district": canonicalize_geo(district),
                 "address": address, "location_link": location_link,
                 "selected_labs_text": selected_labs_text, "notes": notes,
                 "extra_persons": extra_persons_json,
@@ -3925,6 +4097,11 @@ elif st.session_state.page == "new":
 # صفحة التفاصيل
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "detail":
+    # ★ حارس صلاحية — كان ناقص. الصفحة دي كانت مفتوحة لأي إيميل في
+    #   allowed_emails حتى لو مالوش دور معروف (user_type == "other").
+    #   الاكتشاف جه من تنفيذ الصفحات فعليًا، مش من قراءة الكود.
+    if st.session_state.user_type not in ["admin", "diamond", "lacite"]:
+        st.info("ليس لديك صلاحية عرض بيانات الزيارات."); st.stop()
     vid = st.session_state.selected_id
     v   = fetch_visit_by_id(vid) if vid else None
     if not v:
@@ -3954,7 +4131,7 @@ elif st.session_state.page == "detail":
           <span class="detail-value"><span class="status-badge" style="background:{sc}">{si} {status}</span></span></div>
         <div class="detail-row"><span class="detail-label">💳 الدفع</span>
           <span class="detail-value"><span class="pay-badge" style="background:{pay_color}">{pay_icon} {pay_status}</span>
-          {'  —  ' + str(v.get('paid_amount',0)) + ' جنيه' if pay_status=='مدفوع جزئياً' else ''}
+          {'  —  ' + format_money(v.get('paid_amount',0)) if pay_status=='مدفوع جزئياً' else ''}
           {'  —  ' + _esc(v.get('payment_method','')) if v.get('payment_method') else ''}</span></div>
         """, unsafe_allow_html=True)
 
@@ -4078,9 +4255,13 @@ elif st.session_state.page == "detail":
                 new_paid_amount = 0
             if st.button("💾 حفظ تحديث الدفع", key=f"save_payment_{v['id']}", use_container_width=True):
                 pay_date = date.today().isoformat() if new_pay_st in ["مدفوع جزئياً","مدفوع"] else ""
-                update_payment(v["id"], new_pay_st, new_pay_method, new_paid_amount, pay_date,
-                               user_email=st.session_state.user_email or "")
-                st.success("✅ تم تحديث حالة الدفع!"); st.rerun()
+                _ok, _why = update_payment(v["id"], new_pay_st, new_pay_method, new_paid_amount, pay_date,
+                                           user_email=st.session_state.user_email or "")
+                if _ok:
+                    st.success("✅ تم تحديث حالة الدفع!"); st.rerun()
+                else:
+                    st.error(f"⛔ {_why}")
+                    st.caption("صحّح حالة الدفع أو المبلغ قبل الحفظ.")
 
         st.markdown("---")
 
@@ -4110,7 +4291,7 @@ elif st.session_state.page == "detail":
                 + branch_review_block(v.get("branch", ""))
                 + "━━━━━━━━━━━━━━\n*معمل أورانج لاب*"
             )
-            st.markdown(f'<a href="{whatsapp_link(rating_msg, v.get("phone"))}" target="_blank" class="wa-btn" style="background:#9B59B6;margin-top:8px;">📊 إرسال طلب تقييم على واتساب</a>', unsafe_allow_html=True)
+            st.markdown(f'<a href="{_esc(whatsapp_link(rating_msg, v.get("phone")))}" target="_blank" rel="noopener" class="wa-btn" style="background:#9B59B6;margin-top:8px;">📊 إرسال طلب تقييم على واتساب</a>', unsafe_allow_html=True)
         else:
             st.info("التقييم متاح فقط بعد اكتمال الزيارة (حالة: تمت)")
         st.markdown("---")
@@ -4137,8 +4318,8 @@ elif st.session_state.page == "detail":
                 old_sc   = STATUS_COLORS.get(old_stat,"#888")
                 old_pay  = old_v.get("payment_status","غير مدفوع")
                 old_pc   = PAYMENT_COLORS.get(old_pay,"#888")
-                st.markdown(f'<div class="history-card">📅 {old_date} — <span style="background:{old_sc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{old_stat}</span>'
-                            f' <span style="background:{old_pc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{PAYMENT_ICONS.get(old_pay,"")} {old_pay}</span>'
+                st.markdown(f'<div class="history-card">📅 {old_date} — <span style="background:{old_sc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{_esc(old_stat)}</span>'
+                            f' <span style="background:{old_pc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{PAYMENT_ICONS.get(old_pay,"")} {_esc(old_pay)}</span>'
                             f'<br>💰 {format_money(old_v.get("total_price",0))} — 🧪 {len((old_v.get("selected_labs_text","") or "").splitlines())} تحليل</div>',
                             unsafe_allow_html=True)
                 if st.button(f"📂 فتح", key=f"hist_{old_v['id']}", use_container_width=True):
@@ -4258,7 +4439,9 @@ elif st.session_state.page == "reports":
     else:
         df_r = pd.DataFrame(visits_r)
         total_r = len(df_r)
-        rev_r   = df_r["labs_price_after"].sum()
+        # ★ كان labs_price_after — يعني KPI التقارير كان بيقل عن الرئيسية
+        #   بمقدار بدل الانتقال (19,730 ج على البيانات الحالية) تحت نفس اللافتة.
+        rev_r   = revenue(visits_r)
         done_r  = (df_r["status"]=="تمت").sum()
         cancelled_r = (df_r["status"]=="ملغية").sum()
         unpaid_r   = (df_r.get("payment_status","غير مدفوع")=="غير مدفوع").sum() if "payment_status" in df_r.columns else 0
@@ -4268,7 +4451,7 @@ elif st.session_state.page == "reports":
           <div class="stat-box"><div class="stat-num">{total_r}</div><div class="stat-label">إجمالي الزيارات</div></div>
           <div class="stat-box"><div class="stat-num" style="color:#27AE60">{done_r}</div><div class="stat-label">تمت ✅</div></div>
           <div class="stat-box"><div class="stat-num" style="color:#E74C3C">{cancelled_r}</div><div class="stat-label">ملغية ❌</div></div>
-          <div class="stat-box"><div class="stat-num" style="font-size:15px">{rev_r:,.0f}</div><div class="stat-label">إيراد التحاليل</div></div>
+          <div class="stat-box"><div class="stat-num" style="font-size:15px">{rev_r:,.0f}</div><div class="stat-label">الإيراد الكلي</div></div>
           <div class="stat-box"><div class="stat-num" style="color:#E74C3C">{unpaid_r}</div><div class="stat-label">غير مدفوع 🔴</div></div>
           <div class="stat-box"><div class="stat-num" style="color:#27AE60">{collect_pct}%</div><div class="stat-label">نسبة التحصيل</div></div>
         </div>""", unsafe_allow_html=True)
@@ -4276,7 +4459,9 @@ elif st.session_state.page == "reports":
             df_r["visit_date_dt"] = pd.to_datetime(df_r["visit_date"], errors="coerce")
             df_r["week"]          = df_r["visit_date_dt"].dt.to_period("W").astype(str)
             df_r["day"]           = df_r["visit_date_dt"].dt.day_name()
-            weekly = df_r[df_r["status"]!="ملغية"].groupby("week").agg(count=("id","count"), rev=("labs_price_after","sum")).reset_index()
+            # ★ total_price زي باقي الصفحة — كان labs_price_after فالرسم كان
+            #   بيرسم رقم تاني غير الـ KPI اللي فوقه بالظبط
+            weekly = df_r[df_r["status"]!="ملغية"].groupby("week").agg(count=("id","count"), rev=("total_price","sum")).reset_index()
             if not weekly.empty:
                 fig = go_plotly.Figure()
                 fig.add_bar(x=weekly["week"], y=weekly["count"], name="عدد الزيارات", marker_color="#3498DB")
@@ -4286,7 +4471,9 @@ elif st.session_state.page == "reports":
         except Exception as e:
             st.caption(f"تعذّر رسم المخطط: {e}")
         try:
-            doc_df = df_r[df_r["status"]!="ملغية"].groupby("doctor_name").agg(count=("id","count"), rev=("labs_price_after","sum")).reset_index().sort_values("count",ascending=False)
+            # ملاحظة: rev هنا الإيراد الكلي. عمولة الدكتور بتتحسب على
+            # labs_revenue() في ملخص الأطباء — تعريفين مختلفين **بأسماء مختلفة**.
+            doc_df = df_r[df_r["status"]!="ملغية"].groupby("doctor_name").agg(count=("id","count"), rev=("total_price","sum")).reset_index().sort_values("count",ascending=False)
             if not doc_df.empty:
                 fig2 = px.bar(doc_df, x="doctor_name", y="count", title="👨‍⚕️ الزيارات بالدكتور",
                               labels={"doctor_name":"الدكتور","count":"عدد الزيارات"}, color="count",
@@ -4431,11 +4618,11 @@ elif st.session_state.page == "dashboard":
     today_s  = date.today().isoformat()
     week_ago = (date.today() - timedelta(days=6)).isoformat()
     total_all  = len(all_vs)
-    rev_all    = sum(v.get("total_price",0) for v in all_vs if v.get("status")!="ملغية")
+    rev_all    = revenue(all_vs)
     done_all   = sum(1 for v in all_vs if v.get("status")=="تمت")
     today_cnt  = sum(1 for v in all_vs if v.get("visit_date")==today_s)
     week_vs    = [v for v in all_vs if v.get("visit_date","")>=week_ago]
-    week_rev   = sum(v.get("total_price",0) for v in week_vs if v.get("status")!="ملغية")
+    week_rev   = revenue(week_vs)
     unpaid_all = sum(1 for v in all_vs if v.get("payment_status","غير مدفوع")=="غير مدفوع" and v.get("status")!="ملغية")
     paid_all   = sum(1 for v in all_vs if v.get("payment_status","")=="مدفوع")
     fu_pend    = sum(1 for f in all_fu if not f.get("done"))
@@ -4652,6 +4839,11 @@ elif st.session_state.page == "dashboard":
 # صفحة بروفايل العميل
 # ══════════════════════════════════════════════════════════════════════════════
 elif st.session_state.page == "client_profile":
+    # ★ حارس صلاحية — كان ناقص. الصفحة دي كانت مفتوحة لأي إيميل في
+    #   allowed_emails حتى لو مالوش دور معروف (user_type == "other").
+    #   الاكتشاف جه من تنفيذ الصفحات فعليًا، مش من قراءة الكود.
+    if st.session_state.user_type not in ["admin", "diamond", "lacite"]:
+        st.info("ليس لديك صلاحية عرض بيانات الزيارات."); st.stop()
     phone_cp = st.session_state.get("selected_client_phone","")
     if not phone_cp:
         st.error("لم يتم تحديد عميل"); go("home")
@@ -4665,7 +4857,7 @@ elif st.session_state.page == "client_profile":
             tag_auto  = get_client_tag(phone_cp)
             tag_color = get_client_tag_color(tag_auto)
             churn     = get_churn_risk(phone_cp)
-            total_spend = sum(v.get("total_price",0) for v in all_client_visits if v.get("status")!="ملغية")
+            total_spend = revenue(all_client_visits)
             done_count  = sum(1 for v in all_client_visits if v.get("status")=="تمت")
             avg_spend   = round(total_spend / max(done_count,1))
             last_visit  = format_date_ar(cv.get("visit_date",""))
@@ -4729,7 +4921,7 @@ elif st.session_state.page == "client_profile":
                 vpay = v.get("payment_status","غير مدفوع"); vpc = PAYMENT_COLORS.get(vpay,"#888")
                 st.markdown(f'<div class="history-card">'
                             f'<b>📅 {vdate}</b> — 👨‍⚕️ {_esc(v.get("doctor_name",""))} — 🏥 {_esc(v.get("branch",""))}<br>'
-                            f'<span style="background:{vsc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{vstatus}</span> '
+                            f'<span style="background:{vsc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{_esc(vstatus)}</span> '
                             f'<span style="background:{vpc};color:#fff;border-radius:6px;padding:1px 8px;font-size:11px;">{PAYMENT_ICONS.get(vpay,"")} {vpay}</span>'
                             f'<br>💰 {format_money(v.get("total_price",0))} — 🧪 {len((v.get("selected_labs_text","") or "").splitlines())} تحليل</div>', unsafe_allow_html=True)
                 if st.button(f"📂 فتح", key=f"cp_open_{v['id']}", use_container_width=True):
@@ -4856,7 +5048,7 @@ elif st.session_state.page == "follow_ups":
             with fuc3:
                 if fu.get("client_phone"):
                     wa_fu = f"🟠 *Orange Lab* — تذكير متابعة\n👤 {fu.get('client_name','')} — {fu.get('reason','')}\n📅 {fu_date_disp}"
-                    st.markdown(f'<a href="{whatsapp_link(wa_fu, fu.get("client_phone",""))}" target="_blank" class="wa-btn wa-client" style="padding:6px 10px;font-size:11px;margin-bottom:0;">📱 واتساب</a>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="{_esc(whatsapp_link(wa_fu, fu.get("client_phone","")))}" target="_blank" rel="noopener" class="wa-btn wa-client" style="padding:6px 10px;font-size:11px;margin-bottom:0;">📱 واتساب</a>', unsafe_allow_html=True)
     if overdue:   render_fu_list(overdue, "متأخرة", "🔴", "fu-overdue")
     if due_today: render_fu_list(due_today, "اليوم", "🟡")
     if upcoming:  render_fu_list(upcoming, "قادمة", "🔵")
@@ -4866,6 +5058,92 @@ elif st.session_state.page == "follow_ups":
         st.info("لا توجد متابعات في هذه الفترة.")
     st.markdown("---")
     if st.button("← رجوع للرئيسية", use_container_width=True): go("home")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🧾 سجل النشاط (Audit Log) — أدمن فقط
+# ══════════════════════════════════════════════════════════════════════════════
+elif st.session_state.page == "audit":
+    st.markdown('<div class="page-title">🧾 سجل النشاط</div>', unsafe_allow_html=True)
+    if st.button("← رجوع", key="audit_back"):
+        go("home")
+
+    if st.session_state.user_type != "admin":
+        st.error("⛔ الصفحة دي للأدمن بس.")
+    else:
+        st.caption("كل تعديل على الزيارات بيتسجّل هنا: مين، وإمتى، وإيه اللي اتغيّر من إيه لإيه.")
+
+        af1, af2, af3 = st.columns(3)
+        with af1:
+            _users = ["الكل"] + audit_distinct("user_email")
+            f_user = st.selectbox("المستخدم", _users, key="aud_user")
+        with af2:
+            _acts = ["الكل"] + audit_distinct("action")
+            f_act = st.selectbox("نوع الإجراء", _acts, key="aud_act")
+        with af3:
+            _ranges = {"آخر 24 ساعة": 1, "آخر 7 أيام": 7, "آخر 30 يوم": 30, "الكل": None}
+            f_range = st.selectbox("الفترة", list(_ranges), index=1, key="aud_range")
+
+        _days = _ranges[f_range]
+        _since = (datetime.now() - timedelta(days=_days)).isoformat() if _days else None
+        rows = fetch_audit_log(
+            limit=500,
+            user=None if f_user == "الكل" else f_user,
+            action=None if f_act == "الكل" else f_act,
+            since=_since,
+        )
+
+        if not rows:
+            st.info("مفيش أحداث في الفترة/الفلتر ده.")
+        else:
+            _acts_count = Counter(r.get("action", "") for r in rows)
+            _users_count = Counter(r.get("user_email") or "(غير معروف)" for r in rows)
+            st.markdown(f"""<div class="stat-grid">
+              <div class="stat-box"><div class="stat-num">{len(rows)}</div><div class="stat-label">حدث</div></div>
+              <div class="stat-box"><div class="stat-num" style="font-size:15px">{len(_users_count)}</div><div class="stat-label">مستخدم</div></div>
+              <div class="stat-box"><div class="stat-num" style="font-size:15px">{_acts_count.most_common(1)[0][0] if _acts_count else '—'}</div><div class="stat-label">أكتر إجراء</div></div>
+            </div>""", unsafe_allow_html=True)
+
+            _AR_ACTION = {"insert": "إضافة", "update": "تعديل", "delete": "حذف",
+                          "update_payment": "تحديث دفع", "update_status": "تغيير حالة",
+                          "restore": "استرجاع", "archive": "أرشفة"}
+            table = []
+            for r in rows:
+                ts = str(r.get("timestamp") or "")
+                table.append({
+                    "التاريخ": format_date_ar(ts[:10]) if len(ts) >= 10 else ts,
+                    "الوقت": ts[11:16],
+                    "المستخدم": (r.get("user_email") or "—").split("@")[0],
+                    "الإجراء": _AR_ACTION.get(r.get("action", ""), r.get("action", "")),
+                    "الحقل": r.get("field_name") or "—",
+                    "من": str(r.get("old_value") or "")[:28] or "—",
+                    "إلى": str(r.get("new_value") or "")[:28] or "—",
+                    "تفاصيل": str(r.get("details") or "")[:36],
+                    "رقم الزيارة": str(r.get("record_id") or "")[:10],
+                })
+            # st.dataframe بيهرب المحتوى لوحده — مافيش حقن هنا
+            st.dataframe(pd.DataFrame(table), use_container_width=True, hide_index=True,
+                         height=min(560, 42 * len(table) + 44))
+
+            _csv = pd.DataFrame(table).to_csv(index=False).encode("utf-8-sig")
+            st.download_button("⬇️ تحميل CSV", _csv,
+                               file_name=f"audit_log_{date.today().isoformat()}.csv",
+                               mime="text/csv", use_container_width=True)
+
+        # ── سجل الأخطاء ──
+        with st.expander("🐞 سجل الأخطاء", expanded=False):
+            errs = fetch_error_log(limit=100)
+            if not errs:
+                st.success("مفيش أخطاء مسجّلة ✅")
+            else:
+                st.warning(f"{len(errs)} خطأ مسجّل — الأحدث فوق")
+                for e in errs[:25]:
+                    _ts = str(e.get("timestamp") or "")[:16].replace("T", " ")
+                    with st.container(border=True):
+                        st.markdown(f"**{_esc(e.get('page') or '—')}** · {_ts} · "
+                                    f"{_esc((e.get('user_email') or '—').split('@')[0])}")
+                        st.code(str(e.get("exception") or "")[:400], language=None)
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Other fallback
