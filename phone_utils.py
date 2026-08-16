@@ -127,14 +127,6 @@ def wa_digits(phone):
     return p
 
 
-def display(phone):
-    """عرض مقروء من اليسار لليمين."""
-    code, rest = split_phone(phone)
-    if str(phone or "").startswith("+"):
-        return f"{code} {rest}"
-    return str(phone or "")
-
-
 def same_number(a, b):
     """هل الرقمين بيوصّلوا لنفس الشخص؟ (مقارنة بأرقام الواتس مش بالنص)."""
     if not a or not b:

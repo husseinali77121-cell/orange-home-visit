@@ -220,7 +220,7 @@ def _validate_row_real(record, opts=None):'''),
   """        sha = _get_github_file_sha(path)"""),
 
  ("M33 حارس التعارض اتشال", "app.py",
-  """    if _GH_STATE.get("conflict"):
+  """    if USE_CAS and _GH_STATE.get("conflict"):
         return _block(""",
   """    if False:
         return _block("""),
@@ -234,6 +234,14 @@ def _validate_row_real(record, opts=None):'''),
   """            _GH_STATE["conflict"] = path
             _GH_STATE.setdefault("file_sha", {}).pop(path, None)
             return False"""),
+
+ ("M35 تعريف محلي بيدوس على المستورد", "app.py",
+  """def _official_price_for(entry):""",
+  """def _payment_problems(rec):
+    return []   # طفرة: نسخة محلية فاضية بتدوس على المستوردة من core
+
+
+def _official_price_for(entry):"""),
 
  # ── الصلاحيات ────────────────────────────────────────────────────────────
  ("M26 صفحة new من غير حارس", "app.py",

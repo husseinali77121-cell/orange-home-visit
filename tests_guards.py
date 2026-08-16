@@ -219,7 +219,7 @@ check("بتتعامل مع 409",            "409" in _body, True)
 check("وبتسجّل التعارض",           '_GH_STATE["conflict"]' in _body, True)
 check("الملفات الشهرية بتمرّر SHA",  "expected_sha=_exp" in _APP, True)
 check("الملف القديم بيمرّر SHA",
-      'expected_sha=(_GH_STATE.get("file_sha") or {}).get(GITHUB_JSON_PATH)' in _APP, True)
+      'expected_sha=((_GH_STATE.get("file_sha") or {}).get(GITHUB_JSON_PATH)' in _APP, True)
 check("SHA بيتخزّن وقت القراءة",   '_shas[f"{GITHUB_MONTHLY_DIR}/{e[\'name\']}"]' in _APP
       or "_remember_sha(GITHUB_JSON_PATH" in _APP, True)
 check("بانر التعارض موجود",        'st.button("🔄 تحديث من GitHub ودمج"' in _APP, True)
@@ -233,9 +233,20 @@ print("\n⑬ ما بعد التعارض — ممنوع الدوس")
 check("SHA مابيتشالش بعد 409",
       'pop(path, None)\n            return False' not in _APP, True)
 check("فيه حارس بيمنع الحفظ وقت التعارض",
-      'if _GH_STATE.get("conflict"):' in _APP, True)
+      'if USE_CAS and _GH_STATE.get("conflict"):' in _APP, True)
 check("والحارس قبل أي كتابة",
-      _APP.index('if _GH_STATE.get("conflict"):') < _APP.index('rows = conn.execute'), True)
+      _APP.index('if USE_CAS and _GH_STATE.get("conflict"):') < _APP.index('rows = conn.execute'), True)
+
+print("\n⑭ مفتاح إيقاف الـCAS")
+# ★ الكود ده عمره ما اشتغل على GitHub حقيقي. المفتاح بيدّي طريقة رجوع
+#   فورية من Secrets من غير إعادة نشر لو اتصرّف غلط.
+check("USE_CAS معرّف",             "USE_CAS = bool(_sec(" in _APP, True)
+check("افتراضيًا مفعّل",            'bool(_sec("use_cas", True))' in _APP, True)
+check("بيتحكم في حارس التعارض",    "if USE_CAS and _GH_STATE" in _APP, True)
+check("بيتحكم في تمرير SHA الشهري", "if USE_CAS else None" in _APP, True)
+check("بيتحكم في التقاط 409",       "if USE_CAS and (he.code == 409" in _APP, True)
+check("معرّف قبل أول استخدام",
+      _APP.index("USE_CAS = bool") < _APP.index("if USE_CAS and _GH_STATE"), True)
 check("التعارض بيتصفّر عند النجاح",
       '_GH_STATE["conflict"]          = ""' in _APP, True)
 check("وبيتصفّر عند الدمج اليدوي",

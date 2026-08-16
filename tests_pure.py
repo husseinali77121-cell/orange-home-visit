@@ -232,6 +232,45 @@ check("قائمة فاضية",                      revenue([]), 0)
 check("None في القائمة",                  revenue([None] + _vs), 800)
 check("قيمة نصية بايظة",                  revenue([{"status": "تمت", "total_price": "x"}]), 0)
 
+
+print("\n🧬 سلامة الاستخراج — مفيش تعريف محلي بيدوس على المستورد")
+# ★ طفرة M35 كشفت الثغرة دي: لو حد عرّف دالة في app.py بنفس اسم واحدة
+#   مستوردة من core، التعريف المحلي بيدوس عليها في صمت — والاختبارات
+#   كلها تفضل خضرا لأنها بتختبر core مباشرة.
+#   ده مش افتراضي: حصل فعلًا — جسم _payment_problems فضل ملزوق في app.py
+#   بعد استخراج سابق (من غير سطر def) وعاش ككود ميت بعد return.
+import ast as _ast2, os as _os2
+
+_ROOT = _os2.path.dirname(_os2.path.abspath(__file__))
+_app_src = open(_os2.path.join(_ROOT, "app.py"), encoding="utf-8").read()
+_app_tree = _ast2.parse(_app_src)
+
+_imported = set()
+for _n in _app_tree.body:
+    if isinstance(_n, _ast2.ImportFrom) and _n.module in ("core", "import_rules", "sync_guards"):
+        _imported |= {a.asname or a.name for a in _n.names}
+_defined = {n.name for n in _app_tree.body if isinstance(n, _ast2.FunctionDef)}
+
+check("مفيش دالة مستوردة معرّفة محليًا كمان", sorted(_imported & _defined), [])
+check("عدد المستورد من الوحدات > 20", len(_imported) > 20, True)
+
+# كود ميت بعد return/continue/break
+_dead = []
+for _n in _ast2.walk(_app_tree):
+    _b = getattr(_n, "body", None)
+    if isinstance(_b, list):
+        for _i, _s in enumerate(_b[:-1]):
+            if isinstance(_s, (_ast2.Return, _ast2.Continue, _ast2.Break, _ast2.Raise)):
+                _dead.append(_b[_i + 1].lineno)
+                break
+check("مفيش كود ميت بعد return", _dead, [])
+
+# نفس الفحص على الوحدات
+for _m in ("core.py", "import_rules.py", "sync_guards.py"):
+    _t = _ast2.parse(open(_os2.path.join(_ROOT, _m), encoding="utf-8").read())
+    _names = [n.name for n in _t.body if isinstance(n, _ast2.FunctionDef)]
+    check(f"{_m}: مفيش دالة معرّفة مرتين", len(_names), len(set(_names)))
+
 print("\n" + "═" * 60)
 if _FAILS:
     print(f"❌ فشل {len(_FAILS)} اختبار: {', '.join(_FAILS)}")

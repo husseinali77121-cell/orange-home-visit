@@ -1,4 +1,32 @@
+# ══════════════════════════════════════════════════════════════════
+# 🔐 أسرار — ممنوع تدخل الريبو نهائيًا
+# لو دخلت مرة، مش بتتشال بمسح الملف — بتفضل في history للأبد.
+# ══════════════════════════════════════════════════════════════════
+.streamlit/secrets.toml
+secrets.toml
+*.env
+.env
+
 # قاعدة البيانات
 *.db
+*.db-wal
+*.db-shm
 visits.db
+visits_backup.json
+
+# مخرجات التصدير
 visits_export.xlsx
+*.xlsx
+!templates/*.xlsx
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# نظام التشغيل / المحرر
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

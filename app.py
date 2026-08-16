@@ -176,27 +176,6 @@ def _official_price_for(entry):
         return _OFFICIAL_PRICE_INDEX.get(lp.norm(name)) or None
     except Exception:
         return None
-    """
-    بيرجّع قائمة تناقضات مالية في السجل (فاضية = سليم).
-    الحالات دي مش أخطاء برمجية — دي بيانات بتقول حاجة مستحيلة، ولو عدّت
-    بتخرّب التقارير المالية والتحصيل من غير ما حد ياخد باله.
-    """
-    def _n(x):
-        try: return float(x or 0)
-        except (TypeError, ValueError): return 0.0
-    st_pay = str(rec.get("payment_status") or "").strip()
-    paid   = _n(rec.get("paid_amount"))
-    total  = _n(rec.get("total_price"))
-    out = []
-    if st_pay == "مدفوع" and total > 0 and paid <= 0:
-        out.append(f"«مدفوع» والمبلغ المدفوع صفر (الإجمالي {total:,.0f})")
-    if st_pay == "مدفوع جزئياً" and paid <= 0:
-        out.append("«مدفوع جزئياً» والمبلغ المدفوع صفر")
-    if st_pay == "غير مدفوع" and paid > 0:
-        out.append(f"«غير مدفوع» ومسجّل مدفوع {paid:,.0f}")
-    if paid > total + 0.01 and total > 0:
-        out.append(f"المدفوع ({paid:,.0f}) أكبر من الإجمالي ({total:,.0f})")
-    return out
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 👥 الحالات الإضافية في نفس الزيارة (v6)
@@ -420,6 +399,20 @@ KEEP_LEGACY_MIRROR = _sec("keep_legacy_mirror", True)   # ← خليها False �
 GITHUB_MONTHLY_DIR = _sec("github_monthly_dir", "visits")
 
 # ── حالة اتصال GitHub (تعيش طول عمر السيرفر، بتتحدث مع كل قراءة/كتابة) ──
+# ══════════════════════════════════════════════════════════════════════════════
+# 🔀 مفتاح إيقاف الـCompare-and-Swap
+# ══════════════════════════════════════════════════════════════════════════════
+# الـCAS بيحمي من إن فرعين يكتبوا في نفس الوقت وواحد يدوس على التاني.
+# بس الكود ده **عمره ما اشتغل على GitHub حقيقي** — اتحقق بمحاكاة بس.
+#
+# لو ظهر إنه بيتصرّف غلط (كل حفظ بيترفض · بانر تعارض مالوش سبب · GitHub
+# بيرجّع كود مش متوقع)، اقفله من Secrets فورًا من غير إعادة نشر:
+#     use_cas = false
+#
+# القفل بيرجّع السلوك القديم بالظبط: SHA جديد قبل كل PUT، والكتابة بتنجح
+# دايمًا. يعني بترجع لخطر الدوس بين الفروع — بس البرنامج بيشتغل.
+USE_CAS = bool(_sec("use_cas", True))
+
 _GH_STATE = {
     "file_sha": {},           # path → SHA وقت آخر قراءة (Compare-and-Swap)
     "conflict": "",           # آخر ملف حصل عليه تعارض
@@ -554,7 +547,7 @@ def _gh_put_json(path, payload, message, expected_sha=None):
                 return True
             return False
     except urllib.error.HTTPError as he:
-        if he.code == 409 or (he.code == 422 and expected_sha):
+        if USE_CAS and (he.code == 409 or (he.code == 422 and expected_sha)):
             # ★ حد تاني كتب على الملف ده بعد ما قرينا — تعارض حقيقي
             # ★ مهم: **مانشيلش** الـSHA من الكاش هنا. لو شلناه، المحاولة
             #   الجاية هتبعت expected_sha=None → الدالة تجيب SHA جديد →
@@ -709,7 +702,7 @@ def save_to_github_json():
     # ★ حارس التعارض: طول ما فيه تعارض غير محلول، ممنوع أي رفع.
     #   من غيره، المستخدم يقدر يعدّي على التعارض بمجرد إنه يعمل أي تعديل
     #   تاني — والرفع وقتها بيدوس على شغل الفرع التاني.
-    if _GH_STATE.get("conflict"):
+    if USE_CAS and _GH_STATE.get("conflict"):
         return _block(
             f"تعارض غير محلول على {_GH_STATE['conflict']} — اضغط "
             "«🔄 تحديث من GitHub ودمج» الأول. تعديلاتك محفوظة محليًا.")
@@ -777,7 +770,7 @@ def save_to_github_json():
                                "total": len(recs), "visits": recs}
                     # expected_sha = اللي قرينا عنده. غير موجود = ملف جديد.
                     _p = _month_path(m)
-                    _exp = (_GH_STATE.get("file_sha") or {}).get(_p)
+                    _exp = (_GH_STATE.get("file_sha") or {}).get(_p) if USE_CAS else None
                     if _gh_put_json(_p, payload,
                                     f"sync {m} ({len(recs)} visits)",
                                     expected_sha=_exp):
@@ -795,7 +788,8 @@ def save_to_github_json():
             ok_legacy = _gh_put_json(
                 GITHUB_JSON_PATH, payload,
                 f"auto-save {datetime.now().strftime('%Y-%m-%d %H:%M')} ({local_total} visits)",
-                expected_sha=(_GH_STATE.get("file_sha") or {}).get(GITHUB_JSON_PATH))
+                expected_sha=((_GH_STATE.get("file_sha") or {}).get(GITHUB_JSON_PATH)
+                              if USE_CAS else None))
             if ok_legacy:
                 _GH_STATE["legacy_total"] = local_total
 
@@ -1249,18 +1243,10 @@ def init_db():
 
     conn.commit()
 
-    # ── إعدادات افتراضية ──
-    default_settings = {
-        "backup_retention_days": "30",
-        "backup_enabled": "true",
-        "backup_interval_hours": "24",
-    }
-    for k, v in default_settings.items():
-        conn.execute(
-            "INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES (?, ?, ?)",
-            (k, v, datetime.now().isoformat())
-        )
-    conn.commit()
+    # ملحوظة: جدول `settings` باقي للتوافق الرجعي مع قواعد بيانات قديمة، بس
+    # مفيش حاجة في البرنامج بتقرا منه. كان بيتعبّى بـ backup_retention_days
+    # و backup_enabled و backup_interval_hours — والقارئ الوحيد (get_setting)
+    # مكانش بيتنادى من أي مكان. شيلنا البذر عشان مانكتبش بيانات ميتة كل تشغيل.
 
     # ── تسجيل إصدار المخطط ──
     current = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
