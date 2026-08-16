@@ -1,5 +1,5 @@
 --- orange-home-visit-main/phone_utils.py	2026-08-12 13:59:22.000000000 +0000
-+++ fixed/phone_utils.py	2026-08-15 19:13:15.899244266 +0000
++++ fixed/phone_utils.py	2026-08-15 21:14:39.915510461 +0000
 @@ -108,11 +108,18 @@
      رقم مخزّن → الأرقام اللي بتتحط في wa.me
      • الأرقام الدولية (+): بتتاخد زي ما هي.
@@ -23,3 +23,18 @@
      if p.startswith("0"):
          return "20" + p[1:]
      if not p.startswith("20"):
+@@ -120,14 +127,6 @@
+     return p
+ 
+ 
+-def display(phone):
+-    """عرض مقروء من اليسار لليمين."""
+-    code, rest = split_phone(phone)
+-    if str(phone or "").startswith("+"):
+-        return f"{code} {rest}"
+-    return str(phone or "")
+-
+-
+ def same_number(a, b):
+     """هل الرقمين بيوصّلوا لنفس الشخص؟ (مقارنة بأرقام الواتس مش بالنص)."""
+     if not a or not b:
