@@ -1,22 +1,13 @@
-# tests_pure.py — اختبارات الطبقة النقية
-# التشغيل:  python3 tests_pure.py
+# tests_pure.py — اختبارات الطبقة النقية (مالهاش أي علاقة بـ Streamlit)
+# التشغيل:  python3 tests_pure.py     أو     pytest tests_pure.py
 #
-# ★ الاختبارات دي بتستورد من core.py مباشرة — يعني بتختبر **الكود الحقيقي**
-#   اللي بيشتغل في التطبيق. قبل كده كانت بتنسخ الدوال جواها، وده كان معناه
-#   إن app.py يتغيّر والاختبارات تفضل خضرا وهي بتختبر نسخة قديمة.
+# الدوال دي هي اللي كانت فيها البقّ الصامت (أسعار وتواريخ وأرقام تليفون).
+# أي تعديل مستقبلي فيها لازم يعدّي من هنا الأول.
 
 import re as re_module
+from datetime import date
 import phone_utils as phu
 import lab_picker as lp
-from core import (
-    _esc, format_money, _safe_url, revenue, labs_revenue, transport_revenue,
-    normalize_ar, clean_text, canonicalize_geo,
-    _payment_problems, _lab_price,
-    _month_of, _time_key, format_date_ar,
-    parse_extra_persons, dump_extra_persons,
-    extra_persons_total, extra_persons_labs_count,
-    get_client_tag_color, _hash_records,
-)
 
 _FAILS = []
 
@@ -29,22 +20,47 @@ def check(name, got, want):
         _FAILS.append(name)
 
 
-def import_date_check(raw):
-    """نفس منطق قبول/رفض التاريخ في import_from_excel."""
-    import pandas as pd
-    from datetime import date as _date
-    if raw is None or str(raw).strip() == "":
-        return "التاريخ فاضي"
+# ── نسخ طبق الأصل من app.py (الدوال النقية) ──────────────────────────────────
+def _lab_price(entry):
+    m = re_module.findall(r'(\d[\d,]*)\s*جنيه', str(entry or ""))
+    if not m:
+        return 0
     try:
-        parsed = pd.to_datetime(raw, errors="raise")
-        if pd.isna(parsed):
-            raise ValueError("NaT")
-        d = parsed.strftime("%Y-%m-%d")
-        return None if "2000-01-01" <= d <= "2100-12-31" else f"خارج المدى ({d})"
+        return int(m[-1].replace(",", ""))
+    except ValueError:
+        return 0
+
+
+def _month_of(rec):
+    d = str(rec.get("visit_date") or "").strip()
+    try:
+        date.fromisoformat(d[:10])
+        return d[:7]
     except Exception:
-        return f"غير صالح ({str(raw)[:24]})"
+        return "0000-00"
 
 
+def _time_key(t):
+    m = re_module.match(r'\s*(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)?', str(t or ""), re_module.IGNORECASE)
+    if not m:
+        return -1
+    h, mi, ap = int(m.group(1)), int(m.group(2)), (m.group(3) or "").upper()
+    if ap in ("PM", "م") and h != 12: h += 12
+    if ap in ("AM", "ص") and h == 12: h = 0
+    return h * 60 + mi
+
+
+def _esc(txt):
+    return (str(txt or "").strip().replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;"))
+
+
+def _safe_url(url):
+    u = str(url or "").strip()
+    return _esc(u) if u.lower().startswith(("http://", "https://")) else ""
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 print("\n💰 _lab_price — استخراج السعر")
 check("سطر عادي",            _lab_price("CBC — 400 جنيه"), 400)
 check("سعر بفاصلة (كان 200)", _lab_price("Test — 1,200 جنيه"), 1200)
@@ -112,125 +128,6 @@ check("مصري يفضل زي ما هو", phu.join_phone("+20", "01016872801"), 
 check("دولي بصيغة +",       phu.join_phone("+249", "0122077443"), "+249122077443")
 check("split مصري",         phu.split_phone("01016872801"), ("+20", "01016872801"))
 check("same_number",        phu.same_number("01016872801", "+201016872801"), True)
-
-print("\n🔤 normalize_ar — مفتاح المطابقة (مشوّه بقصد)")
-check("الحى → الحي",        normalize_ar("الحى الثامن"), "الحي الثامن")
-check("6اكتوبر يتفصل",     normalize_ar("6اكتوبر"), "6 اكتوبر")
-check("6 أكتوبر يتوحّد",    normalize_ar("6 أكتوبر"), "6 اكتوبر")
-check("الشكلين بيتساووا",  normalize_ar("الحى الثامن") == normalize_ar("الحي الثامن"), True)
-check("التشكيل بيتشال",     normalize_ar("الحَيّ الثَانِي"), "الحي الثاني")
-check("مسافات زيادة",      normalize_ar("  الحي   الأول  "), "الحي الاول")
-check("إنجليزي مايتأثرش",  normalize_ar("Sheikh Zayed"), "Sheikh Zayed")
-check("فاضي",              normalize_ar(""), "")
-check("None",              normalize_ar(None), "")
-
-print("\n🗺️ canonicalize_geo — شكل التخزين (لازم يحافظ على الإملاء)")
-check("الحى → الحي (قانوني)",   canonicalize_geo("الحى الثامن"), "الحي الثامن")
-check("6اكتوبر → 6 أكتوبر",     canonicalize_geo("6اكتوبر"), "6 أكتوبر")
-check("حدايق → حدائق (مايشوّهش)", canonicalize_geo("حدايق الاهرام"), "حدائق الأهرام")
-check("الشماليه → الشمالية",     canonicalize_geo("التوسعات الشماليه"), "التوسعات الشمالية")
-check("الروضه → الروضة",         canonicalize_geo("كمبوند الروضه"), "كمبوند الروضة")
-check("الشكل القانوني ثابت",     canonicalize_geo("الحي الأول"), "الحي الأول")
-check("منطقة جديدة تفضل زي ما هي", canonicalize_geo("كمبوند بالم هيلز"), "كمبوند بالم هيلز")
-check("منطقة جديدة بهمزة محفوظة", canonicalize_geo("حدائق النخيل"), "حدائق النخيل")
-check("مسافات زيادة بس",        canonicalize_geo("  كمبوند   جديد  "), "كمبوند جديد")
-check("فاضي",                   canonicalize_geo(""), "")
-check("None",                   canonicalize_geo(None), "")
-check("كل الأشكال بتلمّ على واحد",
-      canonicalize_geo("الحى الثامن") == canonicalize_geo("الحي الثامن") == "الحي الثامن", True)
-check("الحى11 ملزوق → الحادي عشر", canonicalize_geo("الحى11"), "الحي الحادي عشر")
-check("الحى2 ملزوق → الثاني",       canonicalize_geo("الحى2"), "الحي الثاني")
-check("الحي3 ملزوق → الثالث",       canonicalize_geo("الحي3"), "الحي الثالث")
-check("حى 5 من غير ال → الخامس",    canonicalize_geo("حى 5"), "الحي الخامس")
-check("حي5 ملزوق بلا ال",           canonicalize_geo("حي5"), "الحي الخامس")
-check("الملزوق = المفصول",
-      canonicalize_geo("الحى11") == canonicalize_geo("الحي 11"), True)
-check("normalize بيفصل الاتجاهين",
-      (normalize_ar("الحي11"), normalize_ar("6اكتوبر")), ("الحي 11", "6 اكتوبر"))
-check("التخزين ≠ المطابقة",
-      canonicalize_geo("حدايق الاهرام") != normalize_ar("حدايق الاهرام"), True)
-
-print("\n💳 _payment_problems — منع التناقض المالي")
-check("مدفوع + صفر يترفض",       bool(_payment_problems({"payment_status":"مدفوع","paid_amount":0,"total_price":450})), True)
-check("مدفوع سليم يعدّي",         _payment_problems({"payment_status":"مدفوع","paid_amount":450,"total_price":450}), [])
-check("جزئي + صفر يترفض",        bool(_payment_problems({"payment_status":"مدفوع جزئياً","paid_amount":0,"total_price":450})), True)
-check("جزئي سليم يعدّي",          _payment_problems({"payment_status":"مدفوع جزئياً","paid_amount":200,"total_price":450}), [])
-check("غير مدفوع + مبلغ يترفض",  bool(_payment_problems({"payment_status":"غير مدفوع","paid_amount":100,"total_price":450})), True)
-check("مدفوع > الإجمالي يترفض",   bool(_payment_problems({"payment_status":"مدفوع","paid_amount":900,"total_price":450})), True)
-check("إجمالي صفر مايشتكيش",      _payment_problems({"payment_status":"مدفوع","paid_amount":0,"total_price":0}), [])
-check("غير مدفوع سليم",           _payment_problems({"payment_status":"غير مدفوع","paid_amount":0,"total_price":450}), [])
-
-print("\n📅 التحقق من التاريخ في الاستيراد — ممنوع اختراع تواريخ")
-check("تاريخ سليم يعدّي",     import_date_check("2026-08-12") is None, True)
-check("2026/99/99 يترفض",    import_date_check("2026/99/99") is not None, True)
-check("30 فبراير يترفض",     import_date_check("2026-02-30") is not None, True)
-check("نص عربي يترفض",       import_date_check("كلام") is not None, True)
-check("فاضي يترفض",          import_date_check("") is not None, True)
-check("None يترفض",          import_date_check(None) is not None, True)
-check("1899 خارج المدى",     import_date_check("1899-01-01") is not None, True)
-check("صيغة يوم/شهر/سنة",    import_date_check("12/08/2026") is None, True)
-
-
-print("\n📆 format_date_ar — دالة عرض ماينفعش توقّع صفحة")
-check("تاريخ ISO",        format_date_ar("2026-08-12"), "12 أغسطس 2026")
-check("ISO بوقت",        format_date_ar("2026-08-12T09:00:00"), "12 أغسطس 2026")
-check("نص مش تاريخ",     format_date_ar("كلام"), "كلام")
-check("فاضي",            format_date_ar(""), "")
-check("None",            format_date_ar(None), "")
-check("رقم (كان بيرمي)",  format_date_ar(999999999), "999999999")
-check("dict (كان بيرمي)", format_date_ar({"a": 1}), "{'a': 1}")
-check("list (كان بيرمي)", format_date_ar([1, 2]), "[1, 2]")
-
-print("\n🧱 تحصين الدوال المجمِّعة — مدخل بايظ يتخطّى بدل ما يوقّع")
-_ok_persons = [{"name": "أحمد", "labs": ["CBC — 400 جنيه", "D3 — 900 جنيه"]},
-               {"name": "سارة", "labs": ["TSH — 300 جنيه"]}]
-check("إجمالي سليم",       extra_persons_total(_ok_persons), 1600)
-check("عدد التحاليل",      extra_persons_labs_count(_ok_persons), 3)
-check("None في القائمة",   extra_persons_total([None] + _ok_persons), 1600)
-check("labs=None",         extra_persons_total([{"name": "x", "labs": None}]), 0)
-check("مش list خالص",      extra_persons_total("نص"), 0)
-check("عدّاد مع None",      extra_persons_labs_count([None, {"labs": ["a"]}]), 1)
-check("dump بيتخطّى None",  dump_extra_persons([None, {"name": "أحمد", "labs": []}]) != "", True)
-check("لون مع dict",       isinstance(get_client_tag_color({"a": 1}), str), True)
-check("لون مع نص معروف",   get_client_tag_color("🆕 عميل جديد"), "#3498DB")
-check("_hash_records بلا list", _hash_records("نص") == _hash_records([]), True)
-check("_hash_records مع None داخل", _hash_records([None]) == _hash_records([]), True)
-check("_hash_records ثابت مع الترتيب",
-      _hash_records([{"id": "a"}, {"id": "b"}]) == _hash_records([{"id": "b"}, {"id": "a"}]), True)
-check("_hash_records حسّاس للمحتوى",
-      _hash_records([{"id": "a"}]) != _hash_records([{"id": "a", "x": 1}]), True)
-
-print("\n🔁 parse/dump — استقرار الذهاب والعودة")
-_p1 = parse_extra_persons(dump_extra_persons(_ok_persons))
-_p2 = parse_extra_persons(dump_extra_persons(_p1))
-check("مستقر من التكرار الثاني", _p1 == _p2, True)
-check("الأسماء محفوظة",         [p["name"] for p in _p1], ["أحمد", "سارة"])
-check("التحاليل محفوظة",        _p1[0]["labs"], ["CBC — 400 جنيه", "D3 — 900 جنيه"])
-check("الإجمالي بعد العودة",     extra_persons_total(_p1), 1600)
-
-
-print("\n💵 format_money — الفلوس بلا كسور")
-check("عدد صحيح كـ float",  format_money(450.0), "450 جنيه")
-check("مفيش .0",            ".0" in format_money(450.0), False)
-check("فاصلة الآلاف",       format_money(12500.0), "12,500 جنيه")
-check("كسر بيتقرّب",         format_money(450.7), "451 جنيه")
-check("صفر",                format_money(0), "0 جنيه")
-check("نص مش رقم",          format_money("abc"), "0 جنيه")
-check("None",               format_money(None), "0 جنيه")
-check("سالب",               format_money(-100.0), "-100 جنيه")
-
-print("\n📊 revenue — الملغية مستبعدة")
-_vs = [{"status": "تمت", "total_price": 500, "labs_price_after": 400, "transport_fee": 100},
-       {"status": "ملغية", "total_price": 900, "labs_price_after": 800, "transport_fee": 100},
-       {"status": "مجدولة", "total_price": 300, "labs_price_after": 300, "transport_fee": 0}]
-check("الملغية مستبعدة من revenue",       revenue(_vs), 800)
-check("الملغية مستبعدة من labs_revenue",  labs_revenue(_vs), 700)
-check("الملغية مستبعدة من transport",     transport_revenue(_vs), 100)
-check("revenue = labs + transport",       revenue(_vs) == labs_revenue(_vs) + transport_revenue(_vs), True)
-check("الملغية لوحدها = صفر",             revenue([_vs[1]]), 0)
-check("قائمة فاضية",                      revenue([]), 0)
-check("None في القائمة",                  revenue([None] + _vs), 800)
-check("قيمة نصية بايظة",                  revenue([{"status": "تمت", "total_price": "x"}]), 0)
 
 print("\n" + "═" * 60)
 if _FAILS:
