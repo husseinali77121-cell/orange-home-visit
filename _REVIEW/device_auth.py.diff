@@ -1,5 +1,5 @@
 --- orange-home-visit-main/device_auth.py	2026-08-12 13:59:22.000000000 +0000
-+++ fixed/device_auth.py	2026-08-17 11:55:12.353083334 +0000
++++ fixed/device_auth.py	2026-08-15 19:13:41.596924175 +0000
 @@ -23,6 +23,36 @@
  COOKIE_NAME = "ol_hvms_dev"
  DEFAULT_DAYS = 90
@@ -37,43 +37,7 @@
  
  # ──────────────────────────────────────────────────────────────────────────────
  # أدوات
-@@ -46,14 +76,27 @@
- 
- 
- def _raw_secret(st):
--    for key in ("device_secret", "admin_password"):
--        try:
--            val = st.secrets.get(key, "") or ""
--        except Exception:
--            val = ""
--        if val:
--            return str(val)
--    return ""
-+    """
-+    مفتاح توقيع التوكن — `device_secret` **بس**.
-+
-+    ★ الإصدار القديم كان بيقع على `admin_password` لو `device_secret` مش
-+      موجود. تصميم غلط لسببين:
-+        ① باسورد المستخدم مايدخلش في التوقيع التشفيري — دور مختلف تمامًا
-+        ② تغيير باسورد الأدمن كان بيفصل **كل** الأجهزة الموثوقة فجأة،
-+           والمستخدم مايعرفش السبب
-+
-+      دلوقتي: مفيش `device_secret` = الدخول التلقائي مقفول (والبرنامج شغال
-+      عادي بالباسورد). القفل أوضح من fallback صامت بيكسر حاجة تانية.
-+    """
-+    try:
-+        return str(st.secrets.get("device_secret", "") or "")
-+    except Exception:
-+        return ""
-+
-+
-+def secret_configured(st):
-+    """للواجهة: تعرض تحذير للأدمن لو المفتاح ناقص."""
-+    return bool(_raw_secret(st))
- 
- 
- def _secret(st):
-@@ -82,6 +125,7 @@
+@@ -82,6 +112,7 @@
          "a": 1 if is_admin else 0,
          "d": device_id or new_device_id(),
          "x": int(time.time()) + int(days) * 86400,
@@ -81,7 +45,7 @@
      }
      if ip:
          payload["p"] = ip_prefix(ip)
-@@ -109,6 +153,10 @@
+@@ -109,6 +140,10 @@
          data = json.loads(raw)
          if int(data.get("x", 0)) < time.time():
              return None
@@ -92,7 +56,7 @@
          return data
      except Exception:
          return None
-@@ -245,6 +293,17 @@
+@@ -245,6 +280,17 @@
              if ip_prefix(ip) != data["p"]:
                  continue
          is_admin = bool(data.get("a")) and _flag(st, "admin_auto_login", True)
@@ -110,7 +74,7 @@
          return {"email": allowed_map[email], "is_admin": is_admin, "via": via,
                  "device_id": data.get("d", ""), "token": tok}
  
-@@ -258,16 +317,31 @@
+@@ -258,16 +304,31 @@
  
  def remember_device(st, email, is_admin=False, days=DEFAULT_DAYS):
      """
