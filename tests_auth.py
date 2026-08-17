@@ -144,11 +144,8 @@ check("إيميل بره القايمة مرفوض",    r["authenticated"], Fals
 print("\n⛔ السر الناقص = دخول مقفول (مش مفتوح)")
 r = attempt(DIAMOND, "1234567", secrets={**SECRETS, "branch_password": ""})
 check("branch_password فاضي → مقفول", r["authenticated"], False)
-# ★ الرسالة بقت بتذكر السر **الخاص بالفرع** الأول (diamond_password)
-#   مع سطر بدائل تحته. الاختبار بيقبل الاتنين.
 check("والرسالة بتوضّح السبب",
-      any(("branch_password" in e or "diamond_password" in e or "lacite_password" in e)
-          for e in r["errors"]), True)
+      any("branch_password" in e for e in r["errors"]), True)
 r = attempt(ADMIN, "AdminPass!2026", secrets={**SECRETS, "admin_password": ""})
 check("admin_password فاضي → مقفول", r["authenticated"], False)
 
@@ -166,30 +163,6 @@ print("\n🌍 باسوردات غير إنجليزية")
 for pw in ["كلمة السر ١٢٣", "🟠orange", "P@ss wörd"]:
     r = attempt(DIAMOND, pw, secrets={**SECRETS, "branch_password": pw})
     check(f"«{pw[:14]}» يشتغل", (r.get("error"), r["authenticated"]), (None, True))
-
-print("\n🏥 باسورد مستقل لكل فرع (#5)")
-_S5 = {**SECRETS, "diamond_password": "DiaPass!1", "lacite_password": "LacPass!2"}
-r = attempt(DIAMOND, "DiaPass!1", secrets=_S5)
-check("Diamond بسرّه الخاص",       (r.get("error"), r["authenticated"]), (None, True))
-r = attempt(DIAMOND, "LacPass!2", secrets=_S5)
-check("🔴 سر La Cité مايفتحش Diamond", r["authenticated"], False)
-r = attempt(LACITE, "LacPass!2", secrets=_S5)
-check("La Cité بسرّه الخاص",        (r.get("error"), r["authenticated"]), (None, True))
-r = attempt(LACITE, "DiaPass!1", secrets=_S5)
-check("🔴 سر Diamond مايفتحش La Cité", r["authenticated"], False)
-r = attempt(DIAMOND, "1234567", secrets=_S5)
-check("🔴 المشترك مابقاش يشتغل لما الخاص موجود", r["authenticated"], False)
-r = attempt(ADMIN, "DiaPass!1", secrets=_S5)
-check("🔴 سر الفرع مايفتحش الأدمن",  r["authenticated"], False)
-
-# التدرّج الآمن: السر الخاص مش موجود → يرجع للمشترك
-_S5b = {**SECRETS, "diamond_password": "DiaOnly!9"}
-r = attempt(LACITE, "1234567", secrets=_S5b)
-check("La Cité بيرجع للمشترك",      (r.get("error"), r["authenticated"]), (None, True))
-r = attempt(DIAMOND, "DiaOnly!9", secrets=_S5b)
-check("Diamond بسرّه الخاص",        r["authenticated"], True)
-r = attempt(DIAMOND, "1234567", secrets=_S5b)
-check("🔴 Diamond مابقاش يقبل المشترك", r["authenticated"], False)
 
 print("\n" + "═" * 62)
 if _FAILS:

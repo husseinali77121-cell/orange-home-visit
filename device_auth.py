@@ -76,27 +76,14 @@ def has_secret(st):
 
 
 def _raw_secret(st):
-    """
-    مفتاح توقيع التوكن — `device_secret` **بس**.
-
-    ★ الإصدار القديم كان بيقع على `admin_password` لو `device_secret` مش
-      موجود. تصميم غلط لسببين:
-        ① باسورد المستخدم مايدخلش في التوقيع التشفيري — دور مختلف تمامًا
-        ② تغيير باسورد الأدمن كان بيفصل **كل** الأجهزة الموثوقة فجأة،
-           والمستخدم مايعرفش السبب
-
-      دلوقتي: مفيش `device_secret` = الدخول التلقائي مقفول (والبرنامج شغال
-      عادي بالباسورد). القفل أوضح من fallback صامت بيكسر حاجة تانية.
-    """
-    try:
-        return str(st.secrets.get("device_secret", "") or "")
-    except Exception:
-        return ""
-
-
-def secret_configured(st):
-    """للواجهة: تعرض تحذير للأدمن لو المفتاح ناقص."""
-    return bool(_raw_secret(st))
+    for key in ("device_secret", "admin_password"):
+        try:
+            val = st.secrets.get(key, "") or ""
+        except Exception:
+            val = ""
+        if val:
+            return str(val)
+    return ""
 
 
 def _secret(st):
