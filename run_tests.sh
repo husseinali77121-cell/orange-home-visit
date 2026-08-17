@@ -49,6 +49,7 @@ echo
 echo "② اختبارات الوحدة"
 run_suite "الطبقة النقية"    tests_pure.py
 run_suite "حُرّاس المزامنة"   tests_guards.py
+run_suite "الصلاحيات"        tests_permissions.py
 run_suite "قواعد الاستيراد"  tests_import.py
 run_suite "مسار المصادقة"    tests_auth.py
 run_suite "توكن الجهاز"      tests_device.py

@@ -149,13 +149,7 @@ def _validate_row_real(record, opts=None):'''),
                 _grant(email_clean)
             st.rerun()'''),
 
- ("M20 fallback للباسورد الافتراضي", "app.py",
-  '''            correct_password = str(_sec(_sec_key, "") or "")''',
-  '''            correct_password = str(_sec(_sec_key, "123456") or "123456")'''),
 
- ("M21 سرّ واحد للأدمن والفروع", "app.py",
-  '''            _sec_key = "admin_password" if _is_admin_login else "branch_password"''',
-  '''            _sec_key = "admin_password"'''),
 
  ("M22 مفيش تحديد محاولات", "app.py",
   '''                if _fails >= PW_MAX_ATTEMPTS:''',
@@ -243,6 +237,34 @@ def _validate_row_real(record, opts=None):'''),
 
 def _official_price_for(entry):"""),
 
+ ("M36 نطاق الفرع اتشال", "permissions.py",
+  """    if scope is None:
+        return True
+    if not isinstance(record, dict):
+        return False""",
+  """    return True
+    if not isinstance(record, dict):
+        return False"""),
+
+ ("M37 الفرع يقدر يتخطّى الفلتر", "permissions.py",
+  """    elif scope is not None:
+        f["branch"] = scope           # يدوس على أي محاولة تخطّي""",
+  """    elif scope is not None and not f.get("branch"):
+        f["branch"] = scope"""),
+
+ ("M38 device_secret يرجع fallback", "device_auth.py",
+  """        return str(st.secrets.get("device_secret", "") or "")""",
+  """        return str(st.secrets.get("device_secret", "")
+                   or st.secrets.get("admin_password", "") or "")"""),
+
+ ("M20 fallback للباسورد الافتراضي", "app.py",
+  '            if not _sec_key:\n                _sec_key = _keys[0]',
+  '            if not _sec_key:\n                _sec_key, correct_password = _keys[0], "123456"'),
+
+ ("M21 الفرع يقبل سر فرع تاني", "app.py",
+  '                _keys = ["diamond_password", "branch_password"]',
+  '                _keys = ["lacite_password", "diamond_password", "branch_password"]'),
+
  # ── الصلاحيات ────────────────────────────────────────────────────────────
  ("M26 صفحة new من غير حارس", "app.py",
   '''elif st.session_state.page == "new":
@@ -254,7 +276,7 @@ def _official_price_for(entry):"""),
   '''elif st.session_state.page == "new":'''),
 ]
 
-SUITES = ["tests_pure.py", "tests_guards.py", "tests_import.py",
+SUITES = ["tests_pure.py", "tests_guards.py", "tests_permissions.py", "tests_import.py",
           "tests_auth.py", "tests_device.py", "tests_pages.py"]
 
 

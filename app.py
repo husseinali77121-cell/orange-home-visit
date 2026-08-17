@@ -72,6 +72,8 @@ from import_rules import validate_row, fill_insert_defaults, ImportOptions
 # months_to_write / verify_before_prune متعرّفين في sync_guards ومختبرين هناك،
 # بس app.py لسه بيستخدم المنطق inline. مش بنستوردهم عشان مايبقوش استيراد ميت.
 from sync_guards import check_save_allowed
+from permissions import (PermissionDenied, allowed_branch, can_access,
+                         enforce, filter_visible, scope_filters)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 🧱 الطبقة النقية — core.py
@@ -303,10 +305,31 @@ if not st.session_state.authenticated:
             # ★ سرّين منفصلين: الأدمن له `admin_password`، والفروع
             #   `branch_password` مشترك. مفيش fallback لقيمة في الكود —
             #   السر اللي مش متظبّط = الدخول مقفول، مش مفتوح بقيمة معروفة.
-            _sec_key = "admin_password" if _is_admin_login else "branch_password"
-            correct_password = str(_sec(_sec_key, "") or "")
+            # ★ #5 — سر مستقل لكل فرع بدل سر مشترك واحد.
+            #   الترتيب: السر الخاص بالفرع ← السر المشترك ← مقفول.
+            #   الرجوع للمشترك مقصود: انتقال تدريجي من غير ما حد يتقفل.
+            #   لما تحط diamond_password و lacite_password، شيل branch_password.
+            _utype = _user_type_for(_login_email)
+            if _is_admin_login:
+                _keys = ["admin_password"]
+            elif _utype == "diamond":
+                _keys = ["diamond_password", "branch_password"]
+            elif _utype == "lacite":
+                _keys = ["lacite_password", "branch_password"]
+            else:
+                _keys = ["branch_password"]
+            _sec_key, correct_password = "", ""
+            for _k in _keys:
+                _v = str(_sec(_k, "") or "")
+                if _v:
+                    _sec_key, correct_password = _k, _v
+                    break
+            if not _sec_key:
+                _sec_key = _keys[0]
             if not correct_password:
                 st.error(f"⛔ `{_sec_key}` مش متظبّط في Secrets — الدخول مقفول.")
+                if len(_keys) > 1:
+                    st.caption(f"البدائل المقبولة: {' أو '.join('`'+k+'`' for k in _keys)}")
             # ★ .encode() مش زيادة: hmac.compare_digest بيرمي TypeError على str
             #   فيه أي حرف مش ASCII. باسورد فيه حرف عربي واحد كان هيقفل الدخول.
             elif hmac.compare_digest(str(password).encode("utf-8"),
@@ -416,6 +439,7 @@ USE_CAS = bool(_sec("use_cas", True))
 _GH_STATE = {
     "file_sha": {},           # path → SHA وقت آخر قراءة (Compare-and-Swap)
     "conflict": "",           # آخر ملف حصل عليه تعارض
+    "last_sync_at": None,     # وقت آخر رفع ناجح — لمؤشر الهيدر
     "connected": None,        # None = لسه ما اتفحصش، True/False بعد أول عملية
     "remote_total": None,     # آخر عدد زيارات معروف على GitHub
     "last_error": "",
@@ -801,6 +825,7 @@ def save_to_github_json():
             _GH_STATE["last_error"]        = ""
             _GH_STATE["last_save_blocked"] = ""
             _GH_STATE["conflict"]          = ""    # التعارض اتحل
+            _GH_STATE["last_sync_at"]      = datetime.now()  # لمؤشر الهيدر
             _GH_STATE["unsaved"]           = 0     # كل حاجة وصلت GitHub
         else:
             _GH_STATE["unsaved"] = _GH_STATE.get("unsaved", 0) + 1
@@ -1491,7 +1516,14 @@ def fetch_visit_by_unique_keys(name, phone, visit_date):
     ).fetchone()
     return dict(row) if row else None
 
-def fetch_visits(filters=None, page=None, page_size=None):
+def fetch_visits(filters=None, page=None, page_size=None, user_type=None):
+    """
+    ★ user_type بيفرض نطاق الفرع في الاستعلام نفسه (defense in depth).
+      اتساب None = السلوك القديم — عشان النداءات الداخلية (المزامنة ·
+      الأرشفة · التصدير) تفضل شغالة زي ما هي.
+    """
+    if user_type is not None:
+        filters = scope_filters(filters, user_type)
     conn = get_connection()
     query = "SELECT * FROM visits WHERE deleted_at IS NULL"
     if not (filters or {}).get("include_archived"):
@@ -1540,12 +1572,24 @@ def fetch_visits(filters=None, page=None, page_size=None):
     visits = [dict(r) for r in rows]
     return visits, total
 
-def fetch_visit_by_id(vid):
+def fetch_visit_by_id(vid, user_type=None):
+    """
+    ★ user_type بيفرض فحص الفرع. `vid` بيجي من الجلسة/الرابط، يعني ده
+      المسار اللي ممكن حد يجرّب يفتح بيه زيارة فرع تاني.
+      بيرجّع None لو ممنوع — نفس سلوك «مش موجودة» عشان مانسربش وجود السجل.
+    """
     conn = get_connection()
     row = conn.execute("SELECT * FROM visits WHERE id=? AND deleted_at IS NULL",(vid,)).fetchone()
-    return dict(row) if row else None
+    rec = dict(row) if row else None
+    if rec is not None and user_type is not None and not can_access(rec, user_type):
+        return None
+    return rec
 
-def fetch_client_history(phone, exclude_id=None, limit=None):
+def fetch_client_history(phone, exclude_id=None, limit=None, user_type=None):
+    """
+    ★ user_type بيصفّي التاريخ على فرع المستخدم. العميل ممكن يكون زار
+      الفرعين — والفرع مايشوفش غير زياراته هو.
+    """
     conn = get_connection()
     if exclude_id:
         rows = conn.execute(
@@ -1556,9 +1600,14 @@ def fetch_client_history(phone, exclude_id=None, limit=None):
         rows = conn.execute(
             "SELECT * FROM visits WHERE phone=? AND deleted_at IS NULL ORDER BY visit_date DESC",(phone,)
         ).fetchall()
-    if limit and len(rows) > limit:
-        rows = rows[:limit]
-    return [dict(r) for r in rows]
+    out = [dict(r) for r in rows]
+    # ★ التصفية **قبل** الـlimit — عشان الفرع ياخد آخر N زيارة **بتاعته**
+    #   مش آخر N زيارة إجمالًا اتفلتر منها اللي مش بتاعه.
+    if user_type is not None:
+        out = filter_visible(out, user_type)
+    if limit and len(out) > limit:
+        out = out[:limit]
+    return out
 
 def insert_visit(record, sync=True):
     """
@@ -2637,6 +2686,30 @@ table{{width:100%;border-collapse:collapse;font-size:13px;}}
 # ══════════════════════════════════════════════════════════════════════════════
 # CSS
 # ══════════════════════════════════════════════════════════════════════════════
+def sync_chip_html():
+    """
+    مؤشر حالة المزامنة — بيظهر **دايمًا** في الهيدر.
+
+    ★ الفجوة اللي بيسدّها: البانرات الحالية بتظهر وقت المشاكل بس. لما كله
+      تمام مفيش أي مؤشر، فالمستخدم مايعرفش هل شغله وصل GitHub ولا لأ —
+      لازم يفتح الريبو ويتأكد بنفسه. غياب المؤشر مش نفس معنى «كله تمام».
+    """
+    if _GH_STATE.get("conflict"):
+        return ('<span class="sync-chip sync-conflict">🟠 تعارض — محتاج تدخّل</span>')
+    n = _GH_STATE.get("unsaved", 0)
+    if n:
+        return (f'<span class="sync-chip sync-pending">🔴 {n} تعديل محلي</span>')
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return '<span class="sync-chip sync-off">⚪ المزامنة مقفولة</span>'
+    ts = _GH_STATE.get("last_sync_at")
+    if ts:
+        mins = int((datetime.now() - ts).total_seconds() // 60)
+        when = "دلوقتي" if mins < 1 else (f"من {mins} دقيقة" if mins < 60
+                                          else f"من {mins//60} ساعة")
+        return f'<span class="sync-chip sync-ok">🟢 متزامن · {when}</span>'
+    return '<span class="sync-chip sync-ok">🟢 متزامن</span>'
+
+
 def inject_css():
     css = """
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -2651,6 +2724,30 @@ def inject_css():
       .ohv-header h1 { color:#fff; margin:0; font-size:34px; font-weight:800; letter-spacing:-0.5px; line-height:1.1; }
       .ohv-header-dev { color:rgba(255,255,255,0.92); font-size:13px; font-weight:600; margin-top:2px; }
       .ohv-header-date { color:rgba(255,255,255,0.85); font-size:12px; text-align:right; }
+/* ── مؤشر حالة المزامنة (دايم في الهيدر) ─────────────────────────────── */
+.sync-chip { display:inline-block; margin-top:6px; padding:3px 10px; border-radius:12px;
+             font-size:11px; font-weight:700; white-space:nowrap; }
+.sync-ok       { background:rgba(255,255,255,0.22); color:#fff; }
+.sync-pending  { background:#C0392B; color:#fff; }
+.sync-conflict { background:#F39C12; color:#3a2600; }
+.sync-off      { background:rgba(0,0,0,0.25); color:rgba(255,255,255,0.8); }
+
+/* ── تحسينات الموبايل ─────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* الهيدر كان بياخد ارتفاع كبير على الشاشة الصغيرة */
+  .ohv-header { flex-direction:column; align-items:flex-start; gap:6px; padding:12px 14px; }
+  .ohv-header h1 { font-size:23px; }
+  .ohv-header-date { text-align:left; font-size:11px; }
+  /* الأزرار كانت بتتقصّ — 44px هو الحد الأدنى المريح للّمس */
+  .stButton button { min-height:44px; font-size:14px; }
+  /* كروت الزيارات: مسافات أقل عشان يبان عدد أكبر */
+  .visit-card { padding:10px 12px; margin-bottom:8px; }
+  .visit-name { font-size:15px; }
+  .visit-meta { font-size:12px; }
+}
+
+/* ── تباين أعلى للنص الثانوي (كان 0.55 — ضعيف تحت الشمس) ───────────── */
+.visit-meta { opacity:0.78; }
       .stat-grid { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
       .stat-box { flex:1; min-width:80px; background:#fff; border-radius:14px; padding:12px;
         text-align:center; border:1px solid #ffe8d1; box-shadow:0 2px 10px rgba(0,0,0,0.05); }
@@ -2930,7 +3027,7 @@ st.markdown(f"""<div class="ohv-header">
     <h1>🟠 Orange Lab HVMS</h1>
     <div class="ohv-header-dev">🏥 {_branch_line}</div>
   </div>
-  <div class="ohv-header-date">📅 {format_date_ar(date.today())}</div>
+  <div class="ohv-header-date">📅 {format_date_ar(date.today())}<br>{sync_chip_html()}</div>
 </div>""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2953,6 +3050,7 @@ if _AUTO_DONE.get("changed"):
         f'<div style="color:#a9d3ba;font-size:11.5px;margin-top:4px;">'
         f'لو فيه زيارة اتحوّلت بالغلط، افتحها وغيّر الحالة يدويًا — كل تحويل متسجّل في سجل التدقيق.</div></div>',
         unsafe_allow_html=True)
+
 
 def render_sync_banner():
     """بانر أحمر ثابت لو أي تعديل اتحفظ محليًا وفشل يوصل GitHub — مستحيل تعديه."""
@@ -3035,6 +3133,20 @@ if _REPAIR.get("ran") and st.session_state.user_type == "admin":
 
 # ★ بانر «تعديلات لسه محليّة» — بيظهر لكل المستخدمين مش الأدمن بس
 render_sync_banner()
+
+# ★ تحذير إعداد — للأدمن بس، ومرة واحدة في الجلسة.
+#   السبب: device_secret بقى إجباري للدخول التلقائي. من غيره البرنامج شغال
+#   عادي بالباسورد، بس «افتكرني» مش هيشتغل — والمستخدم مش هيعرف ليه.
+if (st.session_state.user_type == "admin"
+        and not st.session_state.get("_cfg_warned")):
+    _cfg = []
+    if not dev.secret_configured(st):
+        _cfg.append("`device_secret` ناقص → «افتكرني» مش هيشتغل")
+    if not _sec("branch_password") and not (_sec("diamond_password") and _sec("lacite_password")):
+        _cfg.append("مفيش باسورد للفروع → الفروع مش هتقدر تدخل")
+    if _cfg:
+        st.warning("⚙️ إعدادات ناقصة في Secrets:\n\n" + "\n".join(f"- {c}" for c in _cfg))
+        st.session_state["_cfg_warned"] = True
 
 # ── 🍊 تحية المستخدم عند الدخول (حسب الفرع والوقت) ──
 #    بتظهر مرة واحدة في الجلسة، وبتختفي لوحدها بـ CSS بعد GREETING_SECONDS.
@@ -3165,12 +3277,12 @@ if st.session_state.page == "home":
     # Pagination
     page = st.session_state.current_page
     page_size = st.session_state.page_size
-    visits, total_visits = fetch_visits(filters, page=page, page_size=page_size)
+    visits, total_visits = fetch_visits(filters, page=page, page_size=page_size, user_type=st.session_state.user_type)
     st.session_state.total_visits = total_visits
 
     today_s = date.today().isoformat()
     bf_kpi  = "Diamond" if st.session_state.user_type=="diamond" else "La Cite" if st.session_state.user_type=="lacite" else None
-    all_vs  = fetch_visits({"branch":bf_kpi} if bf_kpi else {}, page=None, page_size=None)[0]  # جلب الكل للإحصائيات
+    all_vs  = fetch_visits({"branch":bf_kpi} if bf_kpi else {}, page=None, page_size=None, user_type=st.session_state.user_type)[0]  # جلب الكل للإحصائيات
     t_today = sum(1 for v in all_vs if v.get("visit_date")==today_s)
     t_rev   = revenue(all_vs)
     t_done  = sum(1 for v in all_vs if v.get("status")=="تمت")
@@ -3479,7 +3591,7 @@ elif st.session_state.page == "today":
     f = {"date_exact": date.today().isoformat()}
     if st.session_state.user_type == "diamond":   f["branch"] = "Diamond"
     elif st.session_state.user_type == "lacite":  f["branch"] = "La Cite"
-    today_visits, _ = fetch_visits(f, page=None, page_size=None)  # جلب الكل لليوم
+    today_visits, _ = fetch_visits(f, page=None, page_size=None, user_type=st.session_state.user_type)  # جلب الكل لليوم
     today_visits.sort(key=lambda v: _time_key(v.get("visit_time","")))   # ★ ترتيب زمني صح
     st.markdown(f'<div class="today-header">📅 زيارات اليوم — {format_date_ar(date.today())} ({len(today_visits)} زيارة)</div>', unsafe_allow_html=True)
     done_t    = sum(1 for v in today_visits if v.get("status")=="تمت")
@@ -3501,7 +3613,7 @@ elif st.session_state.page == "today":
             view_mode = st.radio("عرض", ["📋 قائمة","🗂️ حسب المنطقة"], horizontal=True, key="today_view")
         with tc2:
             tomorrow = (date.today() + timedelta(days=1)).isoformat()
-            tomorrow_visits, _ = fetch_visits({**({k:v for k,v in f.items() if k!="date_exact"}), "date_exact": tomorrow}, page=None, page_size=None)
+            tomorrow_visits, _ = fetch_visits({**({k:v for k,v in f.items() if k!="date_exact"}), "date_exact": tomorrow}, page=None, page_size=None, user_type=st.session_state.user_type)
             if tomorrow_visits:
                 bulk_msg = f"🟠 *تذكير زيارات غد — {format_date_ar(date.today()+timedelta(1))}*\n━━━━━━━━━━━━━━\n"
                 for i, tv in enumerate(tomorrow_visits, 1):
@@ -3584,7 +3696,7 @@ elif st.session_state.page == "new":
     except Exception:
         pass
     if phone and len(phone) >= 10 and not is_edit:
-        prev_visits = fetch_client_history(phone, limit=3)
+        prev_visits = fetch_client_history(phone, limit=3, user_type=st.session_state.user_type)
         if prev_visits:
             tag_auto  = get_client_tag(phone); tag_color = get_client_tag_color(tag_auto)
             last_v    = prev_visits[0]
@@ -4089,7 +4201,9 @@ elif st.session_state.page == "detail":
     if st.session_state.user_type not in ["admin", "diamond", "lacite"]:
         st.info("ليس لديك صلاحية عرض بيانات الزيارات."); st.stop()
     vid = st.session_state.selected_id
-    v   = fetch_visit_by_id(vid) if vid else None
+    # ★ user_type بيتمرّر هنا تحديدًا: vid جاي من الجلسة/الرابط، وده المسار
+    #   اللي حد ممكن يجرّب يفتح بيه زيارة فرع تاني.
+    v   = fetch_visit_by_id(vid, user_type=st.session_state.user_type) if vid else None
     if not v:
         st.error("لم يتم العثور على الزيارة"); go("home")
     else:
@@ -4124,7 +4238,7 @@ elif st.session_state.page == "detail":
         tag_auto  = get_client_tag(v.get("phone",""))
         tag_color = get_client_tag_color(tag_auto)
         churn     = get_churn_risk(v.get("phone",""))
-        all_visits_c = fetch_client_history(v.get("phone",""))
+        all_visits_c = fetch_client_history(v.get("phone",""), user_type=st.session_state.user_type)
         done_count_d = sum(1 for hv in all_visits_c if hv.get("status")=="تمت")
         cur_rating   = int(v.get("rating", 0) or 0)
         stars_html   = f'<span style="font-size:16px;">{"⭐"*cur_rating}</span>' if cur_rating else ""
@@ -4295,7 +4409,7 @@ elif st.session_state.page == "detail":
         st.markdown("---")
 
         # ── تاريخ العميل ──
-        prev = fetch_client_history(v.get("phone",""), exclude_id=v["id"])
+        prev = fetch_client_history(v.get("phone",""), exclude_id=v["id"], user_type=st.session_state.user_type)
         if prev:
             st.markdown('<div class="section-title">📋 تاريخ العميل</div>', unsafe_allow_html=True)
             for old_v in prev[:4]:
@@ -4419,7 +4533,7 @@ elif st.session_state.page == "reports":
             ).fetchall()
         visits_r = [dict(r) for r in rows]
     else:
-        visits_r, _ = fetch_visits(rf, page=None, page_size=None)
+        visits_r, _ = fetch_visits(rf, page=None, page_size=None, user_type=st.session_state.user_type)
     if not visits_r:
         st.info("لا توجد بيانات للفترة المحددة.")
     else:
@@ -4834,7 +4948,7 @@ elif st.session_state.page == "client_profile":
     if not phone_cp:
         st.error("لم يتم تحديد عميل"); go("home")
     else:
-        all_client_visits = fetch_client_history(phone_cp)
+        all_client_visits = fetch_client_history(phone_cp, user_type=st.session_state.user_type)
         if not all_client_visits:
             st.error("لا توجد زيارات لهذا العميل")
             if st.button("← رجوع"): go("home")
