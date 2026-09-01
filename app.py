@@ -372,7 +372,7 @@ _DATA_DIR = "/data" if os.path.isdir("/data") else "."
 DB_FILE      = os.path.join(_DATA_DIR, "visits.db")
 BACKUP_EXCEL = "visits_export.xlsx"
 BACKUP_JSON  = os.path.join(_DATA_DIR, "visits_backup.json")
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 
 # ── GitHub API للحفظ الدائم (كل القيم من الأسرار فقط — لا شيء ظاهر في الكود) ──
 GITHUB_TOKEN  = _sec("github_token", "")
@@ -1160,7 +1160,8 @@ def init_db():
             paid_amount REAL DEFAULT 0, payment_date TEXT DEFAULT '',
             deleted_at TEXT DEFAULT NULL,
             archived INTEGER DEFAULT 0,
-            updated_at TEXT DEFAULT ''
+            updated_at TEXT DEFAULT '',
+            confirm_name_age INTEGER DEFAULT 0
         )
     """)
     conn.execute("""
@@ -1276,6 +1277,8 @@ def init_db():
             ("visits", "updated_at", "TEXT DEFAULT ''"),
             # v6 migrations — حالات إضافية في نفس الزيارة (JSON)
             ("visits", "extra_persons", "TEXT DEFAULT ''"),
+            # v7 migrations — تنبيه «تأكيد الاسم والسن» للدكتور
+            ("visits", "confirm_name_age", "INTEGER DEFAULT 0"),
         ]
         for table, col, defn in columns_to_add:
             add_column_if_missing(table, col, defn)
@@ -1575,8 +1578,9 @@ def insert_visit(record, sync=True):
             doctor_name,branch,city,district,address,location_link,selected_labs_text,notes,
             extra_persons,
             labs_price_before,labs_price_after,transport_fee,total_price,status,
-            payment_status,payment_method,paid_amount,payment_date,updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            payment_status,payment_method,paid_amount,payment_date,updated_at,
+            confirm_name_age
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         record["id"], record["created_at"], record["name"], record["age"],
         record.get("age_unit","سنة"), record["phone"],
@@ -1593,6 +1597,7 @@ def insert_visit(record, sync=True):
         record.get("payment_method",""), record.get("paid_amount",0),
         record.get("payment_date",""),
         datetime.now().isoformat(),
+        int(record.get("confirm_name_age", 0) or 0),
     ))
     conn.commit()
     _clear_tag_cache(record["phone"])
@@ -1625,8 +1630,9 @@ def _load_insert_visit(conn, rec, upsert=False, archived=0):
             doctor_name,branch,city,district,address,location_link,selected_labs_text,notes,
             extra_persons,
             labs_price_before,labs_price_after,transport_fee,total_price,status,rating,tag,
-            payment_status,payment_method,paid_amount,payment_date,deleted_at,archived,updated_at
-        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            payment_status,payment_method,paid_amount,payment_date,deleted_at,archived,updated_at,
+            confirm_name_age
+        ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         rec.get("id",""), rec.get("created_at") or datetime.now().isoformat(),
         rec.get("name","") or "", _to_num(rec.get("age"), int, 0),
@@ -1647,6 +1653,7 @@ def _load_insert_visit(conn, rec, upsert=False, archived=0):
         int(archived),
         # updated_at: من الملف لو موجود، وإلا created_at (الصفوف القديمة قبل v5)
         rec.get("updated_at") or rec.get("created_at") or datetime.now().isoformat(),
+        _to_num(rec.get("confirm_name_age"), int, 0),
     ))
     return 1 if (cur.rowcount and cur.rowcount > 0) else 0
 
@@ -1733,7 +1740,7 @@ def update_visit(record, sync=True):
             selected_labs_text=?,notes=?,extra_persons=?,labs_price_before=?,
             labs_price_after=?,transport_fee=?,total_price=?,status=?,
             payment_status=?,payment_method=?,paid_amount=?,payment_date=?,
-            updated_at=?
+            updated_at=?,confirm_name_age=?
         WHERE id=?
     """, (
         record["name"], _keep("age", 0), _keep("age_unit", "سنة"),
@@ -1749,6 +1756,7 @@ def update_visit(record, sync=True):
         _keep("payment_method"), _keep("paid_amount", 0),
         _keep("payment_date"),
         datetime.now().isoformat(),
+        int(_keep("confirm_name_age", 0) or 0),
         record["id"]
     ))
     conn.commit()
@@ -2538,13 +2546,22 @@ def make_whatsapp_msg(v, target="internal"):
                 f"شكراً لثقتكم 🧡 *معمل أورانج لاب*")
     elif target == "group":
         location_header = loc_header if loc_header else addr
+        # 🏷️ تصنيف العميل (عميل جديد / منتظم / متكرر / VIP) — نفس منطق get_client_tag
+        try:
+            client_tag = get_client_tag(v.get("phone", "")) if v.get("phone") else ""
+        except Exception:
+            client_tag = ""
+        tag_line = f"🏷️ *التصنيف:* {client_tag}\n" if client_tag else ""
         return (f"🟠 *زيارة منزلية*\n━━━━━━━━━━━━━━\n"
+                f"👤 *الاسم:* {cname}\n{tag_line}"
                 f"👨‍⚕️ *الدكتور القائم بالزيارة:* {doc}\n📅 *الموعد:* {dt_str}\n"
                 f"{cases_line}📍 *عنوان الزيارة:* {location_header}")
     else:
         notes_line = f"📝 *ملاحظات:* {v.get('notes','')}\n" if v.get("notes") else ""
+        # ⚠️ لو اتحدد وقت إدخال الزيارة إن الاسم/السن محتاجين تأكيد — تظهر هنا للدكتور
+        confirm_line = "⚠️ *برجاء التأكد من الاسم والسن* ⚠️\n" if v.get("confirm_name_age") else ""
         return (f"🟠 *Orange Lab Home Visit Management System*\n━━━━━━━━━━━━━━\n"
-                f"👤 *الاسم:* {v['name']}\n{age_s}📞 *التليفون:* {v.get('phone','')}\n"
+                f"👤 *الاسم:* {v['name']}\n{age_s}{confirm_line}📞 *التليفون:* {v.get('phone','')}\n"
                 f"📅 *الموعد:* {dt_str}\n👨‍⚕️ *دكتور الزيارة:* {doc}\n"
                 f"🏥 *الفرع:* {br}\n🔖 *الحالة:* {STATUS_ICONS.get(status,'')} {status}\n━━━━━━━━━━━━━━\n"
                 f"📍 *العنوان:*\n{full_addr}\n{loc_line}━━━━━━━━━━━━━━\n"
@@ -3574,6 +3591,9 @@ elif st.session_state.page == "new":
         au_opts = ["سنة","شهر"]; cur_au = pf.get("age_unit","سنة")
         if cur_au not in au_opts: cur_au = "سنة"
         age_unit = st.radio("الوحدة", au_opts, index=au_opts.index(cur_au), horizontal=True)
+    # ⚠️ تأكيد الاسم والسن — لو اتحدد، هيتبعت تنبيه للدكتور في ملخص الحالة
+    confirm_name_age = st.checkbox("⚠️ برجاء التأكد من الاسم والعمر؟",
+                                    value=bool(pf.get("confirm_name_age", 0)))
     # ☎️ مفتاح الدولة + الرقم — الأرقام المصرية بتتخزّن بنفس الصيغة القديمة
     phone = phu.render_phone_input(st, "رقم التليفون", value=pf.get("phone",""),
                                    key_prefix="ph")
@@ -4068,6 +4088,7 @@ elif st.session_state.page == "new":
                 "labs_price_before": labs_price_before, "labs_price_after": labs_price_after,
                 "transport_fee": transport_fee, "total_price": total_price,
                 "status": status,
+                "confirm_name_age": int(confirm_name_age),
                 "payment_status": new_pay_status, "payment_method": new_pay_method,
                 "paid_amount": paid_amount, "payment_date": date.today().isoformat() if new_pay_status=="مدفوع" else pf.get("payment_date",""),
                 "_user": st.session_state.user_email or "",
