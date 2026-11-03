@@ -68,6 +68,7 @@ except Exception:
 # 🔎 محرك التحاليل الذكي + 🔐 الجهاز الموثوق (ملفات منفصلة)
 # ══════════════════════════════════════════════════════════════════════════════
 import lab_picker as lp
+import quick_panels as qp      # ⚡ Quick Panels + 📋 خانة اللصق (من برنامج الأسعار)
 from import_rules import validate_row, fill_insert_defaults, ImportOptions
 # months_to_write / verify_before_prune متعرّفين في sync_guards ومختبرين هناك،
 # بس app.py لسه بيستخدم المنطق inline. مش بنستوردهم عشان مايبقوش استيراد ميت.
@@ -2371,18 +2372,9 @@ def import_from_excel(uploaded_file):
         return 0, 0
 
 # ══════════════════════════════════════════════════════════════════════════════
-# Quick Panels واقتراحات (كما هي)
+# Quick Panels — اتنقلت لـ quick_panels.py (بانلز برنامج الأسعار + بانلز الزيارات
+# القديمة، وكلها بتضيف التحاليل بأسعارها من قايمة الأسعار)
 # ══════════════════════════════════════════════════════════════════════════════
-QUICK_PANELS = [
-    {"name":"🩸 CBC",      "tests":["CBC"]},
-    {"name":"🍬 Diabetes", "tests":["HbA1C","Urea","Creatinine (Serum)","Uric Acid","ALT (SGPT)","AST (SGOT)","Urine Examination"]},
-    {"name":"❤️ Cardiac",  "tests":["Cholesterol","HDL","LDL","Triglycerides","ALT (SGPT)","AST (SGOT)","Uric Acid"]},
-    {"name":"🦋 Thyroid",  "tests":["TSH","FT3","FT4"]},
-    {"name":"🔋 Fatigue",  "tests":["CBC","Ferritin","Vitamin D3(25 Hydroxy Cholecal.)","TSH"]},
-    {"name":"🧪 Kidney",   "tests":["Urea","Creatinine (Serum)","Uric Acid","Urine Examination"]},
-    {"name":"🫀 Liver",    "tests":["ALT (SGPT)","AST (SGOT)","Albumin (ALB)","Bilirubin Total","Alkaline Phosphatase (ALP)"]},
-    {"name":"🌟 General",  "tests":["CBC","Cholesterol","HDL","LDL","Triglycerides","HbA1C","TSH","ALT (SGPT)","AST (SGOT)","Urea","Creatinine (Serum)","Urine Examination"]},
-]
 # ══════════════════════════════════════════════════════════════════════════════
 # قائمة الأسعار (كما هي)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2501,7 +2493,9 @@ def make_whatsapp_msg(v, target="internal"):
     age_s = f"🎂 *العمر:* {age} {au}\n" if age else ""
     lt = v.get("selected_labs_text","")
     if lt.strip():
-        labs_lines = "\n".join(f"🧪 {l.strip()}" for l in lt.splitlines() if l.strip()) + "\n"
+        # ★ الرسالة بتوري اسم التحليل بس — السعر بيظهر في «قبل/بعد الخصم والإجمالي» تحت.
+        #   display_name للعرض فقط: السطر المخزّن (والحساب) ما بيتغيّروش.
+        labs_lines = "\n".join(f"🧪 {lp.display_name(l)}" for l in lt.splitlines() if l.strip()) + "\n"
     else:
         labs_lines = "🚫 لا توجد تحاليل\n"
 
@@ -2515,7 +2509,7 @@ def make_whatsapp_msg(v, target="internal"):
         xp_block = "👥 *حالات إضافية في نفس الزيارة:*\n"
         for p in xps:
             xp_block += f"\n👤 *{extra_person_title(p)}*\n"
-            xp_block += ("".join(f"🧪 {l}\n" for l in p.get("labs",[]))
+            xp_block += ("".join(f"🧪 {lp.display_name(l)}\n" for l in p.get("labs",[]))
                          or "🚫 لا توجد تحاليل\n")
         xp_block += "━━━━━━━━━━━━━━\n"
     else:
@@ -3794,22 +3788,13 @@ elif st.session_state.page == "new":
         else:
             st.session_state[labs_ss_key] = []
     st.markdown('<div class="section-title">⚡ Quick Panels</div>', unsafe_allow_html=True)
-    st.caption("اضغط على panel لإضافة تحاليله فوراً — التحاليل المكررة لن تُضاف")
-    pcols = st.columns(4)
-    for i,panel in enumerate(QUICK_PANELS):
-        with pcols[i%4]:
-            if st.button(panel["name"], key=f"pnl_{vid_key}_{i}", use_container_width=True):
-                existing = [e.split(" — ")[0].strip() for e in st.session_state[labs_ss_key]]
-                for tn in panel["tests"]:
-                    if tn not in existing: st.session_state[labs_ss_key].append(tn)
-                st.rerun()
-    with st.expander("👁️ شاهد محتوى الـ Panels"):
-        for panel in QUICK_PANELS:
-            st.markdown(f'<div style="font-size:12px;margin-bottom:6px"><b style="color:#FF6B00">{_esc(panel["name"])}</b> — {_esc(" • ".join(panel["tests"]))}</div>', unsafe_allow_html=True)
+    st.caption("اضغط على panel لإضافة تحاليله بأسعارها فوراً — المكرر لا يُضاف، والباقة تظهر لو أوفر")
+    qp.render_quick_panels(st, ALL_LABS, f"qp_{vid_key}", ss_key=labs_ss_key)
     st.markdown("---")
     if ALL_LABS:
         st.markdown('<div class="section-title">🔎 إضافة تحليل</div>', unsafe_allow_html=True)
         lp.render_lab_picker(st, ALL_LABS, f"mainlab_{vid_key}", ss_key=labs_ss_key)
+        qp.render_paste_box(st, ALL_LABS, f"qpaste_{vid_key}", ss_key=labs_ss_key)
     else:
         st.warning("قائمة الأسعار غير متاحة حالياً")
     st.markdown("---")
