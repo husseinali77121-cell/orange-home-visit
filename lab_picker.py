@@ -139,27 +139,6 @@ def entry_name(entry):
     return s.strip().rstrip("-–—:،,").strip()
 
 
-# سعر في آخر السطر: "CBC — 400 جنيه" / "CBC - 1,200 جنيه" / "CBC 400 جنيه" / "CBC: 400 جنيه"
-_TAIL_PRICE = re.compile(r'\s*(?:[—–-]|:)?\s*\d[\d,\.]*\s*جنيه\s*$')
-# بدون كلمة "جنيه" (سطر يدوي): "Hba1c - 400" / "Hba1c- 400" — لازم مسافة جنب الشرطة
-# عشان أسماء زي "CA 15-3" و "17-OH progesterone" ماتتقصّش.
-_TAIL_PRICE_BARE = re.compile(r'(?:\s+[—–-]\s*|[—–-]\s+)\d[\d,\.]*\s*$')
-
-
-def display_name(entry):
-    """
-    اسم التحليل للعرض في **الرسائل** — من غير السعر.
-    للعرض بس: السطر المخزّن نفسه ما بيتغيّرش، فالحساب (_lab_price) والتقارير والحفظ زي ما هم.
-    بيشيل السعر من آخر السطر بس، فاسم فيه شرطة جواه بيفضل كامل.
-    """
-    s = str(entry or "").strip()
-    out = _TAIL_PRICE.sub("", s)
-    if out == s:
-        out = _TAIL_PRICE_BARE.sub("", s)
-    out = out.strip().rstrip("-–—:،,").strip()
-    return out or entry_name(s) or s
-
-
 def entry_price(entry):
     m = PRICE_RE.search(str(entry or ""))
     return int(m.group(1)) if m else 0
