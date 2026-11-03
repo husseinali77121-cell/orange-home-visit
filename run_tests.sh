@@ -31,8 +31,8 @@ echo "① فحص الصياغة"
 if python3 - <<'PY'
 import ast, sys
 files = ["app.py","core.py","import_rules.py","sync_guards.py","device_auth.py",
-         "phone_utils.py","lab_picker.py","login_theme.py","easter_eggs.py",
-         "labs_price_list.py","tests_pure.py","tests_guards.py","tests_import.py",
+         "phone_utils.py","lab_picker.py","quick_panels.py","login_theme.py","easter_eggs.py",
+         "labs_price_list.py","tests_pure.py","tests_guards.py","tests_import.py","tests_quick_panels.py",
          "tests_auth.py","tests_device.py","tests_pages.py","_stub_streamlit.py",
          "mutation_audit.py","repair_data.py"]
 bad = 0
@@ -52,6 +52,7 @@ run_suite "حُرّاس المزامنة"   tests_guards.py
 run_suite "قواعد الاستيراد"  tests_import.py
 run_suite "مسار المصادقة"    tests_auth.py
 run_suite "توكن الجهاز"      tests_device.py
+run_suite "Quick Panels + اللصق + الرسائل" tests_quick_panels.py
 echo
 echo "③ تنفيذ الصفحات فعليًا"
 run_suite "44 حالة"          tests_pages.py
