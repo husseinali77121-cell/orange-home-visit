@@ -1080,6 +1080,126 @@ def list_archive_files():
     except Exception:
         return []
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 📚 فهرس الأرشيف — تاريخ العميل يفضل ظاهر حتى لو زياراته اتأرشفت (حتى بعد إعادة التشغيل)
+# ──────────────────────────────────────────────────────────────────────────────
+# المشكلة: الأرشفة بتنقل الزيارات لـ archive/*.json على GitHub، وبعد أي إعادة تشغيل القاعدة
+# بتتبني من الملف الحي بس — فالعميل القديم كان بيظهر «عميل جديد».
+# الحل: جدول **منفصل** visits_archive بيتملي من ملفات الأرشيف مع كل تشغيل (مرة لكل سيرفر)،
+# وبيتقرا بس في: تاريخ العميل / تصنيفه (VIP...) / نشاطه.
+# ★ عن قصد مش في جدول visits: عشان التقارير والإحصائيات والنسخ الاحتياطي واسترجاعها وعدّ
+#   الإقلاع وملف GitHub الحي كلهم يفضلوا زي ما هم بالظبط — مفيش أي رقم بيتغيّر.
+# ══════════════════════════════════════════════════════════════════════════════
+def _ensure_archive_index_table(conn):
+    conn.execute("""CREATE TABLE IF NOT EXISTS visits_archive (
+        id TEXT PRIMARY KEY, phone TEXT, visit_date TEXT, status TEXT, rec TEXT)""")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_visits_archive_phone ON visits_archive(phone)")
+
+def _archive_visits_for_phone(phone, skip_ids=()):
+    """زيارات العميل من الفهرس (list of dict). [] لو مفيش فهرس/مفيش زيارات. مابيرميش."""
+    if not phone:
+        return []
+    try:
+        conn = get_connection()
+        rows = conn.execute("SELECT rec FROM visits_archive WHERE phone=?", (phone,)).fetchall()
+    except Exception:
+        return []
+    skip = set(skip_ids or ())
+    out = []
+    for r in rows:
+        try:
+            rec = json.loads(r[0])
+        except Exception:
+            continue
+        if rec.get("id") in skip:
+            continue
+        out.append(rec)
+    return out
+
+def _archive_done_count(phone):
+    """عدد زيارات «تمت» في الفهرس مش موجودة في جدول visits (بدون تكرار)."""
+    if not phone:
+        return 0
+    try:
+        return get_connection().execute(
+            "SELECT COUNT(*) FROM visits_archive a WHERE a.phone=? AND a.status='تمت' "
+            "AND a.id NOT IN (SELECT id FROM visits)", (phone,)).fetchone()[0]
+    except Exception:
+        return 0
+
+def _archive_last_done_date(phone):
+    if not phone:
+        return ""
+    try:
+        r = get_connection().execute(
+            "SELECT MAX(visit_date) FROM visits_archive WHERE phone=? AND status='تمت'", (phone,)).fetchone()
+        return (r[0] or "") if r else ""
+    except Exception:
+        return ""
+
+def _list_archive_files_strict():
+    """
+    (files, err) — زي list_archive_files بس بيفرّق بين «مفيش أرشيف» و«فشل القراءة».
+    404 = مجلد الأرشيف لسه ماتعملش (مش خطأ). أي فشل تاني → files=None + سبب،
+    عشان الفهرس مايتعلّمش «تمام» وهو فاضي بسبب انقطاع شبكة لحظي.
+    """
+    import urllib.request, urllib.error
+    try:
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{GITHUB_ARCHIVE_DIR}?ref={GITHUB_BRANCH}"
+        req = urllib.request.Request(url, headers=_github_headers())
+        with urllib.request.urlopen(req, timeout=20) as r:
+            entries = json.loads(r.read())
+        return sorted([e["path"] for e in entries
+                       if isinstance(e, dict) and e.get("name", "").endswith(".json")], reverse=True), ""
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return [], ""
+        return None, f"HTTP {e.code}"
+    except Exception as e:
+        return None, f"{type(e).__name__}: {e}"
+
+def load_archive_index():
+    """
+    يسحب كل ملفات archive/*.json من GitHub ويملي visits_archive (INSERT OR REPLACE — آمن يتكرر).
+    قراءة بحتة من GitHub، ومابيلمسش جدول visits. بيرجّع dict: ok / files / visits / failed / err.
+    """
+    res = {"ok": False, "files": 0, "visits": 0, "failed": [], "err": ""}
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        res["err"] = "github_token/github_repo مش موجودين"
+        return res
+    files, lerr = _list_archive_files_strict()
+    if files is None:
+        res["err"] = "تعذّر قراءة قايمة الأرشيف: " + lerr
+        return res
+    conn = get_connection()
+    _ensure_archive_index_table(conn)
+    if not files:
+        res["ok"] = True                          # مفيش أرشيف لسه — مش خطأ
+        return res
+    for path in files:
+        payload, _st, err = _gh_get_json(path)
+        if not (isinstance(payload, dict) and isinstance(payload.get("visits"), list)):
+            res["failed"].append(path)
+            continue
+        n = 0
+        for rec in payload["visits"]:
+            if not isinstance(rec, dict) or not rec.get("id") or rec.get("deleted_at"):
+                continue
+            rec = dict(rec)
+            rec.pop("_user", None)
+            rec.pop("archived", None)
+            conn.execute("INSERT OR REPLACE INTO visits_archive (id,phone,visit_date,status,rec) VALUES (?,?,?,?,?)",
+                         (rec["id"], str(rec.get("phone") or ""), str(rec.get("visit_date") or ""),
+                          str(rec.get("status") or ""), json.dumps(rec, ensure_ascii=False)))
+            n += 1
+        res["visits"] += n
+        res["files"] += 1
+    conn.commit()
+    res["ok"] = not res["failed"]
+    if res["failed"]:
+        res["err"] = "تعذّر قراءة: " + ", ".join(res["failed"])
+    return res
+
 def import_visits_report(mark_all_active=False):
     """استرجاع يدوي من GitHub مع تشخيص كامل — يجبر الاستيراد بغض النظر عن حالة الـ DB."""
     res = {"ok": False, "error": "", "http_status": None,
@@ -1643,9 +1763,14 @@ def fetch_client_history(phone, exclude_id=None, limit=None):
         rows = conn.execute(
             "SELECT * FROM visits WHERE phone=? AND deleted_at IS NULL ORDER BY visit_date DESC",(phone,)
         ).fetchall()
-    if limit and len(rows) > limit:
-        rows = rows[:limit]
-    return [dict(r) for r in rows]
+    out = [dict(r) for r in rows]
+    # ★ زيارات الأرشيف (من فهرس الأرشيف على GitHub) — قراءة بس، ومن غير تكرار
+    extra = _archive_visits_for_phone(phone, skip_ids={r.get("id") for r in out} | {exclude_id})
+    if extra:
+        out = sorted(out + extra, key=lambda r: str(r.get("visit_date") or ""), reverse=True)
+    if limit and len(out) > limit:
+        out = out[:limit]
+    return out
 
 def insert_visit(record, sync=True):
     """
@@ -2128,6 +2253,22 @@ def _boot_pull_doctors():
 _DOC_BOOT = _boot_pull_doctors()
 if not _DOC_BOOT.get("ok"):
     _boot_pull_doctors.clear()          # فشل → يحاول تاني في أول rerun
+
+import time as _time_arch
+
+@st.cache_resource(show_spinner=False)
+def _boot_load_archive_index():
+    """مرة لكل سيرفر: املا فهرس الأرشيف. بيجي بعد إقلاع الزيارات والأطباء عن قصد."""
+    try:
+        r = load_archive_index()
+    except Exception as e:
+        r = {"ok": False, "files": 0, "visits": 0, "failed": [], "err": f"{type(e).__name__}: {e}"}
+    return {**r, "at": _time_arch.time()}
+
+_ARCH_BOOT = _boot_load_archive_index()
+# فشل → نحاول تاني بعد 5 دقايق (مش كل rerun عشان الشبكة ماتبطّئش الصفحة). من غير secrets → مفيش محاولة.
+if not _ARCH_BOOT.get("ok") and (GITHUB_TOKEN and GITHUB_REPO) and _time_arch.time() - _ARCH_BOOT.get("at", 0) > 300:
+    _boot_load_archive_index.clear()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FOLLOW-UPS CRUD
@@ -2615,6 +2756,7 @@ def get_client_tag(phone):
     count = conn.execute(
         "SELECT COUNT(*) FROM visits WHERE phone=? AND status='تمت' AND deleted_at IS NULL", (phone,)
     ).fetchone()[0]
+    count += _archive_done_count(phone)            # ★ زيارات «تمت» اللي في الأرشيف
     if count == 0:   tag = "🆕 عميل جديد"
     elif count <= 2: tag = "⭐ عميل منتظم"
     elif count <= 5: tag = "🌟 عميل متكرر"
@@ -2629,9 +2771,11 @@ def get_churn_risk(phone):
         "SELECT visit_date FROM visits WHERE phone=? AND status='تمت' AND deleted_at IS NULL ORDER BY visit_date DESC LIMIT 1",
         (phone,)
     ).fetchone()
-    if not row: return "⚪ لا يوجد تاريخ"
+    _arch_last = _archive_last_done_date(phone)    # ★ آخر زيارة «تمت» في الأرشيف
+    _last_str = max([x for x in (row[0] if row else "", _arch_last) if x] or [""])
+    if not _last_str: return "⚪ لا يوجد تاريخ"
     try:
-        last = datetime.strptime(row[0], "%Y-%m-%d")
+        last = datetime.strptime(_last_str, "%Y-%m-%d")
         days = (datetime.now() - last).days
         if days > 90:   return f"🔴 خطر عالي ({days} يوم)"
         elif days > 45: return f"🟡 متوسط ({days} يوم)"
@@ -3635,6 +3779,23 @@ if st.session_state.page == "home":
             _arch = _c.execute("SELECT COUNT(*) FROM visits WHERE archived=1").fetchone()[0]
             _oldest = _c.execute("SELECT MIN(visit_date) FROM visits WHERE COALESCE(archived,0)=0").fetchone()[0]
             st.caption(f"الملف الحي: {_live} زيارة | مؤرشف في الجلسة دي: {_arch} | أقدم زيارة: {_oldest or '—'}")
+            # ── 📚 فهرس الأرشيف (تاريخ العملاء القدام) ──
+            try:
+                _ensure_archive_index_table(_c)
+                _ix_n = _c.execute("SELECT COUNT(*) FROM visits_archive").fetchone()[0]
+                _ix_ph = _c.execute("SELECT COUNT(DISTINCT phone) FROM visits_archive WHERE phone!=''").fetchone()[0]
+            except Exception:
+                _ix_n = _ix_ph = 0
+            _ab = _ARCH_BOOT if isinstance(_ARCH_BOOT, dict) else {}
+            if _ab.get("ok") or _ix_n:
+                st.caption(f"📚 فهرس الأرشيف: {_ix_n} زيارة لـ {_ix_ph} عميل — تاريخ العملاء القدام بيظهر عند إدخال رقمهم.")
+            else:
+                st.caption("📚 فهرس الأرشيف: " + (_ab.get("err") or "لسه ما اتحمّلش"))
+            if st.button("🔄 تحديث فهرس الأرشيف", key="arch_index_refresh", use_container_width=True):
+                with st.spinner("بيسحب ملفات الأرشيف من GitHub..."):
+                    _ir = load_archive_index()
+                (st.success if _ir["ok"] else st.error)(
+                    f"✅ اتحمّل {_ir['visits']} زيارة من {_ir['files']} ملف" if _ir["ok"] else "❌ " + (_ir["err"] or "فشل"))
             st.info(
                 "🛡️ الأرشفة **مش حذف**: الزيارات بتتنقل لملف `archive/` على نفس الريبو، "
                 "والملف الحي بيصغّر فيخف على كل حفظ. تقدر ترجّعها للعرض في أي وقت من تحت."
