@@ -1474,12 +1474,33 @@ def send_backup_email():
                                 body, files)
     except ValueError as e:
         return False, str(e)
-    ok, err = ebk.send_message(cfg, msg)
+    r = ebk.send_message_ex(cfg, msg)
+    # لو الدخول نجح والرسالة هي اللي اتقفلت وسط الإرسال → جرّب بملف JSON لوحده (أصغر)
+    if not r["ok"] and r["stage"] == "send" and len(files) > 1:
+        try:
+            small = ebk.build_message(cfg["user"], BACKUP_EMAIL_TO, msg["Subject"],
+                                      body + "\n\n(اتبعت JSON بس — المرفقات التانية فشل إرسالها)", files[:1])
+            r2 = ebk.send_message_ex(cfg, small)
+            if r2["ok"]:
+                files = files[:1]
+            r = r2
+        except ValueError:
+            pass
+    ok, err = r["ok"], r["message"]
     _log_audit(st.session_state.get("user_email", ""), "email_backup", "system", "-",
                details=f"to={BACKUP_EMAIL_TO} visits={n_visits} ok={ok}")
     if ok:
         return True, f"اتبعتت النسخة على {BACKUP_EMAIL_TO} ({n_visits} زيارة، {len(files)} ملفات)"
     return False, err
+
+def check_backup_email_connection():
+    """اختبار اتصال SMTP وتسجيل الدخول من غير إرسال أي حاجة (أدمن فقط). (ok, تقرير)."""
+    if st.session_state.get("user_type") != "admin":
+        return False, "🔒 للأدمن فقط"
+    cfg = ebk.smtp_config(_sec)
+    if not cfg:
+        return False, "إعدادات الإيميل ناقصة — أضف smtp_user و smtp_password في Secrets"
+    return ebk.check_connection(cfg)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3504,10 +3525,16 @@ if st.session_state.page == "home":
                 st.info("⚙️ محتاج إعداد مرة واحدة: أضف في Secrets السطرين دول (الباسورد من «App Passwords» في حساب جوجل المرسِل، "
                         "والتحقق بخطوتين لازم يكون مفعّل):\n\n"
                         "`smtp_user = \"Orangelab511@gmail.com\"`\n\n`smtp_password = \"xxxx xxxx xxxx xxxx\"`")
-            elif st.button("📧 ابعت النسخة دلوقتي", key="email_db_btn", use_container_width=True):
-                with st.spinner("بيجهّز النسخة ويبعتها..."):
-                    _eok, _emsg = send_backup_email()
-                (st.success if _eok else st.error)(("✅ " if _eok else "❌ ") + _emsg)
+            else:
+                st.caption(f"المرسِل: {ebk.smtp_config(_sec)['user']}")
+                if st.button("📧 ابعت النسخة دلوقتي", key="email_db_btn", use_container_width=True):
+                    with st.spinner("بيجهّز النسخة ويبعتها..."):
+                        _eok, _emsg = send_backup_email()
+                    (st.success if _eok else st.error)(("✅ " if _eok else "❌ ") + _emsg)
+                if st.button("🔌 اختبار الاتصال (من غير إرسال)", key="email_test_btn", use_container_width=True):
+                    with st.spinner("بيجرّب الاتصال بجيميل..."):
+                        _cok, _crep = check_backup_email_connection()
+                    (st.success if _cok else st.error)(_crep)
 
         # ── حالة المزامنة التلقائية (Boot pull) ──
         if st.session_state.user_type == "admin":

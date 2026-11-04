@@ -90,16 +90,23 @@ except ValueError:
 
 
 class FakeSMTP:
-    sent, logins, fail = [], [], None
+    sent, logins, fail, ctor = [], [], None, []
 
     def __init__(self, host, port, timeout=None, context=None):
         self.host, self.port = host, port
+        FakeSMTP.ctor.append(port)
 
     def __enter__(self):
         return self
 
     def __exit__(self, *a):
         return False
+
+    def ehlo(self):
+        pass
+
+    def starttls(self, context=None):
+        pass
 
     def login(self, u, p):
         if FakeSMTP.fail == "auth":
@@ -109,19 +116,59 @@ class FakeSMTP:
     def send_message(self, m):
         if FakeSMTP.fail == "net":
             raise OSError("network down")
+        if FakeSMTP.fail == "big" and len(list(m.iter_attachments())) > 1:
+            raise smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
         FakeSMTP.sent.append(m)
 
 
-ok, err = eb.send_message(cfg, msg, smtp_ssl_cls=FakeSMTP)
+class DisconnectSSL(FakeSMTP):
+    """465 بيقفل الاتصال فورًا (زي اللي ظهر في الشاشة)."""
+    def __init__(self, host, port, timeout=None, context=None):
+        FakeSMTP.ctor.append(port)
+        raise smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
+
+
+def reset_fake():
+    FakeSMTP.sent.clear(); FakeSMTP.logins.clear(); FakeSMTP.ctor.clear(); FakeSMTP.fail = None
+
+
+ok, err = eb.send_message(cfg, msg, smtp_ssl_cls=FakeSMTP, smtp_cls=FakeSMTP)
 check("إرسال ناجح", (ok, err, len(FakeSMTP.sent)), (True, "", 1))
-FakeSMTP.fail = "auth"
-ok, err = eb.send_message(cfg, msg, smtp_ssl_cls=FakeSMTP)
+check("الدخول بإيميل المرسِل والباسورد المنضّف", FakeSMTP.logins[-1], ("sender@gmail.com", "abcdefghijklmnop"))
+
+reset_fake(); FakeSMTP.fail = "auth"
+ok, err = eb.send_message(cfg, msg, smtp_ssl_cls=FakeSMTP, smtp_cls=FakeSMTP)
 check("باسورد غلط → رسالة App Password", (ok, "App Password" in err), (False, True))
+check("باسورد غلط بيوقف فورًا (مفيش تجربة منفذ تاني)", FakeSMTP.ctor, [465])
 check("الباسورد ماظهرش في رسالة الخطأ", "abcdefgh" in err, False)
-FakeSMTP.fail = "net"
-ok, err = eb.send_message(cfg, msg, smtp_ssl_cls=FakeSMTP)
+
+reset_fake(); FakeSMTP.fail = "net"
+ok, err = eb.send_message(cfg, msg, smtp_ssl_cls=FakeSMTP, smtp_cls=FakeSMTP)
 check("انقطاع شبكة → خطأ مفهوم من غير استثناء", (ok, "network down" in err), (False, True))
-FakeSMTP.fail = None
+check("الرسالة بتقول المحاولتين والمرحلة", ("SSL:465" in err, "STARTTLS:587" in err, "إرسال الرسالة" in err), (True, True, True))
+
+reset_fake()
+ok, err = eb.send_message(cfg, msg, smtp_ssl_cls=DisconnectSSL, smtp_cls=FakeSMTP)
+check("465 بيقفل → بيتحوّل لـ 587 وينجح", (ok, FakeSMTP.ctor, len(FakeSMTP.sent)), (True, [465, 587], 1))
+
+reset_fake()
+ok, err = eb.send_message(cfg, msg, smtp_ssl_cls=DisconnectSSL, smtp_cls=DisconnectSSL)
+check("المنفذين اتقفلوا → رسالة فيها الاتنين ومرحلة الاتصال",
+      (ok, "SSL:465" in err, "STARTTLS:587" in err, "الاتصال" in err, "قفل الاتصال" in err), (False, True, True, True, True))
+
+reset_fake()
+cfg587 = {**cfg, "port": 587}
+eb.send_message(cfg587, msg, smtp_ssl_cls=FakeSMTP, smtp_cls=FakeSMTP)
+check("منفذ 587 في الإعدادات → بيجرّبه الأول", FakeSMTP.ctor[:1], [587])
+
+reset_fake()
+ok, rep = eb.check_connection(cfg, smtp_ssl_cls=DisconnectSSL, smtp_cls=FakeSMTP)
+check("اختبار الاتصال: 465 فاشل و 587 تمام", (ok, "❌ SSL:465" in rep, "✅ STARTTLS:587" in rep), (True, True, True))
+check("اختبار الاتصال مابيبعتش حاجة", FakeSMTP.sent, [])
+reset_fake(); FakeSMTP.fail = "auth"
+ok, rep = eb.check_connection(cfg, smtp_ssl_cls=FakeSMTP, smtp_cls=FakeSMTP)
+check("اختبار الاتصال مع باسورد غلط", (ok, "App Password" in rep), (False, True))
+reset_fake()
 
 # ── ③ تنفيذ app.py ──────────────────────────────────────────────────────────
 print("\n③ app.py")
@@ -282,7 +329,9 @@ check("لينك واتساب مباشر لرقم الدكتور", link.startswit
 FakeSMTP.sent.clear()
 FakeSMTP.fail = None
 orig = eb.smtplib.SMTP_SSL
+_orig_plain = eb.smtplib.SMTP
 eb.smtplib.SMTP_SSL = FakeSMTP
+eb.smtplib.SMTP = FakeSMTP
 _cwd0 = os.getcwd()
 try:
     app8, _, _, wd8 = run_app("home")
@@ -305,10 +354,20 @@ try:
     names = [p.get_filename() for p in sent.iter_attachments()]
     check("المرفقات: JSON + الأطباء", (any(n.startswith("visits_backup") and n.endswith(".json") for n in names),
                                        any(n.startswith("doctors_backup") for n in names)), (True, True))
+    # الإرسال بيفشل وسط الرسالة (مرفقات كتير) → بيعيد بـ JSON بس
+    FakeSMTP.sent.clear(); FakeSMTP.fail = "big"
+    ok8, m8 = app8.send_backup_email()
+    check("فشل وسط الإرسال → إعادة بـ JSON لوحده ونجاح",
+          (ok8, len(FakeSMTP.sent), len(list(FakeSMTP.sent[-1].iter_attachments()))), (True, 1, 1))
+    FakeSMTP.fail = None
+    ok8c, rep8 = app8.check_backup_email_connection()
+    check("اختبار الاتصال من التطبيق (أدمن)", (ok8c, "✅" in rep8), (True, True))
     # مش أدمن → مرفوض على مستوى الدالة
     app8.st.session_state.user_type = "diamond"
+    n_before = len(FakeSMTP.sent)
     ok8, m8 = app8.send_backup_email()
-    check("غير الأدمن مرفوض (حتى لو استدعى الدالة مباشرة)", (ok8, len(FakeSMTP.sent)), (False, 1))
+    check("غير الأدمن مرفوض (حتى لو استدعى الدالة مباشرة)", (ok8, len(FakeSMTP.sent) - n_before), (False, 0))
+    check("اختبار الاتصال كمان للأدمن بس", app8.check_backup_email_connection()[0], False)
     # بدون إعدادات smtp
     app8.st.session_state.user_type = "admin"
     app9, _, _, _ = run_app("home", secrets={"admin_password": "x", "allowed_emails": ["Hussein.ali77121@gmail.com"]})
@@ -318,6 +377,7 @@ try:
 finally:
     os.chdir(_cwd0)
     eb.smtplib.SMTP_SSL = orig
+    eb.smtplib.SMTP = _orig_plain
 
 # 11) صفحة الزيارة: زرار «إرسال الملخص للدكتور مباشرة» (بيتنفذ فعليًا على داتابيز فيها زيارة)
 NOGH = {"admin_password": "x", "allowed_emails": ["Hussein.ali77121@gmail.com"]}
@@ -345,9 +405,11 @@ check("من غير رقم: مفيش زرار (بس تلميح)", "إرسال ا�
 app10, _, _, _ = run_app("home")
 labs_admin = [c[1][0] for c in stub.CALLS if c[0] == "button"]
 check("زرار الإرسال ظاهر للأدمن", "📧 ابعت النسخة دلوقتي" in labs_admin, True)
+check("زرار اختبار الاتصال ظاهر للأدمن", "🔌 اختبار الاتصال (من غير إرسال)" in labs_admin, True)
 app11, _, _, _ = run_app("home", user_type="diamond")
 labs_dia = [c[1][0] for c in stub.CALLS if c[0] == "button"]
 check("زرار الإرسال مش ظاهر لغير الأدمن", "📧 ابعت النسخة دلوقتي" in labs_dia, False)
+check("زرار اختبار الاتصال مش ظاهر لغير الأدمن", "🔌 اختبار الاتصال (من غير إرسال)" in labs_dia, False)
 
 print()
 if _FAILS:

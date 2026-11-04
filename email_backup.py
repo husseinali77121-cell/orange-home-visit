@@ -62,24 +62,98 @@ def build_message(sender, recipient, subject, body, attachments):
     return msg
 
 
-def send_message(cfg, msg, smtp_ssl_cls=None, timeout=45):
+def _attempts(cfg):
     """
-    بيبعت الرسالة. (ok, رسالة للمستخدم). مابيرميش استثناءات ومابيطبعش الباسورد.
-    smtp_ssl_cls للاختبار فقط.
+    ترتيب المحاولات: المنفذ المضبوط في الإعدادات الأول، وبعدين البديل.
+    465 = SSL مباشر، 587 = STARTTLS. بعض السيرفرات/الشبكات بتقفل واحد منهم وتسيب التاني.
     """
-    cls = smtp_ssl_cls or smtplib.SMTP_SSL
+    ssl_first = int(cfg.get("port") or DEFAULT_PORT) != 587
+    a = ("SSL:465", "ssl", 465)
+    b = ("STARTTLS:587", "starttls", 587)
+    out = [a, b] if ssl_first else [b, a]
+    if int(cfg.get("port") or 0) not in (465, 587):        # منفذ مخصص → يتجرّب الأول بالنوع المناسب
+        out.insert(0, (f"custom:{cfg['port']}", "ssl", int(cfg["port"])))
+    return out
+
+
+_AUTH_MSG = ("جوجل رفض الدخول — لازم «App Password» من نفس الحساب smtp_user "
+             "(مش الباسورد العادي) والتحقق بخطوتين يكون مفعّل")
+
+
+def _try_once(cfg, mode, port, msg, ssl_cls, plain_cls, timeout, send=True):
+    """محاولة واحدة. بيرجّع (ok, stage, خطأ). stage = connect/login/send."""
+    stage = "connect"
+    ctx = ssl.create_default_context()
     try:
-        with cls(cfg["host"], cfg["port"], timeout=timeout,
-                 context=ssl.create_default_context()) as s:
+        if mode == "ssl":
+            conn = (ssl_cls or smtplib.SMTP_SSL)(cfg["host"], port, timeout=timeout, context=ctx)
+        else:
+            conn = (plain_cls or smtplib.SMTP)(cfg["host"], port, timeout=timeout)
+        with conn as s:
+            if mode == "starttls":
+                s.ehlo()
+                s.starttls(context=ctx)
+                s.ehlo()
+            stage = "login"
             s.login(cfg["user"], cfg["password"])
-            s.send_message(msg)
-        return True, ""
+            if send:
+                stage = "send"
+                s.send_message(msg)
+        return True, stage, ""
     except smtplib.SMTPAuthenticationError:
-        return False, ("جوجل رفض الدخول — لازم «App Password» (مش الباسورد العادي) "
-                       "والتحقق بخطوتين يكون مفعّل على حساب الإرسال")
+        return False, "auth", _AUTH_MSG
+    except smtplib.SMTPServerDisconnected:
+        return False, stage, "السيرفر قفل الاتصال فجأة"
     except smtplib.SMTPRecipientsRefused:
-        return False, "العنوان المستلم اترفض"
+        return False, stage, "العنوان المستلم اترفض"
     except (smtplib.SMTPException, OSError) as e:
-        return False, f"{type(e).__name__}: {e}"
-    except Exception as e:                          # أي حاجة غريبة — ماتوقعش الصفحة
-        return False, f"{type(e).__name__}: {e}"
+        return False, stage, f"{type(e).__name__}: {e}"
+    except Exception as e:                              # أي حاجة غريبة — ماتوقعش الصفحة
+        return False, stage, f"{type(e).__name__}: {e}"
+
+
+_STAGE_AR = {"connect": "الاتصال", "login": "تسجيل الدخول", "send": "إرسال الرسالة"}
+
+
+def send_message_ex(cfg, msg, smtp_ssl_cls=None, smtp_cls=None, timeout=30):
+    """
+    بيبعت الرسالة وبيجرّب المنفذين (465 SSL ثم 587 STARTTLS). مابيرميش استثناءات ومابيطبعش الباسورد.
+    بيرجّع dict: ok / message / stage (أبعد مرحلة وصلت لها أي محاولة) / attempts [(label, stage, err)].
+    باسورد غلط بيوقف فورًا (مفيش فايدة من تجربة منفذ تاني).
+    """
+    attempts = []
+    for label, mode, port in _attempts(cfg):
+        ok, stage, err = _try_once(cfg, mode, port, msg, smtp_ssl_cls, smtp_cls, timeout)
+        if ok:
+            return {"ok": True, "message": "", "stage": "", "attempts": attempts}
+        attempts.append((label, stage, err))
+        if stage == "auth":
+            return {"ok": False, "message": err, "stage": "auth", "attempts": attempts}
+    detail = " | ".join(f"{lb}: {_STAGE_AR.get(st, st)} — {er}" for lb, st, er in attempts)
+    order = {"connect": 0, "login": 1, "send": 2}
+    furthest = max((st for _, st, _ in attempts), key=lambda x: order.get(x, 0))   # أبعد مرحلة وصلنا لها
+    return {"ok": False, "message": detail, "stage": furthest, "attempts": attempts}
+
+
+def send_message(cfg, msg, smtp_ssl_cls=None, smtp_cls=None, timeout=30):
+    """نفس send_message_ex بس بيرجّع (ok, رسالة)."""
+    r = send_message_ex(cfg, msg, smtp_ssl_cls, smtp_cls, timeout)
+    return r["ok"], r["message"]
+
+
+def check_connection(cfg, smtp_ssl_cls=None, smtp_cls=None, timeout=20):
+    """
+    اختبار الاتصال وتسجيل الدخول **من غير إرسال أي حاجة**. بيجرّب المنفذين ويرجّع
+    (ok, تقرير لكل محاولة) علشان نعرف المشكلة فين بالظبط.
+    """
+    lines, any_ok = [], False
+    for label, mode, port in _attempts(cfg):
+        ok, stage, err = _try_once(cfg, mode, port, None, smtp_ssl_cls, smtp_cls, timeout, send=False)
+        if ok:
+            any_ok = True
+            lines.append(f"✅ {label}: الاتصال وتسجيل الدخول نجحوا")
+        else:
+            lines.append(f"❌ {label}: {_STAGE_AR.get(stage, stage)} — {err}")
+            if stage == "auth":
+                break
+    return any_ok, "\n".join(lines)
