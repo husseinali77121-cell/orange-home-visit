@@ -69,6 +69,8 @@ except Exception:
 # ══════════════════════════════════════════════════════════════════════════════
 import lab_picker as lp
 import quick_panels as qp      # ⚡ Quick Panels + 📋 خانة اللصق (من برنامج الأسعار)
+import doctors_sync as dsync    # 👨‍⚕️ حفظ الأطباء الدائم (منطق بحت)
+import email_backup as ebk      # 📧 إرسال نسخة قاعدة البيانات (أدمن فقط)
 from import_rules import validate_row, fill_insert_defaults, ImportOptions
 # months_to_write / verify_before_prune متعرّفين في sync_guards ومختبرين هناك،
 # بس app.py لسه بيستخدم المنطق inline. مش بنستوردهم عشان مايبقوش استيراد ميت.
@@ -1421,6 +1423,66 @@ def backup_to_excel_bytes():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# 📧 إرسال نسخة قاعدة البيانات لإيميل الفرع الرئيسي (أدمن فقط)
+# ──────────────────────────────────────────────────────────────────────────────
+# إضافة بحتة: بتقرا بس (backup_to_json / backup_to_excel_bytes / الأطباء) وماتكتبش على
+# قاعدة البيانات ولا GitHub. المستلم ثابت = إيميل الفرع الرئيسي (مش بيتكتب من الواجهة،
+# فمفيش طريق لتحويل النسخة لعنوان تاني). الإعداد: smtp_user / smtp_password في Secrets.
+# ══════════════════════════════════════════════════════════════════════════════
+BACKUP_EMAIL_TO = DIAMOND_EMAIL
+
+def send_backup_email():
+    """(ok, رسالة). الحماية على مستوى الدالة نفسها مش الواجهة بس."""
+    if st.session_state.get("user_type") != "admin":
+        return False, "🔒 إرسال النسخة للأدمن فقط"
+    cfg = ebk.smtp_config(_sec)
+    if not cfg:
+        return False, "إعدادات الإيميل ناقصة — أضف smtp_user و smtp_password في Secrets"
+    try:
+        n_visits = get_connection().execute("SELECT COUNT(*) FROM visits").fetchone()[0]
+    except Exception:
+        n_visits = 0
+    if n_visits == 0:
+        return False, "قاعدة البيانات المحلية فاضية — مش هبعت نسخة فاضية (اسحب من GitHub الأول)"
+    jdata, jname = backup_to_json()
+    if not jdata:
+        return False, "تعذّر تجهيز نسخة JSON"
+    now = datetime.now()
+    stamp = now.strftime("%Y%m%d_%H%M%S")
+    files = [(jname, jdata, "application/json")]
+    xdata, xname = backup_to_excel_bytes()
+    if xdata:
+        files.append((xname, xdata, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+    try:
+        docs_json = json.dumps({"exported_at": now.isoformat(), "doctors": _doctor_rows()},
+                               ensure_ascii=False, indent=2).encode("utf-8")
+        files.append((f"doctors_backup_{stamp}.json", docs_json, "application/json"))
+    except Exception:
+        pass
+    body = (
+        "نسخة احتياطية من برنامج الزيارات المنزلية — معمل أورانج لاب\n"
+        "━━━━━━━━━━━━━━━━━━━━\n"
+        f"التاريخ: {now.strftime('%Y-%m-%d %H:%M')}\n"
+        f"عدد الزيارات في القاعدة: {n_visits}\n"
+        f"أُرسلت بواسطة: {st.session_state.get('user_email', '')}\n\n"
+        "المرفقات:\n" + "\n".join(f"• {n}" for n, _, _ in files) + "\n\n"
+        "ملف JSON هو اللي بيتستخدم في «استرجاع من نسخة احتياطية» داخل البرنامج."
+    )
+    try:
+        msg = ebk.build_message(cfg["user"], BACKUP_EMAIL_TO,
+                                f"📦 نسخة قاعدة بيانات الزيارات — {now.strftime('%Y-%m-%d %H:%M')}",
+                                body, files)
+    except ValueError as e:
+        return False, str(e)
+    ok, err = ebk.send_message(cfg, msg)
+    _log_audit(st.session_state.get("user_email", ""), "email_backup", "system", "-",
+               details=f"to={BACKUP_EMAIL_TO} visits={n_visits} ok={ok}")
+    if ok:
+        return True, f"اتبعتت النسخة على {BACKUP_EMAIL_TO} ({n_visits} زيارة، {len(files)} ملفات)"
+    return False, err
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # ثوابت
 # ══════════════════════════════════════════════════════════════════════════════
 STATUS_OPTIONS = ["مجدولة", "في الطريق", "تمت", "ملغية"]
@@ -1906,6 +1968,7 @@ def insert_doctor(name, commission_pct=5.0, transport_eligible=0, phone="", bran
     )
     conn.commit()
     _log_audit(st.session_state.user_email, "insert", "doctors", doc_id, details=name)
+    _doctors_after_change([doc_id], f"add {name}")        # ★ حفظ دائم على GitHub
     return doc_id
 
 def toggle_doctor_active(doc_id):
@@ -1913,6 +1976,137 @@ def toggle_doctor_active(doc_id):
     conn.execute("UPDATE doctors SET active=1-active WHERE id=?",(doc_id,))
     conn.commit()
     _log_audit(st.session_state.user_email, "toggle_active", "doctors", doc_id)
+    _doctors_after_change([doc_id], "toggle active")      # ★ حفظ دائم على GitHub
+
+def update_doctor(doc_id, phone="", branch="", commission_pct=5.0, transport_eligible=0):
+    """تعديل بيانات دكتور (التليفون/الفرع/العمولة/بدل الانتقال). الاسم ثابت عن قصد —
+    الزيارات القديمة محفوظ فيها اسم الدكتور كنص، وتغييره هيفصلها عن تقارير العمولة."""
+    conn = get_connection()
+    old = conn.execute("SELECT * FROM doctors WHERE id=?", (doc_id,)).fetchone()
+    if old is None:
+        return False
+    new = {"phone": str(phone or "").strip(), "branch": str(branch or "").strip(),
+           "commission_pct": float(commission_pct), "transport_eligible": int(bool(transport_eligible))}
+    conn.execute("UPDATE doctors SET phone=?,branch=?,commission_pct=?,transport_eligible=? WHERE id=?",
+                 (new["phone"], new["branch"], new["commission_pct"], new["transport_eligible"], doc_id))
+    conn.commit()
+    for k, v in new.items():
+        if str(old[k] if old[k] is not None else "") != str(v):
+            _log_audit(st.session_state.user_email, "update", "doctors", doc_id,
+                       field_name=k, old_value=old[k], new_value=v, details=old["name"])
+    _doctors_after_change([doc_id], "edit")               # ★ حفظ دائم على GitHub
+    return True
+
+def get_doctor_phone(name):
+    """رقم تليفون الدكتور بالاسم (مطبّع) أو "" لو مفيش."""
+    r = dsync.find_by_name(_doctor_rows(), name)
+    return (r or {}).get("phone", "") or ""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 👨‍⚕️ حفظ الأطباء الدائم على GitHub (doctors.json)
+# ──────────────────────────────────────────────────────────────────────────────
+# ليه؟ جدول الأطباء كان في الـ SQLite المحلي بس، والكونتينر بيتمسح مع كل sleep/إعادة
+# تشغيل، فالدكتور الجديد كان بيختفي و _ensure_default_doctors بتزرع الـ 8 الأصليين.
+# دلوقتي: كل إضافة/تعديل/إيقاف بيتحفظ في doctors.json، والإقلاع بيسحبه ويطبّقه.
+#
+# ★ معزول تمامًا عن مزامنة الزيارات: مابنعدّلش أي دالة مزامنة موجودة، وكل نداء هنا بيرجّع
+#   حالة _GH_STATE (conflict/connected/last_error) زي ما كانت — فالخطأ في ملف الأطباء
+#   عمره ما يوقف حفظ الزيارات ولا يطلّع بانر «GitHub مش متصل».
+# ══════════════════════════════════════════════════════════════════════════════
+GITHUB_DOCTORS_PATH = _sec("github_doctors_path", "doctors.json")
+
+def _doctor_rows():
+    conn = get_connection()
+    return [dict(r) for r in conn.execute(
+        "SELECT id,name,phone,branch,commission_pct,transport_eligible,active,created_at "
+        "FROM doctors ORDER BY name ASC").fetchall()]
+
+def _gh_doctors_isolated(fn):
+    keys = ("conflict", "connected", "last_error")
+    prev = {k: _GH_STATE.get(k) for k in keys}
+    try:
+        return fn()
+    finally:
+        for k, v in prev.items():
+            _GH_STATE[k] = v
+
+def push_doctors_to_github(changed_ids=None, reason="update"):
+    """يرفع التغييرات على doctors.json. (ok, رسالة خطأ). الأساس هو الملف الحالي — مابيقلّش أبدًا."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return False, ("github_token/github_repo مش موجودين في Secrets — الأطباء محفوظين على "
+                       "السيرفر ده بس وهيضيعوا مع إعادة التشغيل")
+    def _do():
+        err = ""
+        for _ in range(2):
+            sha = _get_github_file_sha(GITHUB_DOCTORS_PATH)
+            payload, status, gerr = _gh_get_json(GITHUB_DOCTORS_PATH)
+            if payload is None and status != 404:
+                return False, f"تعذّر قراءة {GITHUB_DOCTORS_PATH}: {gerr}"      # مانكتبش على أعمى
+            if payload is not None and not (isinstance(payload, dict) and isinstance(payload.get("doctors"), list)):
+                return False, f"شكل {GITHUB_DOCTORS_PATH} غير معروف — مارفعتش حاجة"
+            remote_rows = payload["doctors"] if payload else []
+            merged = dsync.merge_for_push(remote_rows, _doctor_rows(), changed_ids)
+            out = {"saved_at": datetime.now().isoformat(), "count": len(merged), "doctors": merged}
+            if _gh_put_json(GITHUB_DOCTORS_PATH, out, f"doctors: {reason}", expected_sha=sha or ""):
+                return True, ""
+            err = _GH_STATE.get("last_error") or "فشل الرفع"
+        return False, err
+    return _gh_doctors_isolated(_do)
+
+def pull_doctors_from_github():
+    """يقرا doctors.json ويطبّقه على الجدول المحلي (قراءة بحتة من GitHub)."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return {"ok": False, "found": False, "applied": 0, "err": "github_token/github_repo مش موجودين"}
+    def _do():
+        payload, status, err = _gh_get_json(GITHUB_DOCTORS_PATH)
+        if payload is None:
+            if status == 404:                       # لسه ماتعملش — مش خطأ
+                return {"ok": True, "found": False, "applied": 0, "err": ""}
+            return {"ok": False, "found": False, "applied": 0, "err": err or f"HTTP {status}"}
+        if not (isinstance(payload, dict) and isinstance(payload.get("doctors"), list)):
+            return {"ok": False, "found": False, "applied": 0, "err": f"شكل {GITHUB_DOCTORS_PATH} غير معروف"}
+        ops = dsync.plan_pull(_doctor_rows(), payload["doctors"])
+        conn = get_connection()
+        for kind, local_id, r in ops:
+            vals = (r["id"], r["name"], r["phone"], r["branch"], r["commission_pct"],
+                    r["transport_eligible"], r["active"])
+            if kind == "update":
+                conn.execute("UPDATE doctors SET id=?,name=?,phone=?,branch=?,commission_pct=?,"
+                             "transport_eligible=?,active=?,created_at=COALESCE(NULLIF(?,''),created_at) "
+                             "WHERE id=?", vals + (r["created_at"], local_id))
+            else:
+                conn.execute("INSERT OR IGNORE INTO doctors (id,name,phone,branch,commission_pct,"
+                             "transport_eligible,active,created_at) VALUES (?,?,?,?,?,?,?,?)",
+                             vals + (r["created_at"] or datetime.now().isoformat(),))
+        conn.commit()
+        return {"ok": True, "found": True, "applied": len(ops), "err": ""}
+    return _gh_doctors_isolated(_do)
+
+def _doctors_after_change(ids, reason):
+    """بعد أي إضافة/تعديل: احفظ على GitHub وخزّن النتيجة عشان الصفحة تعرضها. مابيرميش أبدًا."""
+    try:
+        ok, err = push_doctors_to_github(list(ids), reason)
+    except Exception as e:
+        ok, err = False, f"{type(e).__name__}: {e}"
+    try:
+        st.session_state["_doctors_sync_msg"] = (ok, err)
+    except Exception:
+        pass
+    return ok
+
+@st.cache_resource(show_spinner=False)
+def _boot_pull_doctors():
+    """مرة لكل كونتينر: اسحب الأطباء من GitHub. لو الملف لسه ماتعملش، ارفع الأطباء الحاليين
+    (بيحفظ اللي موجود قبل التحديث ده)."""
+    r = pull_doctors_from_github()
+    if r.get("ok") and not r.get("found") and _doctor_rows():
+        ok, err = push_doctors_to_github(None, "seed")
+        r = {**r, "seeded": ok, "err": err}
+    return {**r, "at": datetime.now().isoformat()}
+
+_DOC_BOOT = _boot_pull_doctors()
+if not _DOC_BOOT.get("ok"):
+    _boot_pull_doctors.clear()          # فشل → يحاول تاني في أول rerun
 
 # ══════════════════════════════════════════════════════════════════════════════
 # FOLLOW-UPS CRUD
@@ -3301,6 +3495,20 @@ if st.session_state.page == "home":
                         st.rerun()
             else:
                 st.info("🔒 استرجاع نسخة JSON متاح للأدمن فقط")
+        # ── 📧 إرسال نسخة قاعدة البيانات لإيميل الفرع الرئيسي (الأدمن فقط) ──
+        if st.session_state.user_type == "admin":
+            st.markdown("---")
+            st.markdown("**📧 إرسال نسخة قاعدة البيانات للفرع الرئيسي**")
+            st.caption(f"هتتبعت على {BACKUP_EMAIL_TO}: ملف JSON (للاسترجاع) + Excel + الأطباء.")
+            if not ebk.smtp_config(_sec):
+                st.info("⚙️ محتاج إعداد مرة واحدة: أضف في Secrets السطرين دول (الباسورد من «App Passwords» في حساب جوجل المرسِل، "
+                        "والتحقق بخطوتين لازم يكون مفعّل):\n\n"
+                        "`smtp_user = \"Orangelab511@gmail.com\"`\n\n`smtp_password = \"xxxx xxxx xxxx xxxx\"`")
+            elif st.button("📧 ابعت النسخة دلوقتي", key="email_db_btn", use_container_width=True):
+                with st.spinner("بيجهّز النسخة ويبعتها..."):
+                    _eok, _emsg = send_backup_email()
+                (st.success if _eok else st.error)(("✅ " if _eok else "❌ ") + _emsg)
+
         # ── حالة المزامنة التلقائية (Boot pull) ──
         if st.session_state.user_type == "admin":
             st.markdown("---")
@@ -4314,6 +4522,14 @@ elif st.session_state.page == "detail":
         phone_clean  = v.get("phone","")
         st.markdown(f'<a href="{whatsapp_link(msg_client, phone_clean)}" target="_blank" class="wa-btn wa-client">📱 رسالة للعميل</a>', unsafe_allow_html=True)
         st.markdown(f'<a href="{whatsapp_link(msg_internal)}" target="_blank" class="wa-btn wa-share">🔗 مشاركة داخلية</a>', unsafe_allow_html=True)
+        # ★ إرسال الملخص للدكتور القائم بالزيارة مباشرة (من رقمه المسجّل في «أطباء»)
+        _dr_name = (v.get("doctor_name") or "").strip()
+        if _dr_name:
+            _dr_phone = get_doctor_phone(_dr_name)
+            if _dr_phone:
+                st.markdown(f'<a href="{_esc(whatsapp_link(msg_internal, _dr_phone))}" target="_blank" rel="noopener" class="wa-btn wa-share">👨‍⚕️ إرسال الملخص للدكتور {_esc(_dr_name)} مباشرة</a>', unsafe_allow_html=True)
+            else:
+                st.caption(f"💡 لإرسال الملخص مباشرة لـ {_dr_name}: الأدمن يضيف رقمه من «👨‍⚕️ أطباء».")
         st.markdown(f'<a href="{whatsapp_link(msg_group)}" target="_blank" class="wa-btn wa-group">👥 رسالة الجروب</a>', unsafe_allow_html=True)
         st.markdown(f'<a href="tel:{phone_clean}" class="wa-btn" style="background:#3498DB;">📞 اتصال مباشر</a>', unsafe_allow_html=True)
         st.markdown("---")
@@ -4946,32 +5162,60 @@ elif st.session_state.page == "manage_doctors":
     if st.session_state.user_type != "admin":
         st.error("هذه الصفحة للأدمن فقط."); st.stop()
     st.markdown("### 👨‍⚕️ إدارة الأطباء")
+    _BRANCH_OPTS = ["", "La Cite", "Diamond", "الاثنين"]
+    _flash_d = st.session_state.pop("_doctors_flash", None)
+    if _flash_d:
+        st.success(_flash_d)
+    _sync_d = st.session_state.pop("_doctors_sync_msg", None)
+    if _sync_d:
+        if _sync_d[0]:
+            st.caption("☁️ اتحفظ على GitHub — مش هيتحذف مع إعادة تشغيل السيرفر")
+        else:
+            st.warning("⚠️ اتحفظ على السيرفر ده بس: " + (_sync_d[1] or "سبب غير معروف"))
     all_drs = fetch_doctors(active_only=False)
     active_drs   = [d for d in all_drs if d.get("active",1)]
     inactive_drs = [d for d in all_drs if not d.get("active",1)]
-    st.markdown(f'<div class="stat-grid"><div class="stat-box"><div class="stat-num">{len(active_drs)}</div><div class="stat-label">نشطون</div></div><div class="stat-box"><div class="stat-num" style="color:#888">{len(inactive_drs)}</div><div class="stat-label">غير نشطين</div></div></div>', unsafe_allow_html=True)
+    _no_phone = sum(1 for d in active_drs if not (d.get("phone") or "").strip())
+    st.markdown(f'<div class="stat-grid"><div class="stat-box"><div class="stat-num">{len(active_drs)}</div><div class="stat-label">نشطون</div></div><div class="stat-box"><div class="stat-num" style="color:#888">{len(inactive_drs)}</div><div class="stat-label">غير نشطين</div></div><div class="stat-box"><div class="stat-num" style="color:{"#E74C3C" if _no_phone else "#27AE60"}">{_no_phone}</div><div class="stat-label">بدون تليفون</div></div></div>', unsafe_allow_html=True)
+    if _no_phone:
+        st.caption("📵 الدكتور اللي ملوش رقم مش هيظهر له زرار «إرسال للدكتور مباشرة» في صفحة الزيارة.")
+
+    # ── إضافة دكتور جديد ──
+    _ndk = st.session_state.get("_newdoc_n", 0)        # بيتغيّر بعد كل حفظ → الفورم يتفضّى
     with st.expander("➕ إضافة دكتور جديد", expanded=False):
-        nd1,nd2 = st.columns(2)
-        with nd1: new_doc_name  = st.text_input("اسم الدكتور *", key="new_doc_name")
-        with nd2: new_doc_phone = st.text_input("رقم التليفون", key="new_doc_phone")
+        new_doc_name = st.text_input("اسم الدكتور *", key=f"new_doc_name_{_ndk}")
+        new_doc_phone = phu.render_phone_input(st, "رقم التليفون (واتساب)", "", key_prefix=f"newdoc_ph_{_ndk}", required=False)
         nd3,nd4,nd5 = st.columns(3)
-        with nd3: new_doc_branch    = st.selectbox("الفرع", ["","La Cite","Diamond","الاثنين"], key="new_doc_branch")
-        with nd4: new_doc_comm      = st.number_input("نسبة العمولة %", 0.0, 50.0, 5.0, 0.5, key="new_doc_comm")
-        with nd5: new_doc_transport = st.checkbox("يحق له بدل الانتقال", key="new_doc_transport")
-        if st.button("💾 حفظ الدكتور", use_container_width=True, key="save_new_doc"):
-            if not new_doc_name.strip():
+        with nd3: new_doc_branch    = st.selectbox("الفرع", _BRANCH_OPTS, key=f"new_doc_branch_{_ndk}")
+        with nd4: new_doc_comm      = st.number_input("نسبة العمولة %", 0.0, 50.0, 5.0, 0.5, key=f"new_doc_comm_{_ndk}")
+        with nd5: new_doc_transport = st.checkbox("يحق له بدل الانتقال", key=f"new_doc_transport_{_ndk}")
+        if st.button("💾 حفظ الدكتور", use_container_width=True, key=f"save_new_doc_{_ndk}"):
+            _nm = new_doc_name.strip()
+            _dup = dsync.find_by_name(all_drs, _nm) if _nm else None
+            if not _nm:
                 st.error("أدخل اسم الدكتور")
+            elif _dup:
+                st.error(f"الدكتور «{_dup['name']}» موجود بالفعل" + ("" if _dup.get("active",1) else " (غير نشط — فعّله من «الأطباء الغير نشطين» تحت)"))
+            elif new_doc_phone and len(phu.wa_digits(new_doc_phone)) < 10:
+                st.error("رقم التليفون غير صحيح — اتأكد منه أو سيبه فاضي")
             else:
-                insert_doctor(new_doc_name.strip(), new_doc_comm, int(new_doc_transport), new_doc_phone, new_doc_branch)
-                st.success(f"✅ تم إضافة الدكتور: {new_doc_name}"); st.rerun()
+                insert_doctor(_nm, new_doc_comm, int(new_doc_transport), new_doc_phone, new_doc_branch)
+                st.session_state["_doctors_flash"] = f"✅ تم إضافة الدكتور: {_nm}"
+                st.session_state["_newdoc_n"] = _ndk + 1
+                st.rerun()
     st.markdown("---")
     st.markdown("#### الأطباء النشطون")
     for d in active_drs:
         doc_c1, doc_c2, doc_c3 = st.columns([4,2,2])
+        _dphone = (d.get("phone") or "").strip()
         with doc_c1:
             transport_badge = ' <span style="background:#27AE60;color:#fff;border-radius:6px;padding:1px 8px;font-size:10px;">🚗 بدل انتقال</span>' if d.get("transport_eligible") else ""
+            _ph_html = (f'<a href="https://wa.me/{_esc(phu.wa_digits(_dphone))}" target="_blank" rel="noopener" style="color:#25D366;text-decoration:none;">📱 {_esc(_dphone)}</a>'
+                        if _dphone else '<span style="color:#E74C3C;">📵 لا يوجد تليفون</span>')
+            _br = f' | {_esc(d.get("branch",""))}' if d.get("branch") else ""
             st.markdown(f'<div style="padding:8px 0;"><b style="font-size:14px;">{_esc(d["name"])}</b>{transport_badge}<br>'
-                        f'<span style="font-size:12px;color:#888;">عمولة {d.get("commission_pct",5)}% | {_esc(d.get("phone","")) or "لا يوجد تليفون"}</span></div>',
+                        f'<span style="font-size:12px;color:#888;">عمولة {d.get("commission_pct",5)}%{_br} | </span>'
+                        f'<span style="font-size:12px;">{_ph_html}</span></div>',
                         unsafe_allow_html=True)
         with doc_c2:
             conn_d = get_connection()
@@ -4982,6 +5226,21 @@ elif st.session_state.page == "manage_doctors":
         with doc_c3:
             if st.button("🚫 إيقاف", key=f"deact_{d['id']}", use_container_width=True):
                 toggle_doctor_active(d["id"]); st.rerun()
+        with st.expander(f"✏️ تعديل بيانات {d['name']}", expanded=False):
+            ed_phone = phu.render_phone_input(st, "رقم التليفون (واتساب)", d.get("phone", ""), key_prefix=f"edph_{d['id']}", required=False)
+            ed1, ed2, ed3 = st.columns(3)
+            _bo = _BRANCH_OPTS if (d.get("branch") or "") in _BRANCH_OPTS else _BRANCH_OPTS + [d.get("branch")]
+            with ed1: ed_branch = st.selectbox("الفرع", _bo, index=_bo.index(d.get("branch") or ""), key=f"edbr_{d['id']}")
+            with ed2: ed_comm = st.number_input("نسبة العمولة %", 0.0, 50.0, float(d.get("commission_pct") or 5.0), 0.5, key=f"edcm_{d['id']}")
+            with ed3: ed_tr = st.checkbox("يحق له بدل الانتقال", value=bool(d.get("transport_eligible")), key=f"edtr_{d['id']}")
+            st.caption("الاسم ثابت عشان الزيارات القديمة وتقارير العمولة تفضل مربوطة بيه.")
+            if st.button("💾 حفظ التعديل", key=f"saveed_{d['id']}", use_container_width=True):
+                if ed_phone and len(phu.wa_digits(ed_phone)) < 10:
+                    st.error("رقم التليفون غير صحيح — اتأكد منه أو سيبه فاضي")
+                else:
+                    update_doctor(d["id"], ed_phone, ed_branch, ed_comm, int(ed_tr))
+                    st.session_state["_doctors_flash"] = f"✅ تم تعديل بيانات: {d['name']}"
+                    st.rerun()
     if inactive_drs:
         st.markdown("---")
         st.markdown("#### الأطباء الغير نشطين")
@@ -4992,6 +5251,30 @@ elif st.session_state.page == "manage_doctors":
             with dc2:
                 if st.button("✅ تفعيل", key=f"act_{d['id']}", use_container_width=True):
                     toggle_doctor_active(d["id"]); st.rerun()
+
+    # ── الحفظ الدائم ──
+    st.markdown("---")
+    with st.expander("☁️ الحفظ الدائم للأطباء (GitHub)", expanded=False):
+        _db = _DOC_BOOT if isinstance(_DOC_BOOT, dict) else {}
+        if not (GITHUB_TOKEN and GITHUB_REPO):
+            st.error("github_token / github_repo مش موجودين في Secrets — الأطباء بيتحفظوا على السيرفر ده بس وهيضيعوا مع إعادة التشغيل.")
+        elif _db.get("ok"):
+            st.success("✅ الأطباء بيتحفظوا على GitHub (" + GITHUB_DOCTORS_PATH + ") ويتسحبوا تلقائيًا مع كل تشغيل للسيرفر.")
+        else:
+            st.error("❌ سحب الأطباء من GitHub فشل: " + (_db.get("err") or "سبب غير معروف"))
+        sg1, sg2 = st.columns(2)
+        with sg1:
+            if st.button("🔄 تحديث من GitHub", key="doc_pull_now", use_container_width=True):
+                _r = pull_doctors_from_github()
+                if _r.get("ok"):
+                    st.session_state["_doctors_flash"] = f"✅ اتحدّث من GitHub ({_r.get('applied', 0)} تغيير)"
+                    st.rerun()
+                else:
+                    st.error("❌ " + (_r.get("err") or "فشل"))
+        with sg2:
+            if st.button("☁️ احفظ الحاليين على GitHub", key="doc_push_now", use_container_width=True):
+                _doctors_after_change([d["id"] for d in all_drs], "manual save")
+                st.rerun()
     st.markdown("---")
     if st.button("← رجوع للرئيسية", use_container_width=True): go("home")
 

@@ -68,7 +68,7 @@ def run_page(page, user_type, email, seed_visits, extra_state=None):
     if extra_state:
         st.session_state.update(extra_state)
 
-    for m in ("app", "core", "import_rules", "phone_utils", "lab_picker", "quick_panels",
+    for m in ("app", "core", "import_rules", "phone_utils", "lab_picker", "quick_panels", "doctors_sync", "email_backup",
               "login_theme", "easter_eggs", "device_auth", "labs_price_list"):
         sys.modules.pop(m, None)
 
