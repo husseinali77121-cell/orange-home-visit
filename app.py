@@ -1747,10 +1747,168 @@ def fetch_visits(filters=None, page=None, page_size=None):
     visits = [dict(r) for r in rows]
     return visits, total
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 📊 أرقام الصفحة الرئيسية (الكروت الأربعة)
+# ──────────────────────────────────────────────────────────────────────────────
+# قبل كده: الرئيسية كانت بتحمّل **كل** الزيارات في كل rerun وتحسبهم بـ Python. دلوقتي استعلام SQL
+# واحد بيرجّع نفس الأرقام (نفس تعريف «الزيارة المحسوبة»: مش محذوفة، مش مؤرشفة، مش ملغية للإيراد).
+# _home_kpis_slow هي الطريقة القديمة بالظبط — بتتستخدم كمرجع في الاختبارات وكاحتياطي لو SQL فشل.
+#   remaining = المتبقي للتحصيل: غير مدفوع → كل الإجمالي | مدفوع جزئياً → الإجمالي − المدفوع | غير كده → 0
+# ══════════════════════════════════════════════════════════════════════════════
+def _home_kpis_slow(branch=None, today=None):
+    today = today or date.today().isoformat()
+    vs = fetch_visits({"branch": branch} if branch else {}, page=None, page_size=None)[0]
+    remaining = 0.0
+    for v in vs:
+        if v.get("status") == "ملغية":
+            continue
+        tot = _to_num(v.get("total_price"))
+        ps = v.get("payment_status")
+        if ps == "غير مدفوع":
+            remaining += tot
+        elif ps == "مدفوع جزئياً":
+            remaining += max(tot - _to_num(v.get("paid_amount")), 0.0)
+    return {
+        "total": len(vs),
+        "today": sum(1 for v in vs if v.get("visit_date") == today),
+        "done": sum(1 for v in vs if v.get("status") == "تمت"),
+        "revenue": revenue(vs),
+        "unpaid": sum(1 for v in vs if v.get("payment_status", "غير مدفوع") == "غير مدفوع" and v.get("status") != "ملغية"),
+        "remaining": remaining,
+    }
+
+def home_kpis(branch=None, today=None):
+    """نفس أرقام _home_kpis_slow بس باستعلام واحد. لو فشل لأي سبب بيرجع للطريقة القديمة."""
+    today = today or date.today().isoformat()
+    try:
+        conn = get_connection()
+        where, params = "deleted_at IS NULL AND COALESCE(archived,0)=0", []
+        if branch:
+            where += " AND branch = ?"
+            params.append(branch)
+        tot = "CAST(COALESCE(total_price,0) AS REAL)"
+        row = conn.execute(
+            f"""SELECT COUNT(*),
+                       COALESCE(SUM(CASE WHEN visit_date = ? THEN 1 ELSE 0 END),0),
+                       COALESCE(SUM(CASE WHEN status = 'تمت' THEN 1 ELSE 0 END),0),
+                       COALESCE(SUM(CASE WHEN COALESCE(status,'') != 'ملغية' THEN {tot} ELSE 0 END),0),
+                       COALESCE(SUM(CASE WHEN payment_status = 'غير مدفوع' AND COALESCE(status,'') != 'ملغية' THEN 1 ELSE 0 END),0),
+                       COALESCE(SUM(CASE WHEN COALESCE(status,'') = 'ملغية' THEN 0
+                                         WHEN payment_status = 'غير مدفوع' THEN {tot}
+                                         WHEN payment_status = 'مدفوع جزئياً'
+                                              THEN MAX({tot} - CAST(COALESCE(paid_amount,0) AS REAL), 0)
+                                         ELSE 0 END),0)
+                FROM visits WHERE {where}""", [today] + params).fetchone()
+        return {"total": int(row[0]), "today": int(row[1]), "done": int(row[2]),
+                "revenue": float(row[3]), "unpaid": int(row[4]), "remaining": float(row[5])}
+    except Exception:
+        return _home_kpis_slow(branch, today)
+
+def home_kpi_cards_html(k):
+    """4 كروت (متبقي التحصيل / مكتملة / اليوم / الإجمالي) — HTML + CSS صغير، من غير أي widget."""
+    def card(color, bg, icon, num, label, sub=""):
+        sub_html = f'<div class="kpi-sub">{_esc(sub)}</div>' if sub else ""
+        return (f'<div class="kpi-card" style="--c:{color};--bg:{bg}"><div class="kpi-ico">{icon}</div>'
+                f'<div><div class="kpi-num">{num}</div><div class="kpi-lbl">{label}</div>{sub_html}</div></div>')
+    return (
+        "<style>"
+        ".kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:6px 0 16px;direction:rtl}"
+        "@media(min-width:640px){.kpi-grid{grid-template-columns:repeat(4,1fr)}}"
+        ".kpi-card{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #f0e6dc;"
+        "border-inline-start:4px solid var(--c);border-radius:14px;padding:10px 12px;"
+        "box-shadow:0 1px 3px rgba(0,0,0,.05);min-width:0}"
+        ".kpi-ico{flex:none;width:38px;height:38px;border-radius:50%;background:var(--bg);"
+        "display:flex;align-items:center;justify-content:center;font-size:19px}"
+        ".kpi-num{font-size:21px;font-weight:800;line-height:1.1;color:#222}"
+        ".kpi-lbl{font-size:12px;font-weight:700;color:#555}"
+        ".kpi-sub{font-size:10px;color:#999;margin-top:1px}"
+        "</style>"
+        '<div class="kpi-grid">'
+        + card("#E74C3C", "#FDECEA", "💰", f'{k["remaining"]:,.0f}', "متبقي التحصيل (جنيه)",
+               f'{k["unpaid"]} زيارة غير مدفوعة')
+        + card("#27AE60", "#E8F7EE", "✅", f'{k["done"]:,}', "زيارات مكتملة")
+        + card("#2E86C1", "#E8F1FA", "📅", f'{k["today"]:,}', "زيارات اليوم")
+        + card("#FF6B00", "#FFF1E6", "👥", f'{k["total"]:,}', "إجمالي الزيارات",
+               f'الإيراد {k["revenue"]:,.0f} جنيه')
+        + "</div>")
+
 def fetch_visit_by_id(vid):
     conn = get_connection()
     row = conn.execute("SELECT * FROM visits WHERE id=? AND deleted_at IS NULL",(vid,)).fetchone()
     return dict(row) if row else None
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🎂 تحديث العمر عند استدعاء بيانات عميل قديم
+# ──────────────────────────────────────────────────────────────────────────────
+# العمر المحفوظ في الزيارة هو عمره **يوم الزيارة**. عند «استخدم بياناته السابقة» كان بيتنسخ
+# زي ما هو (32 فضل 32 بعد سنة). دلوقتي بيتحدّث حسب الوقت اللي عدّى من تاريخ الزيارة.
+# مهم: العمر مابيزيدش 1 يناير — بيزيد في عيد ميلاد العميل، وإحنا ما نعرفوش. فبنقدّر:
+#   • سنة: + السنين المنقضية مقرّبة لأقرب سنة (أقرب تقدير لعدد أعياد الميلاد اللي عدّت).
+#   • شهر: + الشهور الكاملة المنقضية بالظبط، ولو بقى 24 شهر أو أكتر يتحوّل لسنين.
+# أي حاجة مش مفهومة (عمر فاضي/مش رقم صحيح/تاريخ غلط أو في المستقبل/وحدة غريبة) بتتساب زي ما هي.
+# التحديث على الزيارة **الجديدة** بس، والزيارة القديمة في السجل ما بتتغيّرش (عمره وقتها).
+# ══════════════════════════════════════════════════════════════════════════════
+def refresh_age(age, unit, visit_date, today=None):
+    """(age_str, unit, changed) — العمر الحالي التقريبي لعمر اتسجّل في visit_date."""
+    unit = (str(unit).strip() if unit else "") or "سنة"
+    try:
+        a = float(str(age).strip())
+        if a != int(a) or a < 0:
+            return age, unit, False
+        a = int(a)
+        d = date.fromisoformat(str(visit_date).strip()[:10])
+    except (TypeError, ValueError, OverflowError):
+        return age, unit, False
+    today = today or date.today()
+    if d > today:
+        return age, unit, False
+    if unit == "سنة":
+        if a > 120:
+            return age, unit, False
+        new_a, new_u = a + int(((today - d).days / 365.2425) + 0.5), "سنة"
+        if new_a > 120:
+            return age, unit, False
+    elif unit == "شهر":
+        months = (today.year - d.year) * 12 + (today.month - d.month) - (1 if today.day < d.day else 0)
+        new_a, new_u = a + max(months, 0), "شهر"
+        if new_a >= 24:
+            new_a, new_u = new_a // 12, "سنة"
+    else:
+        return age, unit, False
+    if (new_a, new_u) == (a, unit):
+        return age, unit, False
+    return str(new_a), new_u, True
+
+def prefilled_age_fields(src):
+    """age / age_unit / age_note لزيارة جديدة منقولة من زيارة قديمة src (dict)."""
+    age0 = src.get("age", "")
+    au0 = src.get("age_unit", "سنة") or "سنة"
+    new_a, new_u, changed = refresh_age(age0, au0, src.get("visit_date", ""))
+    if not changed:
+        return {"age": age0, "age_unit": au0}
+    return {"age": new_a, "age_unit": new_u,
+            "age_note": f"🎂 العمر اتحدّث تلقائيًا: {age0} {au0} (زيارة {format_date_ar(src.get('visit_date',''))}) "
+                        f"← {new_a} {new_u} تقريبًا — راجعه مع العميل."}
+
+def refresh_extra_persons_ages(raw, visit_date):
+    """نفس التحديث لأعمار «الحالات الإضافية» (JSON). أي مشكلة → النص الأصلي زي ما هو."""
+    if not raw:
+        return raw
+    try:
+        people = json.loads(raw) if isinstance(raw, str) else raw
+        if not isinstance(people, list):
+            return raw
+        out = []
+        for p in people:
+            if isinstance(p, dict):
+                na, nu, ch = refresh_age(p.get("age", ""), p.get("age_unit", "سنة"), visit_date)
+                if ch:
+                    p = {**p, "age": na, "age_unit": nu}
+            out.append(p)
+        return json.dumps(out, ensure_ascii=False)
+    except Exception:
+        return raw
 
 def fetch_client_history(phone, exclude_id=None, limit=None):
     conn = get_connection()
@@ -3421,6 +3579,42 @@ if _REPAIR.get("ran") and st.session_state.user_type == "admin":
                if _GH_STATE.get("last_error") else "")
             + '</div>', unsafe_allow_html=True)
 
+def _sync_chip():
+    """(لون, أيقونة, نص) — حالة المزامنة الحقيقية من نفس متغيرات البانرات اللي تحت. مفيش نص ثابت."""
+    if _GH_STATE.get("conflict"):
+        return "#F39C12", "🟠", "تعارض مزامنة"
+    if _GH_STATE.get("unsaved", 0):
+        return "#E74C3C", "🔴", f'{_GH_STATE.get("unsaved")} تعديل غير مرفوع'
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return "#95A5A6", "⚪", "محلي فقط"
+    if _GH_STATE.get("connected") is False:
+        return "#E74C3C", "🔴", "غير متصل بـ GitHub"
+    if isinstance(_BOOT, dict) and not _BOOT.get("ok"):
+        return "#F39C12", "🟠", "لم يُسحب من GitHub"
+    return "#27AE60", "🟢", "متزامن مع GitHub"
+
+def render_app_header():
+    """شريط علوي خفيف (العلامة + التاريخ + المستخدم + حالة المزامنة) — HTML بس، من غير widgets."""
+    ut = st.session_state.get("user_type", "")
+    role = {"admin": "مدير النظام", "diamond": "فرع Diamond", "lacite": "فرع La Cite"}.get(ut, ut or "")
+    color, icon, label = _sync_chip()
+    st.markdown(
+        "<style>"
+        ".oh-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 10px;"
+        "direction:rtl;border-bottom:2px solid #FF6B00;padding:2px 0 8px;margin:0 0 10px}"
+        ".oh-brand{font-size:16px;font-weight:800;color:#FF6B00}"
+        ".oh-brand span{font-size:11px;font-weight:600;color:#888;margin-inline-start:6px}"
+        ".oh-meta{display:flex;flex-wrap:wrap;gap:6px}"
+        ".oh-chip{background:#fff;border:1px solid #eadfd3;border-radius:999px;padding:2px 10px;"
+        "font-size:11px;font-weight:700;color:#444;white-space:nowrap}"
+        "</style>"
+        f'<div class="oh-head"><div class="oh-brand">🍊 Orange Lab<span>Home Visit</span></div>'
+        f'<div class="oh-meta"><span class="oh-chip">📅 {_esc(format_date_ar(date.today().isoformat()))}</span>'
+        f'<span class="oh-chip">👤 {_esc(role)}</span>'
+        f'<span class="oh-chip" style="border-color:{color};color:{color}">{icon} {_esc(label)}</span></div></div>',
+        unsafe_allow_html=True)
+
+render_app_header()
 # ★ بانر «تعديلات لسه محليّة» — بيظهر لكل المستخدمين مش الأدمن بس
 render_sync_banner()
 
@@ -3556,20 +3750,8 @@ if st.session_state.page == "home":
     visits, total_visits = fetch_visits(filters, page=page, page_size=page_size)
     st.session_state.total_visits = total_visits
 
-    today_s = date.today().isoformat()
     bf_kpi  = "Diamond" if st.session_state.user_type=="diamond" else "La Cite" if st.session_state.user_type=="lacite" else None
-    all_vs  = fetch_visits({"branch":bf_kpi} if bf_kpi else {}, page=None, page_size=None)[0]  # جلب الكل للإحصائيات
-    t_today = sum(1 for v in all_vs if v.get("visit_date")==today_s)
-    t_rev   = revenue(all_vs)
-    t_done  = sum(1 for v in all_vs if v.get("status")=="تمت")
-    t_unpaid = sum(1 for v in all_vs if v.get("payment_status","غير مدفوع")=="غير مدفوع" and v.get("status")!="ملغية")
-    st.markdown(f"""<div class="stat-grid">
-      <div class="stat-box"><div class="stat-num">{len(all_vs)}</div><div class="stat-label">إجمالي الزيارات</div></div>
-      <div class="stat-box"><div class="stat-num">{t_today}</div><div class="stat-label">زيارات اليوم</div></div>
-      <div class="stat-box"><div class="stat-num" style="color:#27AE60">{t_done}</div><div class="stat-label">تمت ✅</div></div>
-      <div class="stat-box"><div class="stat-num" style="font-size:16px">{t_rev:,.0f}</div><div class="stat-label">الإيراد (جنيه)</div></div>
-      <div class="stat-box"><div class="stat-num" style="color:#E74C3C">{t_unpaid}</div><div class="stat-label">غير مدفوع 🔴</div></div>
-    </div>""", unsafe_allow_html=True)
+    st.markdown(home_kpi_cards_html(home_kpis(bf_kpi)), unsafe_allow_html=True)
     if st.session_state.user_type in ["admin","diamond","lacite"]:
         with st.expander("📤 تصدير إلى Excel", expanded=False):
             st.markdown('<div style="font-size:13px;font-weight:700;color:#FF6B00;margin-bottom:8px">📅 اختر فترة التصدير</div>', unsafe_allow_html=True)
@@ -3999,6 +4181,8 @@ elif st.session_state.page == "new":
         au_opts = ["سنة","شهر"]; cur_au = pf.get("age_unit","سنة")
         if cur_au not in au_opts: cur_au = "سنة"
         age_unit = st.radio("الوحدة", au_opts, index=au_opts.index(cur_au), horizontal=True)
+    if pf.get("age_note"):
+        st.caption(pf["age_note"])
     # ⚠️ تأكيد الاسم والسن — لو اتحدد، هيتبعت تنبيه للدكتور في ملخص الحالة
     confirm_name_age = st.checkbox("⚠️ برجاء التأكد من الاسم والعمر؟",
                                     value=bool(pf.get("confirm_name_age", 0)))
@@ -4043,14 +4227,14 @@ elif st.session_state.page == "new":
             with col_use:
                 if st.button("✅ استخدم بياناته السابقة", key="use_prev_data", use_container_width=True):
                     go("new", prefill={
-                        "name": last_v.get("name",""), "age": last_v.get("age",""),
-                        "age_unit": last_v.get("age_unit","سنة"), "phone": last_v.get("phone",""),
+                        "name": last_v.get("name",""), **prefilled_age_fields(last_v),
+                        "phone": last_v.get("phone",""),
                         "city": last_v.get("city","") or "",          # ★ كان ناقص
                         "district": last_v.get("district","") or "",  # ★ كان ناقص
                         "address": last_v.get("address",""), "location_link": last_v.get("location_link",""),
                         "doctor_name": last_v.get("doctor_name",""), "branch": last_v.get("branch","La Cite"),
                         "selected_labs_text": last_v.get("selected_labs_text",""),
-                        "extra_persons": last_v.get("extra_persons","") or "",   # ★ الحالات الإضافية تتنقل مع الطلب
+                        "extra_persons": refresh_extra_persons_ages(last_v.get("extra_persons","") or "", last_v.get("visit_date","")),   # ★ الحالات الإضافية تتنقل مع الطلب (وأعمارها بتتحدّث)
                         "labs_price_before": last_v.get("labs_price_before",0),
                         "labs_price_after": last_v.get("labs_price_after",0),
                         "transport_fee": last_v.get("transport_fee",100),
@@ -4798,7 +4982,7 @@ elif st.session_state.page == "detail":
         st.markdown(f'<div class="repeat-banner">🔄 هتروح لـ {_esc(v["name"])} مرة تانية؟</div>', unsafe_allow_html=True)
         if st.button(f"➕ زيارة جديدة لـ {v['name']}", use_container_width=True):
             go("new", prefill={
-                "name":v["name"],"age":v.get("age",""),"age_unit":v.get("age_unit","سنة"),
+                "name":v["name"],**prefilled_age_fields(v),
                 "phone":v.get("phone",""),
                 "city":v.get("city","") or "","district":v.get("district","") or "",   # ★ كان ناقص
                 "address":v.get("address",""),
@@ -5301,8 +5485,8 @@ elif st.session_state.page == "client_profile":
             pa1,pa2 = st.columns(2)
             with pa1:
                 if st.button("➕ زيارة جديدة", use_container_width=True, key="cp_new"):
-                    go("new", prefill={"name":cv.get("name",""),"age":cv.get("age",""),
-                        "age_unit":cv.get("age_unit","سنة"),"phone":phone_cp,
+                    go("new", prefill={"name":cv.get("name",""),**prefilled_age_fields(cv),
+                        "phone":phone_cp,
                         "city":cv.get("city","") or "","district":cv.get("district","") or "",  # ★ كان ناقص
                         "address":cv.get("address",""),"location_link":cv.get("location_link",""),
                         "doctor_name":cv.get("doctor_name",""),"branch":cv.get("branch","La Cite"),
