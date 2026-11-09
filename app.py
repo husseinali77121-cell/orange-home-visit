@@ -102,11 +102,14 @@ except Exception:
 # ══════════════════════════════════════════════════════════════════════════════
 # إعدادات الصفحة
 # ══════════════════════════════════════════════════════════════════════════════
+# 🗂️ السايدبار الداكن (واجهة الشاشات العريضة). من Secrets: ui_sidebar = "0" يقفله ويرجّع الشكل القديم بالظبط.
+UI_SIDEBAR = str(_sec("ui_sidebar", "1")).strip().lower() not in ("0", "false", "no", "off", "")
+
 st.set_page_config(
     page_title="Orange Lab HVMS",
     page_icon="🟠",
     layout="centered",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="auto" if UI_SIDEBAR else "collapsed",
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1756,12 +1759,26 @@ def fetch_visits(filters=None, page=None, page_size=None):
 # _home_kpis_slow هي الطريقة القديمة بالظبط — بتتستخدم كمرجع في الاختبارات وكاحتياطي لو SQL فشل.
 #   remaining = المتبقي للتحصيل: غير مدفوع → كل الإجمالي | مدفوع جزئياً → الإجمالي − المدفوع | غير كده → 0
 # ══════════════════════════════════════════════════════════════════════════════
+# «ملغية» بأي إملاء: ملغيه / ملغي / ملغاة / مُلغية / «تم الإلغاء» / مسافات زيادة / cancelled …
+# السبب: بيانات قديمة اتسجّلت قبل ما الحالة تتقيّد بقائمة ثابتة، والمقارنة الحرفية `= 'ملغية'` كانت بتفوّتها
+# فمتبقّيها كان بيتحسب في «متبقي التحصيل». ده بيتطبّق على أرقام الكروت بس (مابيغيّرش أي بيانات متخزّنة).
+_CANCEL_NOISE = re_module.compile(r"[\u064b-\u065f\u0670\u0640\u200b-\u200f\u00a0\s]")
+_CANCEL_MAP = str.maketrans({"ة": "ه", "ى": "ي", "أ": "ا", "إ": "ا", "آ": "ا"})
+
+def _is_cancelled_status(s):
+    """True لو الحالة معناها «ملغية» بأي إملاء. مابيرميش أبداً (أي مشكلة → False)."""
+    try:
+        t = _CANCEL_NOISE.sub("", str(s if s is not None else "")).lower().translate(_CANCEL_MAP)
+        return ("ملغ" in t) or ("الغاء" in t) or ("الغي" in t) or t.startswith("cancel")
+    except Exception:
+        return False
+
 def _home_kpis_slow(branch=None, today=None):
     today = today or date.today().isoformat()
     vs = fetch_visits({"branch": branch} if branch else {}, page=None, page_size=None)[0]
     remaining = 0.0
     for v in vs:
-        if v.get("status") == "ملغية":
+        if _is_cancelled_status(v.get("status")):
             continue
         tot = _to_num(v.get("total_price"))
         ps = v.get("payment_status")
@@ -1773,8 +1790,9 @@ def _home_kpis_slow(branch=None, today=None):
         "total": len(vs),
         "today": sum(1 for v in vs if v.get("visit_date") == today),
         "done": sum(1 for v in vs if v.get("status") == "تمت"),
-        "revenue": revenue(vs),
-        "unpaid": sum(1 for v in vs if v.get("payment_status", "غير مدفوع") == "غير مدفوع" and v.get("status") != "ملغية"),
+        "revenue": revenue([v for v in vs if not _is_cancelled_status(v.get("status"))]),
+        "unpaid": sum(1 for v in vs if v.get("payment_status", "غير مدفوع") == "غير مدفوع"
+                      and not _is_cancelled_status(v.get("status"))),
         "remaining": remaining,
     }
 
@@ -1783,6 +1801,7 @@ def home_kpis(branch=None, today=None):
     today = today or date.today().isoformat()
     try:
         conn = get_connection()
+        conn.create_function("hv_cancelled", 1, lambda x: 1 if _is_cancelled_status(x) else 0)
         where, params = "deleted_at IS NULL AND COALESCE(archived,0)=0", []
         if branch:
             where += " AND branch = ?"
@@ -1792,9 +1811,9 @@ def home_kpis(branch=None, today=None):
             f"""SELECT COUNT(*),
                        COALESCE(SUM(CASE WHEN visit_date = ? THEN 1 ELSE 0 END),0),
                        COALESCE(SUM(CASE WHEN status = 'تمت' THEN 1 ELSE 0 END),0),
-                       COALESCE(SUM(CASE WHEN COALESCE(status,'') != 'ملغية' THEN {tot} ELSE 0 END),0),
-                       COALESCE(SUM(CASE WHEN payment_status = 'غير مدفوع' AND COALESCE(status,'') != 'ملغية' THEN 1 ELSE 0 END),0),
-                       COALESCE(SUM(CASE WHEN COALESCE(status,'') = 'ملغية' THEN 0
+                       COALESCE(SUM(CASE WHEN hv_cancelled(status) = 0 THEN {tot} ELSE 0 END),0),
+                       COALESCE(SUM(CASE WHEN payment_status = 'غير مدفوع' AND hv_cancelled(status) = 0 THEN 1 ELSE 0 END),0),
+                       COALESCE(SUM(CASE WHEN hv_cancelled(status) = 1 THEN 0
                                          WHEN payment_status = 'غير مدفوع' THEN {tot}
                                          WHEN payment_status = 'مدفوع جزئياً'
                                               THEN MAX({tot} - CAST(COALESCE(paid_amount,0) AS REAL), 0)
@@ -1804,6 +1823,63 @@ def home_kpis(branch=None, today=None):
                 "revenue": float(row[3]), "unpaid": int(row[4]), "remaining": float(row[5])}
     except Exception:
         return _home_kpis_slow(branch, today)
+
+def home_remaining_breakdown(branch=None, limit=40):
+    """
+    تفاصيل «متبقي التحصيل» للعرض فقط: (items, odd_statuses, n_total).
+      items         = أكبر `limit` زيارة داخلة في الرقم (الأكبر متبقّياً أولاً)
+      odd_statuses  = {الحالة المكتوبة: (العدد، معتبرة_ملغية؟)} للحالات اللي مش من القائمة القياسية
+      n_total       = عدد الزيارات الداخلة في المتبقي
+    استعلامين خفيفين بس، ومابيرميش أبداً (أي مشكلة → فاضي).
+    """
+    try:
+        conn = get_connection()
+        where, params = "deleted_at IS NULL AND COALESCE(archived,0)=0", []
+        if branch:
+            where += " AND branch = ?"
+            params.append(branch)
+        odd = {}
+        for stv, n in conn.execute(f"SELECT status, COUNT(*) FROM visits WHERE {where} GROUP BY status", params).fetchall():
+            label = "" if stv is None else str(stv)
+            if label in STATUS_OPTIONS:
+                continue
+            odd[label or "(فاضي)"] = (int(n), _is_cancelled_status(label))
+        items = []
+        for r in conn.execute(
+                f"SELECT name, phone, visit_date, status, payment_status, total_price, paid_amount FROM visits "
+                f"WHERE {where} AND payment_status IN ('غير مدفوع','مدفوع جزئياً')", params).fetchall():
+            if _is_cancelled_status(r["status"]):
+                continue
+            tot, paid = _to_num(r["total_price"]), _to_num(r["paid_amount"])
+            rem = tot if r["payment_status"] == "غير مدفوع" else max(tot - paid, 0.0)
+            if rem > 0:
+                items.append({"التاريخ": r["visit_date"] or "", "الاسم": r["name"] or "", "الموبايل": r["phone"] or "",
+                              "الحالة": r["status"] or "", "الدفع": r["payment_status"] or "",
+                              "الإجمالي": tot, "المدفوع": paid, "المتبقي": rem})
+        items.sort(key=lambda x: -x["المتبقي"])
+        return items[:limit], odd, len(items)
+    except Exception:
+        return [], {}, 0
+
+def render_remaining_details(branch, k):
+    """expander صغير تحت الكروت يوضّح إيه اللي داخل في «متبقي التحصيل» + يكشف الحالات المكتوبة بشكل غريب."""
+    try:
+        items, odd, n_total = home_remaining_breakdown(branch)
+        if not items and not odd:
+            return
+        label = f"🔍 تفاصيل متبقي التحصيل ({n_total} زيارة)" if items else "🔍 حالات غير قياسية في البيانات"
+        with st.expander(label, expanded=False):
+            if items:
+                st.dataframe(pd.DataFrame(items), use_container_width=True, hide_index=True)
+                if n_total > len(items):
+                    st.caption(f"معروض أكبر {len(items)} من {n_total} زيارة.")
+                st.caption("الزيارات الملغية مش بتدخل في الرقم ده.")
+            if odd:
+                parts = [f"«{lbl}» ({n}){' ← بتتحسب ملغية' if canc else ''}" for lbl, (n, canc) in odd.items()]
+                st.warning("⚠️ في زيارات حالتها مكتوبة بشكل مش قياسي: " + "، ".join(parts)
+                           + " — الكروت بتعتبرها حسب معناها، لكن الأفضل تفتح الزيارة وتختار الحالة من القائمة.")
+    except Exception:
+        pass
 
 def home_kpi_cards_html(k):
     """4 كروت (متبقي التحصيل / مكتملة / اليوم / الإجمالي) — HTML + CSS صغير، من غير أي widget."""
@@ -3593,6 +3669,94 @@ def _sync_chip():
         return "#F39C12", "🟠", "لم يُسحب من GitHub"
     return "#27AE60", "🟢", "متزامن مع GitHub"
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 🗂️ السايدبار الداكن (المرحلة 2 من الواجهة)
+# ──────────────────────────────────────────────────────────────────────────────
+#   • بيظهر على الشاشات العريضة (≥992px) بس، والشريط العلوي القديم بيختفي هناك.
+#   • على الموبايل/التابلت: السايدبار مخفي بالـ CSS والشريط العلوي زي ما هو (مفيش حاجة اتغيّرت).
+#   • شبكة أمان: الشريط العلوي بيتخفي **بس** طول ما السايدبار مفتوح فعلاً (aria-expanded="true")؛
+#     لو اتقفل لأي سبب الشريط العلوي بيرجع يظهر لوحده — يعني مستحيل تفقد التنقل.
+#   • نفس أزرار الشريط العلوي ونفس الصلاحيات ونفس go() — مفيش منطق جديد.
+#   • الإيقاف: Secrets → ui_sidebar = "0"
+# ══════════════════════════════════════════════════════════════════════════════
+_SIDEBAR_CSS = (
+    "@media (min-width:992px){"
+    "[data-testid='stSidebar']{background:linear-gradient(180deg,#16233B 0%,#0E1829 100%)!important;"
+    "border-right:0!important}"
+    "[data-testid='stSidebar'][aria-expanded='true']{min-width:236px!important;max-width:236px!important;width:236px!important}"
+    "[data-testid='stSidebarHeader'],[data-testid='stSidebarCollapseButton'],[data-testid='stSidebarResizeHandle']"
+    "{display:none!important}"
+    "[data-testid='stSidebarUserContent']{padding:1rem .9rem!important}"
+    "[data-testid='stSidebar'] [data-testid='stVerticalBlock']{gap:.3rem!important}"
+    "[data-testid='stSidebar'] .stButton>button{background:transparent!important;border:0!important;"
+    "color:#D5DEEC!important;justify-content:flex-start!important;text-align:right!important;direction:rtl;"
+    "border-radius:10px!important;padding:.55rem .8rem!important;font-weight:600!important;box-shadow:none!important}"
+    "[data-testid='stSidebar'] .stButton>button *{color:inherit!important}"
+    "[data-testid='stSidebar'] .stButton>button:hover{background:rgba(255,255,255,.09)!important;color:#fff!important}"
+    "[data-testid='stSidebar'] .stButton>button[kind='primary'],"
+    "[data-testid='stSidebar'] .stButton>button[data-testid='stBaseButton-primary']"
+    "{background:#FF6B00!important;color:#fff!important}"
+    ".stApp:has([data-testid='stSidebar'][aria-expanded='true']) .st-key-topnav{display:none!important}"
+    ".stApp:has([data-testid='stSidebar'][aria-expanded='true']) .oh-brand{display:none!important}"
+    "}"
+    "@media (max-width:991.98px){[data-testid='stSidebar']{display:none!important}}"
+    ".sb-brand{direction:rtl;padding:2px 4px 10px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:6px}"
+    ".sb-logo{font-size:19px;font-weight:800;color:#FF8A3D}"
+    ".sb-logo span{display:block;font-size:11px;font-weight:600;color:#8FA3C0}"
+    ".sb-role{margin-top:8px;font-size:12px;font-weight:700;color:#E8EEF8}"
+    ".sb-foot{direction:rtl;margin-top:10px;padding:10px 4px 2px;border-top:1px solid rgba(255,255,255,.12);"
+    "font-size:11.5px;color:#9DB0CC;line-height:1.9}"
+    ".sb-chip{display:inline-block;border:1px solid;border-radius:999px;padding:1px 9px;font-weight:700;font-size:11px}"
+)
+
+def _sidebar_active(utype):
+    """السايدبار شغال؟ (الفلاج مفتوح + المستخدم له دور). مستخدم بلا دور بيفضل على الشريط العلوي بس."""
+    return bool(UI_SIDEBAR and utype in ("admin", "diamond", "lacite"))
+
+def _sidebar_items(utype, today_label, pf_count):
+    """[(key, label, page, go_kwargs)] — نفس مجموعات أزرار الشريط العلوي بالظبط (admin / الفرعين)."""
+    fu = f"⏰ متابعات ({pf_count})" if pf_count and pf_count > 0 else "⏰ متابعات"
+    common = [("home", "🏠 الرئيسية", "home", {}),
+              ("new", "➕ زيارة جديدة", "new", {"prefill": {}}),
+              ("today", today_label, "today", {}),
+              ("reports", "📈 التقارير", "reports", {}),
+              ("follow_ups", fu, "follow_ups", {})]
+    if utype == "admin":
+        return common + [("dashboard", "📊 Dashboard", "dashboard", {}),
+                         ("manage_doctors", "👨‍⚕️ الأطباء", "manage_doctors", {}),
+                         ("audit", "🧾 سجل النشاط", "audit", {})]
+    if utype in ("diamond", "lacite"):
+        return common
+    return []
+
+def render_sidebar(utype, today_label, pf_count):
+    """بيرسم السايدبار (لو شغال). بيرجّع True لو اترسم. الـCSS بييجي مع الهيدر (render_app_header)."""
+    if not _sidebar_active(utype):
+        return False
+    try:
+        items = _sidebar_items(utype, today_label, pf_count)
+        cur = st.session_state.get("page", "home")
+        cur = {"detail": "home", "client_profile": "home"}.get(cur, cur)
+        role = {"admin": "مدير النظام", "diamond": "فرع Diamond", "lacite": "فرع La Cite"}.get(utype, "")
+        color, icon, label = _sync_chip()
+        brand = (f'<div class="sb-brand"><div class="sb-logo">🍊 Orange Lab<span>Home Visit</span></div>'
+                 f'<div class="sb-role">👤 {_esc(role)}</div></div>')
+        foot = (f'<div class="sb-foot">📅 {_esc(format_date_ar(date.today().isoformat()))}<br>'
+                f'<span class="sb-chip" style="color:{color};border-color:{color}">{icon} {_esc(label)}</span></div>')
+    except Exception:
+        return False
+    # ★ الأزرار برّه try/except عمدًا: go() و _logout() بيرموا st.rerun() وده لازم يعدّي.
+    with st.sidebar:
+        st.markdown(brand, unsafe_allow_html=True)
+        for key, lbl, page, kw in items:
+            if st.button(lbl, key=f"sb_{key}", use_container_width=True,
+                         type="primary" if page == cur else "secondary"):
+                go(page, **kw)
+        st.markdown(foot, unsafe_allow_html=True)
+        if st.button("🚪 تسجيل الخروج", key="sb_logout", use_container_width=True):
+            _logout(forget=True)
+    return True
+
 def render_app_header():
     """شريط علوي خفيف (العلامة + التاريخ + المستخدم + حالة المزامنة) — HTML بس، من غير widgets."""
     ut = st.session_state.get("user_type", "")
@@ -3607,7 +3771,8 @@ def render_app_header():
         ".oh-meta{display:flex;flex-wrap:wrap;gap:6px}"
         ".oh-chip{background:#fff;border:1px solid #eadfd3;border-radius:999px;padding:2px 10px;"
         "font-size:11px;font-weight:700;color:#444;white-space:nowrap}"
-        "</style>"
+        + (_SIDEBAR_CSS if _sidebar_active(ut) else "")
+        + "</style>"
         f'<div class="oh-head"><div class="oh-brand">🍊 Orange Lab<span>Home Visit</span></div>'
         f'<div class="oh-meta"><span class="oh-chip">📅 {_esc(format_date_ar(date.today().isoformat()))}</span>'
         f'<span class="oh-chip">👤 {_esc(role)}</span>'
@@ -3660,50 +3825,53 @@ _today_n = get_today_count(_today_branch)
 _today_label = f"📅 اليوم ({_today_n})" if _today_n > 0 else "📅 اليوم"
 
 # ── Nav Buttons ──
-if _utype == "admin":
-    nc1,nc2,nc3,nc4,nc5,nc6,nc7,nc8 = st.columns([2,2,2,2,2,2,2,1])
-    with nc5:
-        if st.button("📊 Dashboard", use_container_width=True): go("dashboard")
-    with nc6:
-        if st.button("👨‍⚕️ أطباء", use_container_width=True): go("manage_doctors")
-        if st.button("🧾 سجل النشاط", use_container_width=True, key="nav_audit"): go("audit")
-    with nc7:
-        fu_label = f"⏰ متابعات ({_pf_count})" if _pf_count>0 else "⏰ متابعات"
-        if st.button(fu_label, use_container_width=True): go("follow_ups")
-    with nc8:
-        if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
-            _logout(forget=True)
-    with nc1:
-        if st.button("🏠 الرئيسية", use_container_width=True): go("home")
-    with nc2:
-        if st.button("➕ جديدة", use_container_width=True): go("new", prefill={})
-    with nc3:
-        if st.button(_today_label, use_container_width=True): go("today")
-    with nc4:
-        if st.button("📈 تقارير", use_container_width=True): go("reports")
-elif _utype in ["diamond","lacite"]:
-    nc1,nc2,nc3,nc4,nc5,nc6 = st.columns([2,2,2,2,2,1])
-    with nc5:
-        fu_label = f"⏰ متابعات ({_pf_count})" if _pf_count>0 else "⏰ متابعات"
-        if st.button(fu_label, use_container_width=True): go("follow_ups")
-    with nc6:
-        if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
-            _logout(forget=True)
-    with nc1:
-        if st.button("🏠 الرئيسية", use_container_width=True): go("home")
-    with nc2:
-        if st.button("➕ جديدة", use_container_width=True): go("new", prefill={})
-    with nc3:
-        if st.button(_today_label, use_container_width=True): go("today")
-    with nc4:
-        if st.button("📈 تقارير", use_container_width=True): go("reports")
-else:
-    nc1, nc2 = st.columns([4,1])
-    with nc1:
-        if st.button("➕ زيارة جديدة", use_container_width=True): go("new", prefill={})
-    with nc2:
-        if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
-            _logout(forget=True)
+render_sidebar(_utype, _today_label, _pf_count)
+# الشريط العلوي: على الموبايل زي ما هو. على الشاشات العريضة بيتخفي بالـCSS طول ما السايدبار مفتوح.
+with st.container(key="topnav"):
+    if _utype == "admin":
+        nc1,nc2,nc3,nc4,nc5,nc6,nc7,nc8 = st.columns([2,2,2,2,2,2,2,1])
+        with nc5:
+            if st.button("📊 Dashboard", use_container_width=True): go("dashboard")
+        with nc6:
+            if st.button("👨‍⚕️ أطباء", use_container_width=True): go("manage_doctors")
+            if st.button("🧾 سجل النشاط", use_container_width=True, key="nav_audit"): go("audit")
+        with nc7:
+            fu_label = f"⏰ متابعات ({_pf_count})" if _pf_count>0 else "⏰ متابعات"
+            if st.button(fu_label, use_container_width=True): go("follow_ups")
+        with nc8:
+            if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
+                _logout(forget=True)
+        with nc1:
+            if st.button("🏠 الرئيسية", use_container_width=True): go("home")
+        with nc2:
+            if st.button("➕ جديدة", use_container_width=True): go("new", prefill={})
+        with nc3:
+            if st.button(_today_label, use_container_width=True): go("today")
+        with nc4:
+            if st.button("📈 تقارير", use_container_width=True): go("reports")
+    elif _utype in ["diamond","lacite"]:
+        nc1,nc2,nc3,nc4,nc5,nc6 = st.columns([2,2,2,2,2,1])
+        with nc5:
+            fu_label = f"⏰ متابعات ({_pf_count})" if _pf_count>0 else "⏰ متابعات"
+            if st.button(fu_label, use_container_width=True): go("follow_ups")
+        with nc6:
+            if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
+                _logout(forget=True)
+        with nc1:
+            if st.button("🏠 الرئيسية", use_container_width=True): go("home")
+        with nc2:
+            if st.button("➕ جديدة", use_container_width=True): go("new", prefill={})
+        with nc3:
+            if st.button(_today_label, use_container_width=True): go("today")
+        with nc4:
+            if st.button("📈 تقارير", use_container_width=True): go("reports")
+    else:
+        nc1, nc2 = st.columns([4,1])
+        with nc1:
+            if st.button("➕ زيارة جديدة", use_container_width=True): go("new", prefill={})
+        with nc2:
+            if st.button("🚪", help="تسجيل الخروج (ينسى الجهاز)", use_container_width=True):
+                _logout(forget=True)
 
 st.markdown("---")
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3751,7 +3919,9 @@ if st.session_state.page == "home":
     st.session_state.total_visits = total_visits
 
     bf_kpi  = "Diamond" if st.session_state.user_type=="diamond" else "La Cite" if st.session_state.user_type=="lacite" else None
-    st.markdown(home_kpi_cards_html(home_kpis(bf_kpi)), unsafe_allow_html=True)
+    _kpis = home_kpis(bf_kpi)
+    st.markdown(home_kpi_cards_html(_kpis), unsafe_allow_html=True)
+    render_remaining_details(bf_kpi, _kpis)
     if st.session_state.user_type in ["admin","diamond","lacite"]:
         with st.expander("📤 تصدير إلى Excel", expanded=False):
             st.markdown('<div style="font-size:13px;font-weight:700;color:#FF6B00;margin-bottom:8px">📅 اختر فترة التصدير</div>', unsafe_allow_html=True)

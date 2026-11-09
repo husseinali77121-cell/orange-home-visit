@@ -88,7 +88,7 @@ random.seed(7)
 app, ss, err, wd = run_app("home")
 conn = app.get_connection()
 TODAY = date.today().isoformat()
-STAT = ["مجدولة", "في الطريق", "تمت", "ملغية", None, ""]
+STAT = ["مجدولة", "في الطريق", "تمت", "ملغية", None, "", "ملغيه", " ملغية ", "ملغي", "مُلغية", "cancelled", "ملغاة", "تم الإلغاء"]
 PAY = ["غير مدفوع", "مدفوع جزئياً", "مدفوع", None, ""]
 TOT = [0, 100, 450, 1250.5, None, "700", "abc", 0.0]
 for i in range(1500):
@@ -124,6 +124,33 @@ check("غير المدفوع (بدون الملغية) = 1", k["unpaid"], 1)
 check("الإيراد (بدون الملغية) = 500+800+999+100", k["revenue"], 2399.0)
 check("اليوم / تمت / الإجمالي", (k["today"], k["done"], k["total"]), (1, 4, 5))
 check("فلتر الفرع", (app.home_kpis("La Cite")["total"], app.home_kpis("Diamond")["total"]), (1, 4))
+
+# ── ①ب الملغية بأي إملاء (المشكلة اللي اتبلّغ عنها: متبقي الملغية بيتحسب) ──────────
+print("\n①ب الملغية بإملاء مختلف مابتتحسبش في المتبقي")
+for r in (rec(11, payment_status="مدفوع جزئياً", total_price=1500, paid_amount=300, status="ملغيه"),     # ← 1200 متبقي لو اتحسبت غلط
+          rec(12, payment_status="مدفوع جزئياً", total_price=700, paid_amount=100, status=" ملغية  "),
+          rec(13, payment_status="غير مدفوع", total_price=400, status="ملغاة"),
+          rec(14, payment_status="غير مدفوع", total_price=400, status="مُلغية"),
+          rec(15, payment_status="غير مدفوع", total_price=400, status="Cancelled"),
+          rec(16, payment_status="غير مدفوع", total_price=400, status="تم الالغاء")):
+    app._load_insert_visit(conn, r, upsert=False)
+conn.commit()
+k2 = app.home_kpis()
+check("المتبقي ماتغيّرش (1000) رغم 6 زيارات ملغية بإملاءات مختلفة", k2["remaining"], 1000.0)
+check("غير المدفوع ماتغيّرش (1)", k2["unpaid"], 1)
+check("الإيراد ماتغيّرش (2399)", k2["revenue"], 2399.0)
+check("الطريقة القديمة (slow) نفس الرقم", app._home_kpis_slow()["remaining"], 1000.0)
+for sv, want in (("ملغية", True), ("ملغيه", True), ("ملغي", True), ("ملغاة", True), (" ملغية ", True), ("مُلغيّة", True),
+                 ("تم الإلغاء", True), ("الغاء", True), ("CANCELLED", True), ("ملغى", True),
+                 ("تمت", False), ("مجدولة", False), ("في الطريق", False), ("", False), (None, False), ("مدفوع", False), (123, False)):
+    check(f"_is_cancelled_status({sv!r}) = {want}", app._is_cancelled_status(sv), want)
+
+items, odd, n_total = app.home_remaining_breakdown()
+check("التفاصيل: الزيارات الداخلة في المتبقي (500 + 500 + زيادة الدفع مستبعدة)", (n_total, sorted(i["المتبقي"] for i in items)), (2, [500.0, 500.0]))
+check("التفاصيل: مجموعها = رقم الكرت", sum(i["المتبقي"] for i in items), k2["remaining"])
+check("التفاصيل: الحالات الشاذة اتكشفت وعليها علامة ملغية", odd.get("ملغيه"), (1, True))
+check("التفاصيل: الحالات القياسية مش في قائمة الشاذ", any(x in odd for x in ("تمت", "ملغية", "مجدولة")), False)
+check("التفاصيل بتحترم فلتر الفرع", app.home_remaining_breakdown("La Cite")[2], 0)
 
 # ── ② فشل SQL ───────────────────────────────────────────────────────────────
 print("\n② فشل الاستعلام → الطريقة القديمة")
