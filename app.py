@@ -3438,6 +3438,119 @@ def visit_list_row_html(v):
     )
 
 # ══════════════════════════════════════════════════════════════════════════════
+# 🧾 جدول الزيارات العريض (المرحلة 3 من الواجهة) — عرض تالت جنب «كروت» و«قائمة مدمجة»
+# ──────────────────────────────────────────────────────────────────────────────
+#   • HTML + CSS بس (من غير widgets لكل صف) فمفيش تقل: صفحة واحدة = markdown واحد.
+#   • pills ملوّنة للحالة/الفرع/التحصيل، والإلغاء بأي إملاء بيظهر «ملغية».
+#   • على الشاشات العريضة الصفحة بتتوسّع (CSS :has) — وعلى الموبايل الجدول بيتسحب أفقي
+#     وبيخبّي العنوان والفرع عشان الأهم يتشاف.
+#   • الفتح: اختيار زيارة + زرّين (مش زرار لكل صف) — نفس go() بتاعة الكروت.
+# ══════════════════════════════════════════════════════════════════════════════
+_VT_STATUS = {"تمت": ("#E6F6EC", "#1E8449", "✓"), "في الطريق": ("#FFF0E0", "#C86400", "🚗"),
+              "مجدولة": ("#E7F0FB", "#1F6FB5", "🕒"), "ملغية": ("#FDECEA", "#C0392B", "✕")}
+_VT_PAY = {"مدفوع": ("#E6F6EC", "#1E8449", "✓ مدفوع"), "مدفوع جزئياً": ("#FFF6DD", "#9A6A00", "جزئي"),
+           "غير مدفوع": ("#FDECEA", "#C0392B", "غير مدفوع")}
+_VT_BRANCH = {"lacite": ("#FDEBDD", "#B85C00"), "diamond": ("#E3EEFB", "#1F5FA8")}
+_VT_CSS = (
+    "<style>"
+    ".vt-wrap{direction:rtl;background:#fff;border:1px solid #f0e6dc;border-radius:14px;overflow-x:auto;"
+    "box-shadow:0 1px 3px rgba(0,0,0,.05);margin:4px 0 10px}"
+    ".vt-title{font-size:15px;font-weight:800;color:#222;padding:12px 16px 10px;border-inline-start:4px solid #FF6B00;"
+    "margin:10px 0 2px;line-height:1}"
+    ".vt{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}"
+    ".vt th{background:#F5F6F8;color:#555;font-weight:800;font-size:12px;text-align:right;padding:10px 12px;"
+    "border-top:1px solid #eee;border-bottom:1px solid #eee;white-space:nowrap}"
+    ".vt td{padding:10px 12px;border-bottom:1px solid #f1f1f1;color:#222;vertical-align:middle;text-align:right}"
+    ".vt tr:last-child td{border-bottom:0}"
+    ".vt tbody tr:hover td{background:#FFF8F1}"
+    ".vt-time b{display:block;font-size:13px}.vt-time small{color:#999;font-size:10.5px}.vt-time b,.vt-time small{white-space:nowrap}"
+    ".vt-name{font-weight:700}"
+    ".vt-phone{direction:ltr;unicode-bidi:isolate;text-align:right;white-space:nowrap;color:#444}"
+    ".vt-addr{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#555}"
+    ".vt-num{font-weight:800;white-space:nowrap}"
+    ".vt-pill{display:inline-block;border-radius:999px;padding:3px 11px;font-size:12px;font-weight:700;white-space:nowrap}"
+    ".vt-sub{display:block;color:#9A6A00;font-size:10.5px;margin-top:2px}"
+    ".vt-empty{color:#bbb}"
+    "@media (max-width:640px){.vt .vt-addr,.vt .vt-br{display:none}.vt td,.vt th{padding:9px 8px}}"
+    "@media (min-width:992px){[data-testid='stMainBlockContainer']:has(.vt-wide){max-width:1200px!important}}"
+    "</style>"
+)
+
+def _vt_time(t):
+    """«10:00 AM» → «10:00 ص» (عرض فقط). أي حاجة تانية زي ما هي."""
+    try:
+        return re_module.sub(r"\s*(AM|PM)\s*$", lambda m: " ص" if m.group(1).upper() == "AM" else " م", str(t or "").strip(), flags=re_module.I)
+    except Exception:
+        return str(t or "")
+
+def _vt_row(v, today_iso):
+    status = "ملغية" if _is_cancelled_status(v.get("status")) else str(v.get("status") or "مجدولة")
+    cancelled = status == "ملغية"
+    bg, fg, ic = _VT_STATUS.get(status, ("#EEF0F2", "#555", ""))
+    st_pill = f'<span class="vt-pill" style="background:{bg};color:{fg}">{_esc(status)} {ic}</span>'
+    b = str(v.get("branch") or "")
+    bb, bf = _VT_BRANCH.get(b.strip().lower().replace("é", "e").replace(" ", ""), ("#EEF0F2", "#555"))
+    br_pill = f'<span class="vt-pill" style="background:{bb};color:{bf}">{_esc(b)}</span>' if b else '<span class="vt-empty">—</span>'
+    tot = _to_num(v.get("total_price"))
+    paid = _to_num(v.get("paid_amount"))
+    ps = str(v.get("payment_status") or "غير مدفوع")
+    if cancelled:
+        pay = '<span class="vt-empty">—</span>'
+    else:
+        pb, pf, pl = _VT_PAY.get(ps, ("#EEF0F2", "#555", ps))
+        sub = ""
+        if ps == "مدفوع جزئياً":
+            sub = f'<span class="vt-sub">متبقي {max(tot - paid, 0):,.0f}</span>'
+        pay = f'<span class="vt-pill" style="background:{pb};color:{pf}">{_esc(pl)}</span>{sub}'
+    vd = str(v.get("visit_date") or "")
+    d_show = "اليوم" if vd == today_iso else vd
+    addr = " — ".join(x for x in (str(v.get("district") or ""), str(v.get("address") or "")) if x)
+    addr_attr = _esc(addr).replace('"', "&quot;")     # ★ _esc مابتهرّبش " — وده داخل attribute (title) فلازم يتهرّب
+    return (
+        f'<tr><td class="vt-time"><b>{_esc(_vt_time(v.get("visit_time")))}</b><small>{_esc(d_show)}</small></td>'
+        f'<td class="vt-name">{_esc(str(v.get("name") or ""))}</td>'
+        f'<td class="vt-phone">{_esc(str(v.get("phone") or ""))}</td>'
+        f'<td class="vt-addr" title="{addr_attr}">{_esc(addr) or "—"}</td>'
+        f'<td class="vt-br">{br_pill}</td><td>{st_pill}</td>'
+        f'<td class="vt-num">{tot:,.0f} ج.م</td><td>{pay}</td></tr>')
+
+def visit_table_html(visits, title=""):
+    """جدول الزيارات (HTML واحد). مابيرميش أبداً: صف بايظ بيتخطّى وبيتعدّ في تحذير صغير."""
+    today_iso = date.today().isoformat()
+    rows, bad = [], 0
+    for v in (visits or []):
+        try:
+            rows.append(_vt_row(v, today_iso))
+        except Exception:
+            bad += 1
+    head = ('<tr><th>الوقت</th><th>العميل</th><th>الهاتف</th><th class="vt-addr">العنوان</th>'
+            '<th class="vt-br">الفرع</th><th>الحالة</th><th>الإجمالي</th><th>التحصيل</th></tr>')
+    t = f'<div class="vt-title">{_esc(title)}</div>' if title else ""
+    warn = f'<div style="color:#C0392B;font-size:11px;padding:4px 12px">⚠️ اتخطّينا {bad} صف مش مقروء.</div>' if bad else ""
+    return (_VT_CSS + t + '<div class="vt-wrap"><span class="vt-wide"></span>'
+            f'<table class="vt"><thead>{head}</thead><tbody>{"".join(rows)}</tbody></table></div>' + warn)
+
+def render_visits_table(visits):
+    """الجدول + اختيار زيارة وفتحها (زرّين بس مش زرار لكل صف)."""
+    st.markdown(visit_table_html(visits, title=f"🧾 الزيارات ({len(visits)})"), unsafe_allow_html=True)
+    by_id = {v.get("id"): v for v in visits if v.get("id")}
+    if not by_id:
+        return
+    def _lbl(i):
+        v = by_id.get(i) or {}
+        return f'{_vt_time(v.get("visit_time"))} — {v.get("name","")} — {v.get("phone","")}'
+    st.caption("افتح زيارة من الجدول:")
+    pc1, pc2, pc3 = st.columns([6, 2, 2])
+    with pc1:
+        pick = st.selectbox("زيارة", list(by_id), format_func=_lbl, key="tbl_pick", label_visibility="collapsed")
+    with pc2:
+        if st.button("📂 فتح", key="tbl_open", use_container_width=True):
+            go("detail", visit_id=pick)
+    with pc3:
+        if st.button("👤 بروفايل", key="tbl_profile", use_container_width=True):
+            go("client_profile", client_phone=(by_id.get(pick) or {}).get("phone", ""))
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Navigation
 # ══════════════════════════════════════════════════════════════════════════════
 # ── مفاتيح widgets فورم الزيارة اللي ليها key ثابت ──
@@ -4200,9 +4313,9 @@ if st.session_state.page == "home":
     if not visits:
         st.info("لا توجد زيارات تطابق التصفية.")
     else:
-        vm1, vm2 = st.columns([3,5])
+        vm1, vm2 = st.columns([5,3])
         with vm1:
-            view_mode_main = st.radio("طريقة العرض", ["🗂️ كروت","📋 قائمة مدمجة"], horizontal=True,
+            view_mode_main = st.radio("طريقة العرض", ["🗂️ كروت","📋 قائمة مدمجة","🧾 جدول"], horizontal=True,
                                        key="main_view_mode", label_visibility="collapsed")
         if view_mode_main == "🗂️ كروت":
             for v in visits:
@@ -4214,6 +4327,8 @@ if st.session_state.page == "home":
                 with vc2:
                     if st.button(f"👤 بروفايل", key=f"cp_{v['id']}", use_container_width=True):
                         go("client_profile", client_phone=v.get("phone",""))
+        elif view_mode_main == "🧾 جدول":
+            render_visits_table(visits)
         else:
             for v in visits:
                 lc1, lc2 = st.columns([8,1])
