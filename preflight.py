@@ -36,7 +36,8 @@ print("\n① الملفات الإجبارية")
 REQUIRED = ["app.py", "core.py", "import_rules.py", "sync_guards.py",
             "device_auth.py", "phone_utils.py", "lab_picker.py",
             "labs_price_list.py", "login_theme.py", "easter_eggs.py",
-            "requirements.txt"]
+            "requirements.txt", "pdf_export.py",
+            "fonts/DejaVuSansCondensed.ttf", "fonts/DejaVuSansCondensed-Bold.ttf"]
 missing = [f for f in REQUIRED if not os.path.exists(f)]
 check("كل الملفات موجودة", not missing,
       f"ناقص: {missing}\n       ← البرنامج هيقع بـ ModuleNotFoundError")

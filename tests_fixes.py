@@ -9,6 +9,8 @@ tests_fixes.py — إصلاحات نوفمبر 2026
   ⑤ الفرع والدكتور الافتراضيين حسب الحساب
   ⑥ فحص GitHub دوري مش مع كل ضغطة — والحفظ لسه بيقرا قبل ما يكتب
   ⑦ الزيارات اللي عدّى ميعادها: سؤال بدل التحويل الآلي
+  ⑧ خانة البحث: المسح/الكتابة بيتطبّق من أول مرة
+  ⑨ زرار تصدير PDF (الرئيسية + التقارير)
 
 التشغيل:  python3 tests_fixes.py
 """
@@ -66,7 +68,20 @@ def _selectbox(label="", options=(), index=0, *a, **k):
     return r
 
 
+_orig_text_input = stub.text_input
+
+
+def _text_input(label="", value="", *a, **k):
+    """زي Streamlit: خانة ليها key بترجّع قيمتها من session_state."""
+    r = _orig_text_input(label, value, *a, **k)
+    key = k.get("key")
+    if key and key in stub.session_state:
+        return str(stub.session_state[key])
+    return r
+
+
 stub.button, stub.checkbox, stub.selectbox = _button, _checkbox, _selectbox
+stub.text_input = _text_input
 
 
 def run(page, utype, extra=None, press=(), checks=(), keys=()):
@@ -338,6 +353,56 @@ try:
     run("home", "lacite")
     check("overdue_mode=auto بيرجّع القديم", (stat("o6"), "حصل إيه؟" in texts("markdown")), ("تمت", False))
     SECRETS.pop("overdue_mode")
+
+    # ══════════════════════════════════════════════════════════════════════
+    print("\n⑧ خانة البحث")
+    def _search_call():
+        return [c for c in stub.CALLS if c[0] == "text_input" and c[1] and "بحث" in str(c[1][0])]
+    run("home", "lacite")
+    sc = _search_call()
+    check("الخانة ليها key ثابت ومن غير value متغيّر",
+          (len(sc), sc[0][2].get("key"), "value" in sc[0][2]), (1, "search_box", False))
+    check("أول فتح: الخانة فاضية", stub.session_state.get("search_q"), "")
+    run("home", "lacite", {"search_box": "رئيفة"})
+    check("كتابة اسم → البحث اتطبّق", stub.session_state.get("search_q"), "رئيفة")
+    run("home", "lacite", {"search_q": "رئيفة", "search_box": ""})
+    check("مسح الاسم مرة واحدة → البحث اتلغى", stub.session_state.get("search_q"), "")
+    run("home", "lacite", {"search_q": "رئيفة", "search_box": "خالد"})
+    check("كتابة اسم جديد مرة واحدة → اتطبّق", stub.session_state.get("search_q"), "خالد")
+    run("home", "lacite", {"search_q": "خالد"})          # رجوع من صفحة تانية (Streamlit مسح search_box)
+    check("بعد الرجوع للرئيسية البحث لسه موجود",
+          (stub.session_state.get("search_box"), stub.session_state.get("search_q")), ("خالد", "خالد"))
+
+    # ══════════════════════════════════════════════════════════════════════
+    print("\n⑨ تصدير PDF")
+    app = sys.modules["app"]
+    c = app.get_connection()
+    c.execute("DELETE FROM visits"); c.commit()
+    TODAY = date.today().isoformat()
+    for k_ in range(4):
+        app.insert_visit(base_visit(id=f"x{k_}", visit_date=TODAY, phone=f"0101000000{k_}",
+                                    status="تمت"), sync=False)
+    app.insert_visit(base_visit(id="xd", visit_date=TODAY, phone="01010000009", branch="Diamond"), sync=False)
+    n, pdf, fname, err = app.export_to_pdf(branch_filter="La Cite", date_from=TODAY, date_to=TODAY)
+    check("export_to_pdf: فرع La Cite بس", (n, err, fname, pdf[:4]),
+          (4, "", f"lacite_{TODAY}_{TODAY}.pdf", b"%PDF"))
+    n, pdf, fname, err = app.export_to_pdf(date_from="2001-01-01", date_to="2001-01-02")
+    check("فترة فاضية → مفيش ملف", (n, pdf), (0, None))
+    run("home", "lacite")
+    check("زرار PDF ظاهر في الرئيسية", "— PDF" in texts("button"), True)
+    stub.CALLS.clear()
+    run("home", "lacite", keys=("btn_export_home_pdf",))
+    dl = [c_ for c_ in stub.CALLS if c_[0] == "download_button" and c_[2].get("key") == "dl_home_pdf"]
+    check("ضغط PDF في الرئيسية → زرار تحميل PDF",
+          (len(dl), dl and dl[0][2].get("mime"), dl and str(dl[0][2].get("file_name", "")).endswith(".pdf")),
+          (1, "application/pdf", True))
+    run("home", "lacite", keys=("btn_export_home",))
+    dlx = [c_ for c_ in stub.CALLS if c_[0] == "download_button" and c_[2].get("key") == "dl_home_final"]
+    check("زرار Excel لسه شغال زي الأول", len(dlx), 1)
+    run("reports", "admin", keys=("export_rep_pdf",))
+    dl = [c_ for c_ in stub.CALLS if c_[0] == "download_button" and c_[2].get("key") == "dl_rep_pdf"]
+    check("ضغط PDF في التقارير → زرار تحميل PDF", (len(dl), dl and dl[0][2].get("mime")),
+          (1, "application/pdf"))
 finally:
     os.chdir(HERE)
     shutil.rmtree(workdir, ignore_errors=True)

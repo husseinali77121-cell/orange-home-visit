@@ -3045,6 +3045,55 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
     ws.freeze_panes = "A4"; wb.save(fname)
     return df, fname
 
+def export_to_pdf(branch_filter=None, month=None, year=None, date_from=None, date_to=None):
+    """
+    📄 تصدير PDF — A4 بالعرض، ملء كامل للصفحة من غير حواف.
+    نفس بيانات export_to_excel بالظبط: نفس الفلاتر، نفس الترتيب (الأقدم للأحدث)،
+    نفس الأعمدة والإجماليات وملخص الأطباء. الرسم نفسه في pdf_export.py.
+    Returns: (عدد الزيارات, bytes | None, اسم الملف, رسالة خطأ "")
+    """
+    filters = {}
+    if branch_filter:
+        filters["branch"] = branch_filter
+    if date_from and date_to:
+        filters["date_from"] = str(date_from); filters["date_to"] = str(date_to)
+    elif month and year:
+        filters["month"] = month; filters["year"] = year
+    visits, _ = fetch_visits(filters if filters else None, page=None, page_size=None)
+    visits = sorted(visits, key=lambda v: (
+        str(v.get("visit_date") or ""),
+        _time_key(v.get("visit_time")),
+        str(v.get("created_at") or ""),
+    ))
+    if date_from and date_to:
+        month_label = f"{date_from} → {date_to}"; period = f"{date_from}_{date_to}"
+    elif month and year:
+        month_label = f"{MONTHS_AR[month-1]} {year}"; period = f"{MONTHS_AR[month-1]}_{year}"
+    else:
+        month_label = str(date.today()); period = str(date.today())
+    branch_label = f"فرع {branch_filter}" if branch_filter else "كل الفروع"
+    prefix = "diamond" if branch_filter == "Diamond" else "lacite" if branch_filter == "La Cite" else "visits"
+    fname = f"{prefix}_{period}.pdf"
+    if not visits:
+        return 0, None, fname, ""
+    rows = []
+    for v in visits:
+        v = dict(v)
+        ps = parse_extra_persons(v.get("extra_persons"))
+        v["extra_persons_text"] = "\n".join(
+            extra_person_title(p) + ": " + (" • ".join(p.get("labs", [])) or "بدون تحاليل")
+            for p in ps)
+        rows.append(v)
+    try:
+        import pdf_export
+        data = pdf_export.build_visits_pdf(rows, branch_label, month_label, date.today().isoformat())
+    except ImportError as e:
+        return len(rows), None, fname, (f"مكتبة reportlab مش متثبّتة ({e}) — "
+                                        "لازم تكون موجودة في requirements.txt")
+    except Exception as e:
+        return len(rows), None, fname, f"{type(e).__name__}: {e}"
+    return len(rows), data, fname, ""
+
 # ══════════════════════════════════════════════════════════════════════════════
 # 🔥 دالة الاستيراد الذكية الجديدة (نسخة مقاومة للأخطاء) 🔥
 # ══════════════════════════════════════════════════════════════════════════════
@@ -4314,7 +4363,15 @@ if st.session_state.page == "home":
         pay_opts = ["الكل"] + PAYMENT_STATUS_OPTIONS
         selected_pay = st.selectbox("الدفع", pay_opts, index=0)
     with cf5:
-        search_query = st.text_input("🔍 بحث", value=st.session_state.search_q, placeholder="اسم، تليفون، عنوان، طبيب، رقم الزيارة")
+        # ★ كان: text_input(value=search_q) من غير key → كل ما القيمة تتغيّر، Streamlit
+        #   بيعتبرها خانة **جديدة** (الـ value جزء من هوية الخانة) فأول مسح/كتابة بعد
+        #   البحث كان بيضيع، والاسم يرجع تاني → لازم تمسحه مرتين.
+        #   دلوقتي: الخانة ليها key ثابت. search_q بيفضل محفوظ عشان لو رحت لصفحة تانية
+        #   ورجعت، البحث يرجع زي ما سبته (Streamlit بيمسح key الخانة لما الصفحة تتقفل).
+        if "search_box" not in st.session_state:
+            st.session_state["search_box"] = st.session_state.search_q
+        search_query = st.text_input("🔍 بحث", key="search_box",
+                                     placeholder="اسم، تليفون، عنوان، طبيب، رقم الزيارة")
         st.session_state.search_q = search_query
     filters = {}
     if selected_branch != "الكل": filters["branch"] = selected_branch
@@ -4334,7 +4391,7 @@ if st.session_state.page == "home":
     st.markdown(home_kpi_cards_html(_kpis), unsafe_allow_html=True)
     render_remaining_details(bf_kpi, _kpis)
     if st.session_state.user_type in ["admin","diamond","lacite"]:
-        with st.expander("📤 تصدير إلى Excel", expanded=False):
+        with st.expander("📤 تصدير (Excel / PDF)", expanded=False):
             st.markdown('<div style="font-size:13px;font-weight:700;color:#FF6B00;margin-bottom:8px">📅 اختر فترة التصدير</div>', unsafe_allow_html=True)
             exp_c1, exp_c2 = st.columns(2)
             with exp_c1:
@@ -4349,22 +4406,43 @@ if st.session_state.page == "home":
                 bf_exp = "La Cite"; btn_label = "📤 تصدير زيارات La Cite"
             else:
                 bf_exp = "Diamond"; btn_label = "📤 تصدير زيارات Diamond"
-            if st.button(btn_label, use_container_width=True, key="btn_export_home"):
-                if not exp_from or not exp_to:
-                    st.error("⚠️ من فضلك اختر تاريخ البداية والنهاية")
-                elif exp_from > exp_to:
-                    st.error("⚠️ تاريخ البداية أكبر من تاريخ النهاية!")
-                else:
-                    df_ex, path_ex = export_to_excel(branch_filter=bf_exp, date_from=exp_from.isoformat(), date_to=exp_to.isoformat())
-                    if df_ex.empty:
-                        st.warning("لا توجد زيارات في هذه الفترة.")
+            _xb1, _xb2 = st.columns(2)
+            with _xb1:
+                if st.button(btn_label + " — Excel", use_container_width=True, key="btn_export_home"):
+                    if not exp_from or not exp_to:
+                        st.error("⚠️ من فضلك اختر تاريخ البداية والنهاية")
+                    elif exp_from > exp_to:
+                        st.error("⚠️ تاريخ البداية أكبر من تاريخ النهاية!")
                     else:
-                        period_label = f"{exp_from} → {exp_to}"
-                        prefix = "diamond" if bf_exp=="Diamond" else "lacite" if bf_exp=="La Cite" else "visits"
-                        fname_dl = f"{prefix}_{exp_from}_{exp_to}.xlsx"
-                        with open(path_ex,"rb") as fh:
-                            st.download_button(f"📥 تحميل ({period_label}) — {len(df_ex)} زيارة", data=fh, file_name=fname_dl,
-                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_home_final")
+                        df_ex, path_ex = export_to_excel(branch_filter=bf_exp, date_from=exp_from.isoformat(), date_to=exp_to.isoformat())
+                        if df_ex.empty:
+                            st.warning("لا توجد زيارات في هذه الفترة.")
+                        else:
+                            period_label = f"{exp_from} → {exp_to}"
+                            prefix = "diamond" if bf_exp=="Diamond" else "lacite" if bf_exp=="La Cite" else "visits"
+                            fname_dl = f"{prefix}_{exp_from}_{exp_to}.xlsx"
+                            with open(path_ex,"rb") as fh:
+                                st.download_button(f"📥 تحميل ({period_label}) — {len(df_ex)} زيارة", data=fh, file_name=fname_dl,
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_home_final")
+            with _xb2:
+                # 📄 PDF — نفس الفترة ونفس البيانات، A4 بالعرض ملء الصفحة
+                if st.button(btn_label + " — PDF", use_container_width=True, key="btn_export_home_pdf"):
+                    if not exp_from or not exp_to:
+                        st.error("⚠️ من فضلك اختر تاريخ البداية والنهاية")
+                    elif exp_from > exp_to:
+                        st.error("⚠️ تاريخ البداية أكبر من تاريخ النهاية!")
+                    else:
+                        with st.spinner("بيجهّز ملف الـ PDF..."):
+                            _pn, _pdf, _pname, _perr = export_to_pdf(
+                                branch_filter=bf_exp, date_from=exp_from.isoformat(), date_to=exp_to.isoformat())
+                        if not _pn:
+                            st.warning("لا توجد زيارات في هذه الفترة.")
+                        elif _perr:
+                            st.error("❌ تعذّر عمل الـ PDF: " + _perr)
+                        else:
+                            st.download_button(f"📥 تحميل PDF ({exp_from} → {exp_to}) — {_pn} زيارة",
+                                               data=_pdf, file_name=_pname, mime="application/pdf",
+                                               key="dl_home_pdf")
     if st.session_state.user_type == "admin":
         uf = st.file_uploader("📥 استيراد من Excel", type=["xlsx"], key="import_excel")
         # ★ حارس ضد لوب لانهائي: st.file_uploader بيفضل ماسك الملف بعد st.rerun()،
@@ -5815,17 +5893,35 @@ elif st.session_state.page == "reports":
         exp_c1, exp_c2 = st.columns(2)
         with exp_c1: exp_from_r = st.date_input("من تاريخ", key="rep_exp_from", value=None)
         with exp_c2: exp_to_r   = st.date_input("إلى تاريخ", key="rep_exp_to",   value=date.today())
-        if st.button("📤 تصدير Excel", use_container_width=True, key="export_rep"):
-            if not exp_from_r or not exp_to_r:
-                st.error("اختر التواريخ")
-            else:
-                bf_r = rep_branch if rep_branch else None
-                df_ex, path_ex = export_to_excel(branch_filter=bf_r, date_from=exp_from_r.isoformat(), date_to=exp_to_r.isoformat())
-                if df_ex.empty: st.warning("لا توجد بيانات")
+        _rb1, _rb2 = st.columns(2)
+        with _rb1:
+            if st.button("📤 تصدير Excel", use_container_width=True, key="export_rep"):
+                if not exp_from_r or not exp_to_r:
+                    st.error("اختر التواريخ")
                 else:
-                    with open(path_ex,"rb") as fh:
-                        st.download_button("📥 تحميل Excel", data=fh, file_name=path_ex,
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_rep")
+                    bf_r = rep_branch if rep_branch else None
+                    df_ex, path_ex = export_to_excel(branch_filter=bf_r, date_from=exp_from_r.isoformat(), date_to=exp_to_r.isoformat())
+                    if df_ex.empty: st.warning("لا توجد بيانات")
+                    else:
+                        with open(path_ex,"rb") as fh:
+                            st.download_button("📥 تحميل Excel", data=fh, file_name=path_ex,
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_rep")
+        with _rb2:
+            if st.button("📄 تصدير PDF", use_container_width=True, key="export_rep_pdf"):
+                if not exp_from_r or not exp_to_r:
+                    st.error("اختر التواريخ")
+                elif exp_from_r > exp_to_r:
+                    st.error("⚠️ تاريخ البداية أكبر من تاريخ النهاية!")
+                else:
+                    with st.spinner("بيجهّز ملف الـ PDF..."):
+                        _pn, _pdf, _pname, _perr = export_to_pdf(
+                            branch_filter=(rep_branch if rep_branch else None),
+                            date_from=exp_from_r.isoformat(), date_to=exp_to_r.isoformat())
+                    if not _pn: st.warning("لا توجد بيانات")
+                    elif _perr: st.error("❌ تعذّر عمل الـ PDF: " + _perr)
+                    else:
+                        st.download_button(f"📥 تحميل PDF — {_pn} زيارة", data=_pdf, file_name=_pname,
+                                           mime="application/pdf", key="dl_rep_pdf")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # صفحة Dashboard (الأدمن)

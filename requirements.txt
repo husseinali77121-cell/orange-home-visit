@@ -6,3 +6,5 @@ streamlit>=1.45
 pandas>=2.2
 openpyxl>=3.1
 plotly>=5.20
+# تصدير PDF (pdf_export.py) — الخط العربي مرفق في فولدر fonts/
+reportlab>=4.0

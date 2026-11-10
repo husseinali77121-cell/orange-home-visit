@@ -32,7 +32,7 @@ if python3 - <<'PY'
 import ast, sys
 files = ["app.py","core.py","import_rules.py","sync_guards.py","device_auth.py",
          "phone_utils.py","lab_picker.py","quick_panels.py","doctors_sync.py","email_backup.py","login_theme.py","easter_eggs.py",
-         "labs_price_list.py","tests_pure.py","tests_guards.py","tests_import.py","tests_quick_panels.py","tests_doctors_email.py","tests_archive_index.py","tests_ui_age.py","tests_sidebar.py","tests_table.py","tests_fixes.py",
+         "labs_price_list.py","tests_pure.py","tests_guards.py","tests_import.py","tests_quick_panels.py","tests_doctors_email.py","tests_archive_index.py","tests_ui_age.py","tests_sidebar.py","tests_table.py","tests_fixes.py","tests_pdf.py","pdf_export.py",
          "tests_auth.py","tests_device.py","tests_pages.py","_stub_streamlit.py",
          "mutation_audit.py","repair_data.py"]
 bad = 0
@@ -59,6 +59,7 @@ run_suite "الواجهة (الكروت + الهيدر) + تحديث العمر"
 run_suite "السايدبار الداكن (المرحلة 2)" tests_sidebar.py
 run_suite "جدول الزيارات العريض (المرحلة 3)" tests_table.py
 run_suite "إصلاحات نوفمبر (تتبّع الحفظ · التكرار · التنظيف)" tests_fixes.py
+run_suite "تصدير PDF (A4 ملء الصفحة)" tests_pdf.py
 echo
 echo "③ تنفيذ الصفحات فعليًا"
 run_suite "44 حالة"          tests_pages.py
