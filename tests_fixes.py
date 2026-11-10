@@ -7,6 +7,8 @@ tests_fixes.py — إصلاحات نوفمبر 2026
   ③ تاريخ الدفع مايتغيّرش لما تتعدّل زيارة مدفوعة
   ④ تنظيف البيانات القديمة من جوّه البرنامج
   ⑤ الفرع والدكتور الافتراضيين حسب الحساب
+  ⑥ فحص GitHub دوري مش مع كل ضغطة — والحفظ لسه بيقرا قبل ما يكتب
+  ⑦ الزيارات اللي عدّى ميعادها: سؤال بدل التحويل الآلي
 
 التشغيل:  python3 tests_fixes.py
 """
@@ -67,13 +69,14 @@ def _selectbox(label="", options=(), index=0, *a, **k):
 stub.button, stub.checkbox, stub.selectbox = _button, _checkbox, _selectbox
 
 
-def run(page, utype, extra=None, press=(), checks=()):
+def run(page, utype, extra=None, press=(), checks=(), keys=()):
     """rerun كامل لـ app.py في المجلد الحالي (الـ DB بتفضل بين النداءات)."""
     stub.reset()
     st = stub.install(SECRETS)
     PRESS_LABELS.clear(); PRESS_LABELS.update(press)
     CHECK_KEYS.clear(); CHECK_KEYS.update(checks)
     PICKED.clear()
+    stub.BUTTON_TRUE.update(keys)
     st.session_state.update({
         "authenticated": True, "user_type": utype, "user_email": USERS[utype],
         "page": page, "need_password": False, "_skip_auto_login": True,
@@ -257,6 +260,84 @@ try:
     check("الضغط بيطبّق ويعمل rerun",
           (how, db().execute("SELECT district FROM visits WHERE id='c1'").fetchone()[0]),
           ("rerun", "الحي العاشر"))
+
+    # ══════════════════════════════════════════════════════════════════════
+    print("\n⑥ فحص GitHub الدوري")
+    from datetime import datetime as _dt
+    run("home", "admin")
+    app = sys.modules["app"]
+    seen = app._gh_seen()
+    check("بعد أول رن: اللقطة اتسجّلت", seen["at"] is not None, True)
+    seen["snap"] = {"connected": True, "remote_total": 325, "month_totals": {"2026-11": 17},
+                    "monthly_ready": True, "legacy_total": 325, "last_error": ""}
+    seen["at"] = _dt.now()
+    check("متصل ولسه فاحص: مفيش قراءة جديدة", app._gh_check_due(), False)
+    seen["at"] = _dt.now() - timedelta(minutes=app.GH_RECHECK_MIN, seconds=5)
+    check("بعد مهلة إعادة الفحص: يقرا تاني", app._gh_check_due(), True)
+    seen["snap"]["connected"] = False
+    seen["at"] = _dt.now() - timedelta(seconds=5)
+    check("الاتصال واقع من 5 ث: يستنى", app._gh_check_due(), False)
+    seen["at"] = _dt.now() - timedelta(seconds=25)
+    check("الاتصال واقع من 25 ث: يحاول تاني", app._gh_check_due(), True)
+    seen["snap"]["connected"] = True
+    app._GH_STATE.update(remote_total=None, month_totals={}, monthly_ready=None)
+    check("العرض بياخد من اللقطة لما الحالة فاضية",
+          (app._gh_view("remote_total"), app._gh_view("month_totals"), app._gh_view("monthly_ready")),
+          (325, {"2026-11": 17}, True))
+    app._GH_STATE["remote_total"] = 400
+    check("القيمة الطازة بتكسب اللقطة", app._gh_view("remote_total"), 400)
+    # الحفظ لسه بيقرا GitHub بنفسه قبل الكتابة (اللقطة مابتدخلش في قرار الحفظ)
+    _n_local = app.get_connection().execute(
+        "SELECT COUNT(*) FROM visits WHERE COALESCE(archived,0)=0").fetchone()[0]
+    reads, puts = [], []
+    def _fake_download():
+        reads.append(1)
+        app._GH_STATE["remote_total"] = _n_local
+        return [], 200, ""
+    app._gh_download_visits = _fake_download
+    app._gh_put_json = lambda path, payload, message, expected_sha=None: (puts.append(path) or True)
+    app.GITHUB_TOKEN, app.GITHUB_REPO = "t", "o/r"
+    app._GH_STATE.update(remote_total=None, conflict="")
+    ok = app.save_to_github_json()
+    check("الحفظ: قراءة طازة ثم كتابة", (ok, len(reads) >= 1, len(puts) >= 1), (True, True, True))
+    check("الحفظ الناجح حدّث اللقطة", app._gh_seen()["snap"].get("remote_total"), _n_local)
+    app.GITHUB_TOKEN, app.GITHUB_REPO = "", ""
+
+    # ══════════════════════════════════════════════════════════════════════
+    print("\n⑦ زيارات عدّى ميعادها")
+    c = app.get_connection()
+    c.execute("DELETE FROM visits"); c.commit()
+    YEST = (date.today() - timedelta(days=1)).isoformat()
+    app.insert_visit(base_visit(id="o1", visit_date=YEST, phone="01000000001"), sync=False)
+    app.insert_visit(base_visit(id="o2", visit_date=YEST, phone="01000000002", status="في الطريق"), sync=False)
+    app.insert_visit(base_visit(id="o3", visit_date=YEST, phone="01000000003", status="تمت"), sync=False)
+    app.insert_visit(base_visit(id="o4", visit_date=YEST, phone="01000000004", branch="Diamond"), sync=False)
+    app.insert_visit(base_visit(id="o5", visit_date=TOMORROW, phone="01000000005"), sync=False)
+    app.insert_visit(base_visit(id="o6", visit_date=YEST, phone="01000000006"), sync=False)
+    check("الوضع الافتراضي = سؤال", app.OVERDUE_MODE, "ask")
+    check("المستحق لفرع La Cite", [v["id"] for v in app.fetch_overdue_visits("La Cite")], ["o1", "o2", "o6"])
+    check("المستحق للأدمن (كل الفروع)", len(app.fetch_overdue_visits(None)), 4)
+    stat = lambda i: db().execute("SELECT status FROM visits WHERE id=?", (i,)).fetchone()[0]
+    run("home", "lacite")
+    check("القائمة ظاهرة بالعدد", "عدّى ميعادها — حصل إيه؟ (3)" in texts("markdown"), True)
+    check("مفيش تحويل آلي", (stat("o1"), stat("o2")), ("مجدولة", "في الطريق"))
+    run("home", "diamond")
+    check("Diamond بيشوف زياراته بس", "حصل إيه؟ (1)" in texts("markdown"), True)
+    how = run("home", "lacite", keys=("od_done_o1",))
+    check("✅ تمت", (how, stat("o1")), ("rerun", "تمت"))
+    how = run("today", "lacite", keys=("od_cancel_o2",))
+    check("❌ ملغية (من صفحة اليوم)", (how, stat("o2")), ("rerun", "ملغية"))
+    how = run("home", "lacite", keys=("od_post_o6",))
+    ss = stub.session_state
+    check("⏰ تأجيل بيفتح التعديل", (how, ss.get("page"), (ss.get("prefill") or {}).get("id"),
+                                    (ss.get("prefill") or {}).get("_edit"), stat("o6")),
+          ("rerun", "new", "o6", True, "مجدولة"))
+    run("home", "lacite")
+    check("الباقي في القائمة = 1", "حصل إيه؟ (1)" in texts("markdown"), True)
+    SECRETS["overdue_mode"] = "auto"
+    run("home", "lacite")
+    check("overdue_mode=auto بيرجّع القديم", (stat("o6"), "حصل إيه؟" in texts("markdown")), ("تمت", False))
+    SECRETS.pop("overdue_mode")
 finally:
     os.chdir(HERE)
     shutil.rmtree(workdir, ignore_errors=True)

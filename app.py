@@ -834,6 +834,69 @@ def save_to_github_json():
 #   • فشل  → العدّاد يزيد ويتحفظ السبب → البانر يفضل ظاهر لكل المستخدمين.
 #   • نجاح → العدّاد يتصفّر (الرفع الناجح بيرفع الحالة المحلية كلها، يعني أي
 #            تعديل فشل قبله وصل معاه).
+# ══════════════════════════════════════════════════════════════════════════════
+# 👁️ لقطة حالة GitHub للعرض — عشان مانقراش GitHub مع كل ضغطة
+# ══════════════════════════════════════════════════════════════════════════════
+# قبل كده: _GH_STATE بيتبني من جديد مع كل rerun → "connected" بترجع None →
+# _gh_check_connection() بينزّل كل ملفات الشهور + Visits.json مع **كل ضغطة**
+# (فتح زيارة / فلتر / تنقّل) — قراءة بس، من غير أي كتابة.
+#
+# دلوقتي: نتيجة آخر قراءة بتتحفظ هنا طول عمر الكونتينر، والفحص بيتعاد كل
+# GH_RECHECK_MIN دقيقة بس (أو كل 20 ثانية طول ما الاتصال واقع).
+#
+# ⚠️ اللقطة دي **للعرض فقط** (المؤشر + لوحة الأدمن). مابترجعش في _GH_STATE
+#    غير "connected". يعني save_to_github_json لسه بتلاقي remote_total=None
+#    فبتقرا GitHub بنفسها قبل كل كتابة (الحارس «unverified») — نفس اللي كان
+#    بيحصل بالظبط: قراءة طازة ثم كتابة. مفيش SHA ولا إجمالي قديم بيتستخدم في الحفظ.
+try:
+    GH_RECHECK_MIN = max(1, int(_sec("gh_recheck_min", 10) or 10))
+except Exception:
+    GH_RECHECK_MIN = 10
+_GH_VIEW_KEYS = ("connected", "last_error", "remote_total", "month_totals",
+                 "legacy_total", "monthly_ready")
+
+@st.cache_resource(show_spinner=False)
+def _gh_seen():
+    return {"at": None, "snap": {}}
+
+def _gh_seen_store():
+    """بيحفظ نسخة من حالة GitHub الحالية (بعد قراءة أو حفظ ناجح) للعرض."""
+    try:
+        _s = _gh_seen()
+        _snap = {}
+        for _k in _GH_VIEW_KEYS:
+            _v = _GH_STATE.get(_k)
+            _snap[_k] = dict(_v) if isinstance(_v, dict) else _v
+        _s["snap"] = _snap
+        _s["at"]   = datetime.now()
+    except Exception:
+        pass
+
+def _gh_check_due():
+    """محتاجين نقرا GitHub دلوقتي؟ (أول مرة · الاتصال واقع · عدّت مهلة إعادة الفحص)"""
+    try:
+        _s = _gh_seen()
+        if _s.get("at") is None:
+            return True
+        _age = (datetime.now() - _s["at"]).total_seconds()
+        if _s.get("snap", {}).get("connected") is not True:
+            return _age >= 20
+        return _age >= GH_RECHECK_MIN * 60
+    except Exception:
+        return True
+
+def _gh_view(key, default=None):
+    """قيمة للعرض: الطازة من _GH_STATE لو موجودة في الرن ده، وإلا من آخر لقطة."""
+    _v = _GH_STATE.get(key)
+    if _v not in (None, "", {}):
+        return _v
+    try:
+        _sv = _gh_seen().get("snap", {}).get(key)
+    except Exception:
+        _sv = None
+    return _sv if _sv is not None else (_v if _v is not None else default)
+
+
 @st.cache_resource(show_spinner=False)
 def _save_alert_state():
     return {"unsaved": 0, "why": "", "since": "", "last_ok": ""}
@@ -848,6 +911,7 @@ def _save_to_github_json_tracked():
             _now = datetime.now().isoformat(timespec="seconds")
             if ok:
                 _a.update(unsaved=0, why="", since="", last_ok=_now)
+                _gh_seen_store()      # الحفظ الناجح قرا GitHub لسه حالًا → حدّث لقطة العرض
             else:
                 _a["unsaved"] = int(_a.get("unsaved", 0) or 0) + 1
                 _a["why"]     = (_GH_STATE.get("last_save_blocked")
@@ -1701,6 +1765,13 @@ CITY_OPTIONS = ["6 أكتوبر", "الشيخ زايد", "القاهرة", "ال
 # لإيقاف الخاصية كلها: auto_complete_enabled = false في Secrets.
 AUTO_DONE_ENABLED   = str(_sec("auto_complete_enabled", True)).lower() not in ("false", "0", "no")
 AUTO_DONE_FROM      = ["مجدولة", "في الطريق"]
+# ★ الزيارة اللي عدّى ميعادها: نسأل ولا نحوّل لوحدنا؟
+#   "ask"  (الافتراضي) → بتظهر في قائمة «زيارات عدّى ميعادها — حصل إيه؟» والمستخدم
+#                        يختار: تمت / تأجيل / ملغية. «تمت» بقت معناها إن حد أكّد.
+#   "auto" → السلوك القديم: تتحوّل لـ «تمت» لوحدها بعد المهلة.
+#   للرجوع للقديم من Secrets:  overdue_mode = "auto"
+OVERDUE_MODE = str(_sec("overdue_mode", "ask") or "ask").strip().lower()
+OVERDUE_MAX_SHOWN = 12
 try:
     AUTO_DONE_GRACE_MIN = int(_sec("auto_done_grace_min", 120))
 except Exception:
@@ -2728,6 +2799,72 @@ def auto_complete_due_visits(force=False):
     except Exception as e:
         _GH_STATE["last_error"] = f"auto_complete: {type(e).__name__}: {e}"
         return res
+
+def fetch_overdue_visits(branch=None, now=None):
+    """
+    الزيارات اللي لسه (مجدولة / في الطريق) وعدّى ميعادها + المهلة (AUTO_DONE_GRACE_MIN).
+    نفس شروط التحويل الآلي القديم بالظبط — الفرق إننا بنعرضها ونسأل بدل ما نحوّل.
+    قراءة بس. مرتّبة من الأقدم للأحدث.
+    """
+    now = now or datetime.now()
+    try:
+        _ph = ",".join("?" * len(AUTO_DONE_FROM))
+        q = (f"SELECT * FROM visits WHERE status IN ({_ph}) AND visit_date <= ? "
+             f"AND deleted_at IS NULL AND COALESCE(archived,0)=0")
+        args = [*AUTO_DONE_FROM, now.date().isoformat()]
+        if branch:
+            q += " AND branch=?"; args.append(branch)
+        rows = get_connection().execute(q, args).fetchall()
+    except Exception:
+        return []
+    due = []
+    for r in rows:
+        end = _visit_due_dt(r["visit_date"], r["visit_time"])
+        if end and now >= end + timedelta(minutes=AUTO_DONE_GRACE_MIN):
+            due.append(dict(r))
+    due.sort(key=lambda v: (str(v.get("visit_date") or ""), _time_key(v.get("visit_time"))))
+    return due
+
+
+def render_overdue_prompt(branch=None):
+    """قائمة «زيارات عدّى ميعادها — حصل إيه؟» — ✅ تمت / ⏰ تأجيل / ❌ ملغية."""
+    if OVERDUE_MODE == "auto":
+        return
+    due = fetch_overdue_visits(branch)
+    if not due:
+        return
+    st.markdown(
+        f'<div style="background:#FFF4E5;border:2px solid #F39C12;border-radius:12px;'
+        f'padding:10px 14px;margin:8px 0 4px;direction:rtl;">'
+        f'<div style="color:#B9770E;font-weight:800;font-size:15px;">'
+        f'⏰ زيارات عدّى ميعادها — حصل إيه؟ ({len(due)})</div>'
+        f'<div style="color:#7a5a1c;font-size:12px;margin-top:2px;">'
+        f'الزيارة بتفضل هنا لحد ما تختار: تمت، اتأجلت (هتفتح التعديل تختار ميعاد جديد)، أو ملغية.</div></div>',
+        unsafe_allow_html=True)
+    for v in due[:OVERDUE_MAX_SHOWN]:
+        vid = v["id"]
+        _when = format_date_ar(v.get("visit_date", "")) + (f' — {v.get("visit_time")}' if v.get("visit_time") else "")
+        _br = f' · {_esc(v.get("branch") or "")}' if not branch else ""
+        st.markdown(
+            f'<div style="direction:rtl;font-size:13.5px;margin:8px 2px 2px;">'
+            f'👤 <b>{_esc(v.get("name") or "")}</b> · 📅 {_esc(_when)} · '
+            f'👨‍⚕️ {_esc(v.get("doctor_name") or "—")}{_br}</div>', unsafe_allow_html=True)
+        oc1, oc2, oc3 = st.columns(3)
+        with oc1:
+            if st.button("✅ تمت", key=f"od_done_{vid}", use_container_width=True):
+                st.session_state.pop(f"st_{vid}", None)
+                update_status_only(vid, "تمت"); st.rerun()
+        with oc2:
+            if st.button("⏰ تأجيل", key=f"od_post_{vid}", use_container_width=True):
+                go("new", prefill={**v, "_edit": True})
+        with oc3:
+            if st.button("❌ ملغية", key=f"od_cancel_{vid}", use_container_width=True):
+                st.session_state.pop(f"st_{vid}", None)
+                update_status_only(vid, "ملغية"); st.rerun()
+    if len(due) > OVERDUE_MAX_SHOWN:
+        st.caption(f"… و{len(due) - OVERDUE_MAX_SHOWN} زيارة تانية — هتظهر لما تخلّص اللي فوق.")
+    st.markdown("---")
+
 
 def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, date_to=None):
     from openpyxl import Workbook
@@ -3762,21 +3899,36 @@ _branch_line = _BRANCH_HEADER.get(st.session_state.user_type, "Orange Lab")
 #   لما الشغل البطيء يتنفّذ قبل أول st.markdown، مفيش حاجة اترسمت فمفيش ازدواج.
 #   ملاحظة: التنفيذ بس هو اللي اتنقل — لافتة النتيجة لسه بتتعرض تحت الهيدر.
 _AUTO_DONE = {"changed": 0, "ids": []}
-_may_autodone = (st.session_state.user_type in ("admin", "diamond", "lacite")
+_may_autodone = (OVERDUE_MODE == "auto"
+                 and st.session_state.user_type in ("admin", "diamond", "lacite")
                  and (_BOOT.get("ok") or not (GITHUB_TOKEN and GITHUB_REPO)))
 # الـ spinner يبان بس لو فيه شغل فعلي: أول فحص اتصال، أو انتهت مهلة الـ 60 ثانية
 # بتاعة التحويل الآلي. من غير الشرط ده كان هيرمش في كل رن من غير أي داعي.
 _last_ad = st.session_state.get("_auto_done_last")
 _throttled = bool(_last_ad and (datetime.now() - _last_ad).total_seconds() < 60)
-_show_wait = (_GH_STATE["connected"] is None) or (_may_autodone and not _throttled)
+# ★ فحص الاتصال بقى دوري (كل GH_RECHECK_MIN دقيقة) مش مع كل ضغطة — شوف _gh_seen فوق.
+#   في الرن اللي مفيهوش فحص: "connected" بترجع من آخر لقطة عشان المؤشر والبانرات
+#   يفضلوا صح، وباقي _GH_STATE بيفضل فاضي فالحفظ يقرا GitHub بنفسه قبل ما يكتب.
+_gh_due    = _gh_check_due()
+_show_wait = _gh_due or (_may_autodone and not _throttled)
+
+def _gh_periodic_check():
+    if _gh_due:
+        _gh_check_connection()
+        _gh_seen_store()
+    else:
+        _snap = _gh_seen().get("snap", {})
+        _GH_STATE["connected"] = _snap.get("connected")
+        if _snap.get("connected") is False and not _GH_STATE.get("last_error"):
+            _GH_STATE["last_error"] = _snap.get("last_error") or ""
 
 if _show_wait:
     with st.spinner("⏳ بيزامن مع GitHub..."):
-        _gh_check_connection()
+        _gh_periodic_check()
         if _may_autodone:
             _AUTO_DONE = auto_complete_due_visits()
 else:
-    _gh_check_connection()
+    _gh_periodic_check()
     if _may_autodone:
         _AUTO_DONE = auto_complete_due_visits()
 
@@ -4138,6 +4290,7 @@ st.markdown("---")
 if st.session_state.page == "home":
     if st.session_state.user_type not in ["admin","diamond","lacite"]:
         st.info("ليس لديك صلاحية عرض بيانات الزيارات."); st.stop()
+    render_overdue_prompt({"diamond": "Diamond", "lacite": "La Cite"}.get(st.session_state.user_type))
     conn = get_connection()
     all_doctors  = [r[0] for r in conn.execute("SELECT DISTINCT doctor_name FROM visits WHERE doctor_name!='' AND deleted_at IS NULL").fetchall()]
     all_branches = [r[0] for r in conn.execute("SELECT DISTINCT branch FROM visits WHERE deleted_at IS NULL").fetchall()]
@@ -4296,7 +4449,7 @@ if st.session_state.page == "home":
             st.markdown("**🔄 حالة المزامنة التلقائية**")
             _b = _BOOT if isinstance(_BOOT, dict) else {}
             if _b.get("ok"):
-                _cnt = _GH_STATE.get("remote_total")
+                _cnt = _gh_view("remote_total")
                 st.success(
                     f"✅ اتسحبت من GitHub تلقائيًا وقت تشغيل السيرفر — {_b.get('rows',0)} صف"
                     + (f" | على GitHub دلوقتي: {_cnt} زيارة" if _cnt is not None else "")
@@ -4321,13 +4474,13 @@ if st.session_state.page == "home":
             if not USE_MONTHLY_SYNC:
                 st.info("⏸️ مقفولة — النظام شغال بـ Visits.json الواحد زي الأول.")
             else:
-                _mt = _GH_STATE.get("month_totals") or {}
-                _lg = _GH_STATE.get("legacy_total")
-                if _GH_STATE.get("monthly_ready") is True and _mt:
+                _mt = _gh_view("month_totals") or {}
+                _lg = _gh_view("legacy_total")
+                if _gh_view("monthly_ready") is True and _mt:
                     _rows_md = " • ".join(f"`{m}`: {c}" for m, c in sorted(_mt.items()))
                     st.success(f"✅ {len(_mt)} ملف شهري — إجمالي {sum(_mt.values())} زيارة")
                     st.caption(_rows_md)
-                elif _GH_STATE.get("monthly_ready") is True:
+                elif _gh_view("monthly_ready") is True:
                     st.warning("⚠️ مفيش ملفات شهرية لسه — اضغط «ابدأ الترحيل» تحت (مرة واحدة).")
                 else:
                     st.error("❌ مجلد الشهور مش متقري — " + (_GH_STATE.get("last_error") or ""))
@@ -4513,6 +4666,7 @@ if st.session_state.page == "home":
 elif st.session_state.page == "today":
     if st.session_state.user_type not in ["admin","diamond","lacite"]:
         st.error("غير مصرح."); st.stop()
+    render_overdue_prompt({"diamond": "Diamond", "lacite": "La Cite"}.get(st.session_state.user_type))
     f = {"date_exact": date.today().isoformat()}
     if st.session_state.user_type == "diamond":   f["branch"] = "Diamond"
     elif st.session_state.user_type == "lacite":  f["branch"] = "La Cite"
