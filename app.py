@@ -193,6 +193,12 @@ def _official_price_for(entry):
 #     الدكتور لازم يعرف الأنبوبة دي بتاعة مين قبل ما يسحب.
 #   • السعر بيدخل الإجمالي أوتوماتيك بدل ما يتحسب بالدماغ.
 # التخزين: JSON في عمود TEXT واحد — الزيارة تفضل صف واحد (انتقال واحد، فاتورة واحدة).
+# الفرع والدكتور الافتراضيين لفورم «زيارة جديدة» حسب حساب الفرع اللي داخل.
+# الدكتور لازم يكون اسمه مطابق لاسمه في «إدارة الأطباء» ونشط — غير كده بيتجاهل بأمان.
+NEW_VISIT_DEFAULTS = {
+    "lacite":  ("La Cite", "حسين علي"),
+    "diamond": ("Diamond", "محمد شفيق"),
+}
 XP_MAX = 6   # حد أقصى للحالات الإضافية في الزيارة الواحدة
 
 
@@ -815,6 +821,44 @@ def save_to_github_json():
         _GH_STATE["last_error"] = f"{type(e).__name__}: {e}"
         _GH_STATE["unsaved"] = _GH_STATE.get("unsaved", 0) + 1
         return False
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🔔 متتبّع نتيجة الحفظ — عشان فشل الرفع مايعدّيش من غير ما حد يشوفه
+# ══════════════════════════════════════════════════════════════════════════════
+# المشكلة: _GH_STATE بيتبني من أول وجديد مع كل rerun، وبعد كل حفظ بيحصل st.rerun()
+# → عدّاد «غير مرفوع» بيتصفّر قبل ما البانر الأحمر يترسم، والمؤشر بيرجع أخضر.
+#
+# الحل هنا **مابيلمسش** save_to_github_json ولا أي حاجة في منطق المزامنة:
+# بنلفّ الدالة بغلاف بيسجّل نتيجتها (نجح/فشل) في قاموس عايش طول عمر الكونتينر.
+# الدالة الأصلية بتتنفّذ زي ما هي بالحرف، وبترجّع نفس القيمة.
+#   • فشل  → العدّاد يزيد ويتحفظ السبب → البانر يفضل ظاهر لكل المستخدمين.
+#   • نجاح → العدّاد يتصفّر (الرفع الناجح بيرفع الحالة المحلية كلها، يعني أي
+#            تعديل فشل قبله وصل معاه).
+@st.cache_resource(show_spinner=False)
+def _save_alert_state():
+    return {"unsaved": 0, "why": "", "since": "", "last_ok": ""}
+
+_save_to_github_json_core = save_to_github_json
+
+def _save_to_github_json_tracked():
+    ok = _save_to_github_json_core()
+    try:
+        if GITHUB_TOKEN and GITHUB_REPO:        # من غير أسرار = «محلي فقط»، مش فشل
+            _a = _save_alert_state()
+            _now = datetime.now().isoformat(timespec="seconds")
+            if ok:
+                _a.update(unsaved=0, why="", since="", last_ok=_now)
+            else:
+                _a["unsaved"] = int(_a.get("unsaved", 0) or 0) + 1
+                _a["why"]     = (_GH_STATE.get("last_save_blocked")
+                                 or _GH_STATE.get("last_error") or "")
+                _a["since"]   = _a.get("since") or _now
+    except Exception:
+        pass
+    return ok
+
+save_to_github_json = _save_to_github_json_tracked
+
 
 def force_full_monthly_push():
     """
@@ -1682,6 +1726,82 @@ def _log_audit(user_email, action, table_name, record_id, field_name="", old_val
         conn.commit()
     except Exception as e:
         log_error(user_email, "audit_log", e)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🧹 تنظيف البيانات القديمة (أدمن) — نفس قواعد repair_data.py، بس من جوّه البرنامج
+# ══════════════════════════════════════════════════════════════════════════════
+# repair_data.py بيشتغل على ملفات JSON محليًا ومحتاج git. هنا نفس القواعد (ومن
+# نفس الكود) بتتطبّق على قاعدة البيانات الشغّالة وبتترفع بدالة الحفظ العادية
+# **مرة واحدة** — مفيش مسار حفظ جديد.
+#   • بيصلّح: إملاء المدينة/الحي · مسافات زيادة في اسم الدكتور · رقمين ملزوقين ·
+#             (اختياري) «مدفوع» بمبلغ صفر ← المبلغ = الإجمالي (نفس قاعدة الفورم).
+#   • بيبلّغ بس: زيارات مدفوعة من غير طريقة دفع — مافيش تخمين.
+#   • مابيلمسش الأرشيف ولا أي حقل تاني، وكل تغيير بيتسجّل في سجل التدقيق.
+def data_cleanup_plan():
+    import repair_data as _rd
+    rows = [dict(r) for r in get_connection().execute(
+        "SELECT * FROM visits WHERE COALESCE(archived,0)=0").fetchall()]
+    canon = _rd.build_geo_canon(rows)
+    plan = {"geo": [], "doctor": [], "phone": [], "paid0": [], "no_method": [], "total": len(rows)}
+    for r in rows:
+        vid = r.get("id")
+        for fld in ("city", "district"):
+            old = str(r.get(fld) or "")
+            if old.strip():
+                new = canon.get(normalize_ar(old), clean_text(old))
+                if new != old:
+                    plan["geo"].append((vid, fld, old, new))
+        _doc = str(r.get("doctor_name") or "")
+        if _doc and clean_text(_doc) != _doc:
+            plan["doctor"].append((vid, "doctor_name", _doc, clean_text(_doc)))
+        _raw = str(r.get("phone") or "")
+        if len(re_module.sub(r"\D", "", _raw)) > 13:
+            _pair = _rd.split_glued_phone(_raw)
+            if _pair:
+                plan["phone"].append((vid, _raw, _pair[0], _pair[1], str(r.get("notes") or "")))
+        if not r.get("deleted_at"):
+            _paid = _to_num(r.get("paid_amount")); _tot = _to_num(r.get("total_price"))
+            if r.get("payment_status") == "مدفوع" and _paid == 0 and _tot > 0:
+                plan["paid0"].append((vid, r.get("name", ""), r.get("visit_date", ""), _tot))
+            if r.get("payment_status") == "مدفوع" and not str(r.get("payment_method") or "").strip():
+                plan["no_method"].append((vid, r.get("name", ""), r.get("visit_date", ""),
+                                          r.get("branch", "")))
+    return plan
+
+
+def apply_data_cleanup(plan, fix_paid0=False, user_email=""):
+    """بيطبّق الخطة محليًا ثم رفع واحد. Returns (عدد التغييرات, نتيجة الرفع)."""
+    conn = get_connection()
+    ts = datetime.now().isoformat()
+    n = 0
+    for vid, fld, old, new in list(plan.get("geo", [])) + list(plan.get("doctor", [])):
+        if fld not in ("city", "district", "doctor_name"):
+            continue
+        conn.execute(f"UPDATE visits SET {fld}=?, updated_at=? WHERE id=?", (new, ts, vid))
+        _log_audit(user_email, "cleanup", "visits", vid, field_name=fld,
+                   old_value=old, new_value=new, details="تنظيف البيانات")
+        n += 1
+    for vid, raw, first, second, note in plan.get("phone", []):
+        _tag = f"رقم إضافي: {second}"
+        _note = note.strip()
+        if _tag not in _note:
+            _note = _note + ("\n" if _note else "") + _tag
+        conn.execute("UPDATE visits SET phone=?, notes=?, updated_at=? WHERE id=?",
+                     (first, _note, ts, vid))
+        _log_audit(user_email, "cleanup", "visits", vid, field_name="phone",
+                   old_value=raw, new_value=first, details="فصل رقمين ملزوقين")
+        n += 1
+    if fix_paid0:
+        for vid, _nm, _vd, tot in plan.get("paid0", []):
+            conn.execute("UPDATE visits SET paid_amount=?, updated_at=? WHERE id=?",
+                         (float(tot), ts, vid))
+            _log_audit(user_email, "cleanup", "visits", vid, field_name="paid_amount",
+                       old_value=0, new_value=tot, details="مدفوع بمبلغ صفر ← الإجمالي")
+            n += 1
+    conn.commit()
+    saved = save_to_github_json() if n else None
+    return n, saved
+
 
 def _flush_auth_log():
     """بينزّل أحداث الدخول المطبورة بعد ما الداتابيز تجهز."""
@@ -3564,6 +3684,7 @@ _VISIT_FORM_KEYS = ("city_sel", "city_custom", "district_inp", "hr_sel", "mn_sel
                     "ph_code", "ph_num",   # ★ مفتاح الدولة + الرقم — من غيرهم رقم العميل
                                            #   السابق بيفضل في الخانة مع الزيارة الجديدة اللي
                                            #   بعدها (الودجت اللي ليها key بتعيش في session_state)
+                    "dup_same_day_ok",     # ★ تأكيد «زيارة تانية في نفس اليوم» — مايتنقلش للزيارة اللي بعدها
                     "_egg_rot")            # ★ رقم تدوير التعليقات — يتجدد مع كل فتحة فورم
 
 def go(page, prefill=None, visit_id=None, client_phone=None):
@@ -3716,10 +3837,21 @@ def render_sync_banner():
             if save_to_github_json():
                 st.success("✅ اتدمج واترفع")
             st.rerun()
-    n = _GH_STATE.get("unsaved", 0)
+    # ★ العدّاد الدايم (من متتبّع الحفظ) — بيعيش بعد الـ rerun، عكس _GH_STATE.
+    try:
+        _al = _save_alert_state()
+    except Exception:
+        _al = {}
+    _flash_ok = st.session_state.pop("_retry_save_ok", None)
+    if _flash_ok:
+        st.success("✅ اترفع على GitHub — كل التعديلات محفوظة")
+    n = max(int(_GH_STATE.get("unsaved", 0) or 0), int(_al.get("unsaved", 0) or 0))
     if not n:
         return
-    why = _GH_STATE.get("last_save_blocked") or _GH_STATE.get("last_error") or "سبب غير معروف"
+    why = (_GH_STATE.get("last_save_blocked") or _GH_STATE.get("last_error")
+           or _al.get("why") or "سبب غير معروف")
+    if _al.get("since"):
+        why = f'{why} (من {str(_al["since"])[11:16]})'
     st.markdown(
         f'<div style="background:#4a0d0d;border:2px solid #E74C3C;border-radius:10px;'
         f'padding:12px 14px;margin-bottom:10px;">'
@@ -3730,6 +3862,14 @@ def render_sync_banner():
         f'⚠️ التعديلات دي هتضيع مع أول sleep. روح لـ «نسخ احتياطي واسترجاع» واضغط '
         f'«ارفع الحالة المحلية على GitHub دلوقتي» — أو نزّل نسخة JSON دلوقتي.</div></div>',
         unsafe_allow_html=True)
+    # ★ زر إعادة المحاولة لكل المستخدمين — نفس دالة الحفظ العادية، مفيش مسار جديد.
+    if st.button("🔁 حاول الرفع على GitHub دلوقتي", key="retry_save_banner",
+                 use_container_width=True):
+        with st.spinner("بيرفع على GitHub..."):
+            _rok = save_to_github_json()
+        if _rok:
+            st.session_state["_retry_save_ok"] = True
+        st.rerun()
 if _GH_STATE.get("connected") is False:
     _gh_msg = "⚠️ <b>التخزين السحابي غير متصل</b> — الزيارات الجديدة مش بتتحفظ على GitHub وممكن تضيع عند إعادة التشغيل."
     if st.session_state.user_type == "admin" and _GH_STATE.get("last_error"):
@@ -3772,8 +3912,13 @@ def _sync_chip():
     """(لون, أيقونة, نص) — حالة المزامنة الحقيقية من نفس متغيرات البانرات اللي تحت. مفيش نص ثابت."""
     if _GH_STATE.get("conflict"):
         return "#F39C12", "🟠", "تعارض مزامنة"
-    if _GH_STATE.get("unsaved", 0):
-        return "#E74C3C", "🔴", f'{_GH_STATE.get("unsaved")} تعديل غير مرفوع'
+    try:
+        _un = max(int(_GH_STATE.get("unsaved", 0) or 0),
+                  int(_save_alert_state().get("unsaved", 0) or 0))
+    except Exception:
+        _un = _GH_STATE.get("unsaved", 0)
+    if _un:
+        return "#E74C3C", "🔴", f'{_un} تعديل غير مرفوع'
     if not (GITHUB_TOKEN and GITHUB_REPO):
         return "#95A5A6", "⚪", "محلي فقط"
     if _GH_STATE.get("connected") is False:
@@ -4533,6 +4678,13 @@ elif st.session_state.page == "new":
             st.markdown('<div style="background:#D5F5E3;border:1.5px solid #27AE60;border-radius:10px;padding:8px 14px;margin:6px 0;font-size:13px;color:#1E8449;">🆕 عميل جديد — لم يسبق له زيارة</div>', unsafe_allow_html=True)
     DOCTOR_LIST = get_doctor_names() + ["أخرى..."]
     saved_doc   = pf.get("doctor_name","")
+    # ★ افتراضيات الفرع: زيارة **جديدة** من غير بيانات منقولة → فرع المستخدم ودكتوره
+    #   الأكثر زيارات (La Cite ← حسين علي · Diamond ← محمد شفيق). أي قيمة جاية في
+    #   pf (تعديل / زيارة متكررة / بيانات سابقة) بتكسب زي ما كانت بالظبط، والأدمن
+    #   على السلوك القديم. الاتنين لسه خانات اختيار عادية — يتغيّروا بضغطة.
+    _def_branch, _def_doc = NEW_VISIT_DEFAULTS.get(st.session_state.user_type, ("La Cite", ""))
+    if not saved_doc and not is_edit and _def_doc in DOCTOR_LIST:
+        saved_doc = _def_doc
     doc_index   = DOCTOR_LIST.index(saved_doc) if saved_doc in DOCTOR_LIST else (len(DOCTOR_LIST)-1 if saved_doc else 0)
     doc_col1, doc_col2 = st.columns([3,1])
     with doc_col1:
@@ -4556,7 +4708,7 @@ elif st.session_state.page == "new":
     # ── 🍊 مكان محجوز لتعليق الدكتور — بيتملى بعد ما نعرف التاريخ الفعلي ──
     _egg_doc_slot = st.empty()
 
-    branch    = st.selectbox("🏥 الفرع", ["La Cite","Diamond"], index=0 if pf.get("branch","La Cite")=="La Cite" else 1)
+    branch    = st.selectbox("🏥 الفرع", ["La Cite","Diamond"], index=0 if (pf.get("branch") or _def_branch)=="La Cite" else 1)
     # ── 🍊 مكان محجوز لتعليق الفرع ──
     _egg_branch_slot = st.empty()
     cur_status = pf.get("status","مجدولة")
@@ -4917,6 +5069,32 @@ elif st.session_state.page == "new":
             st.info("ℹ️ المبلغ ده بيغطي الإجمالي كله — الأنسب تختار «مدفوع».")
     else:
         paid_amount = 0
+    # ── 🛑 مانع التكرار: نفس التليفون في نفس اليوم (زيارة جديدة بس) ──
+    #    أغلب الزيارات المحذوفة كانت تكرار لنفس العميل في نفس اليوم. المانع بيوقف
+    #    الحفظ ويعرض الزيارة الموجودة — ولو دي زيارة تانية فعلًا (فرد تاني على نفس
+    #    الرقم مثلًا) خانة التأكيد بتعدّيها. الملغية والمحذوفة مش محسوبين.
+    _dups, _dup_ok = [], True
+    if (not is_edit) and phone and _date_ok:
+        try:
+            _dups = get_connection().execute(
+                "SELECT name, visit_time, status, branch, doctor_name FROM visits "
+                "WHERE phone=? AND visit_date=? AND deleted_at IS NULL "
+                "AND COALESCE(status,'') <> 'ملغية'",
+                (phone, visit_date.isoformat())).fetchall()
+        except Exception:
+            _dups = []
+    if _dups:
+        _dup_lines = "".join(
+            f"<div>• <b>{_esc(d['name'])}</b> — {_esc(d['visit_time'] or 'بدون وقت')} — "
+            f"{_esc(d['status'] or '')} — {_esc(d['branch'] or '')} — {_esc(d['doctor_name'] or '')}</div>"
+            for d in _dups)
+        st.markdown(
+            f'<div style="background:#FDEDEC;border:2px solid #E74C3C;border-radius:12px;'
+            f'padding:10px 14px;margin:8px 0;direction:rtl;color:#333;font-size:13px;line-height:1.9;">'
+            f'<div style="font-weight:800;color:#C0392B;">🛑 الرقم ده عنده زيارة مسجّلة في نفس اليوم '
+            f'({format_date_ar(visit_date.isoformat())})</div>{_dup_lines}</div>',
+            unsafe_allow_html=True)
+        _dup_ok = st.checkbox("دي زيارة تانية فعلًا في نفس اليوم — احفظها", key="dup_same_day_ok")
     if st.button("💾 حفظ الزيارة" if not is_edit else "💾 حفظ التعديلات", use_container_width=True):
         if not egg_allow_save:
             st.error("⛔ التاريخ فايت — اختار الأول من فوق: هتعدّل التاريخ ولا الزيارة دي نسيتها؟")
@@ -4924,6 +5102,9 @@ elif st.session_state.page == "new":
             st.error("⛔ اختر تاريخ الزيارة الأول — الخانة فاضية")
         elif not name or not phone or not address:
             st.error("⚠️ من فضلك املأ الاسم والتليفون والعنوان")
+        elif _dups and not _dup_ok:
+            st.error("⛔ زيارة مكررة: الرقم ده عنده زيارة في نفس اليوم (شوفها فوق الزر). "
+                     "لو دي زيارة تانية فعلًا علّم على خانة التأكيد واحفظ.")
         elif any(p.get("labs") and not str(p.get("name","")).strip() for p in extra_persons_list):
             # ★ حالة ليها تحاليل ومن غير اسم = أنبوبة من غير صاحب. ممنوع تتحفظ.
             st.error("⚠️ في حالة إضافية ليها تحاليل ومن غير اسم — اكتب الاسم أو احذف الحالة")
@@ -4939,6 +5120,16 @@ elif st.session_state.page == "new":
                 st.error(f"⛔ {_p}")
             st.caption("صحّح حالة الدفع أو المبلغ قبل الحفظ.")
         else:
+            # ★ تاريخ الدفع: تعديل زيارة كانت «مدفوع» أصلًا (تصحيح اسم/عنوان...)
+            #   مايغيّرش تاريخ دفعها لتاريخ النهاردة. التاريخ بيتسجّل النهاردة بس
+            #   لما الزيارة **تتحوّل** لمدفوع (أو زيارة جديدة مدفوعة).
+            if new_pay_status == "مدفوع":
+                if is_edit and pf.get("payment_status") == "مدفوع" and pf.get("payment_date"):
+                    _pay_date_val = pf.get("payment_date")
+                else:
+                    _pay_date_val = date.today().isoformat()
+            else:
+                _pay_date_val = pf.get("payment_date", "")
             record = {
                 "id": pf.get("id", uuid_lib.uuid4().hex[:16]),
                 "created_at": pf.get("created_at", datetime.now().isoformat()),
@@ -4958,7 +5149,7 @@ elif st.session_state.page == "new":
                 "status": status,
                 "confirm_name_age": int(confirm_name_age),
                 "payment_status": new_pay_status, "payment_method": new_pay_method,
-                "paid_amount": paid_amount, "payment_date": date.today().isoformat() if new_pay_status=="مدفوع" else pf.get("payment_date",""),
+                "paid_amount": paid_amount, "payment_date": _pay_date_val,
                 "_user": st.session_state.user_email or "",
             }
             if is_edit: update_visit(record); st.success("✅ تم تحديث الزيارة!")
@@ -5717,6 +5908,66 @@ elif st.session_state.page == "dashboard":
                                + (f"، وتحديث {_cu} زيارة موجودة!" if _cu else "!"))
                 else:
                     st.caption("ℹ️ الملف ده اتستورد بالفعل — ارفع ملف تاني أو اضغط ✕ لمسحه.")
+
+    # ── 🧹 تنظيف البيانات القديمة ──
+    with st.expander("🧹 تنظيف البيانات القديمة (إملاء المناطق · أسماء الأطباء · مبالغ الدفع)", expanded=False):
+        _cl_done = st.session_state.pop("_cleanup_done", None)
+        if _cl_done:
+            _cn, _cs = _cl_done
+            if _cs:
+                st.success(f"✅ اتطبّق {_cn} تغيير واترفع على GitHub")
+            else:
+                st.error(f"⚠️ اتطبّق {_cn} تغيير محليًا بس الرفع على GitHub فشل — "
+                         "اضغط «حاول الرفع» في البانر الأحمر فوق.")
+        try:
+            _plan = data_cleanup_plan()
+        except Exception as _ce:
+            _plan = None
+            st.error(f"تعذّر فحص البيانات: {type(_ce).__name__}: {_ce}")
+        if _plan is not None:
+            _n_auto = len(_plan["geo"]) + len(_plan["doctor"]) + len(_plan["phone"])
+            st.caption(f"اتفحصت {_plan['total']} زيارة (غير المؤرشفة). الأرشيف مابيتلمسش.")
+            if _plan["geo"] or _plan["doctor"]:
+                _pairs = Counter((o, n_) for _v, _f, o, n_ in _plan["geo"] + _plan["doctor"])
+                st.markdown(f"**① توحيد الإملاء — {len(_plan['geo']) + len(_plan['doctor'])} خانة**")
+                st.dataframe(pd.DataFrame(
+                    [{"من": f"«{o}»", "إلى": f"«{n_}»", "عدد": c} for (o, n_), c in _pairs.most_common()]),
+                    use_container_width=True, hide_index=True)
+            if _plan["phone"]:
+                st.markdown(f"**② رقمين ملزوقين في خانة واحدة — {len(_plan['phone'])}** "
+                            "(الرقم التاني بيتنقل للملاحظات)")
+            _fix_paid0 = False
+            if _plan["paid0"]:
+                st.markdown(f"**③ «مدفوع» والمبلغ المدفوع صفر — {len(_plan['paid0'])} زيارة**")
+                st.dataframe(pd.DataFrame(
+                    [{"الاسم": nm, "التاريخ": vd, "الإجمالي": tot} for _v, nm, vd, tot in _plan["paid0"]]),
+                    use_container_width=True, hide_index=True)
+                _fix_paid0 = st.checkbox("خلّي المبلغ المدفوع = الإجمالي للزيارات دي", value=True,
+                                         key="cleanup_fix_paid0")
+            if _plan["no_method"]:
+                st.markdown(f"**④ مدفوعة من غير طريقة دفع — {len(_plan['no_method'])} زيارة** "
+                            "(للعلم فقط — بتتصلّح يدويًا من صفحة الزيارة)")
+                st.dataframe(pd.DataFrame(
+                    [{"الاسم": nm, "التاريخ": vd, "الفرع": br} for _v, nm, vd, br in _plan["no_method"]]),
+                    use_container_width=True, hide_index=True)
+            _n_apply = _n_auto + (len(_plan["paid0"]) if _fix_paid0 else 0)
+            if not _n_apply:
+                st.success("✅ مفيش حاجة محتاجة تنظيف.")
+            else:
+                _bk_bytes, _bk_name = backup_to_json()
+                if _bk_bytes:
+                    st.download_button("💾 نزّل نسخة احتياطية الأول (JSON)", data=_bk_bytes,
+                                       file_name=_bk_name, mime="application/json",
+                                       key="cleanup_backup_dl", use_container_width=True)
+                _cl_ok = st.checkbox(f"موافق على تطبيق {_n_apply} تغيير", key="cleanup_confirm")
+                if st.button(f"🧹 طبّق التنظيف ({_n_apply})", key="cleanup_apply",
+                             disabled=not _cl_ok, use_container_width=True):
+                    with st.spinner("بينضّف ويرفع على GitHub..."):
+                        _cn, _cs = apply_data_cleanup(_plan, fix_paid0=_fix_paid0,
+                                                      user_email=st.session_state.user_email or "")
+                    st.session_state["_cleanup_done"] = (_cn, bool(_cs))
+                    st.session_state.pop("cleanup_confirm", None)
+                    st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # صفحة بروفايل العميل
