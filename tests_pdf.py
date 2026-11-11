@@ -50,12 +50,44 @@ def vis(s):
 print("\n② ترتيب العرض")
 check("عربي بس → معكوس للرسم", vis("جنيه"), "هينج")
 check("إنجليزي بس → زي ما هو", vis("Developed by Dr. Hussein Ali"), "Developed by Dr. Hussein Ali")
-check("تحليل + سعر: الكتلة الإنجليزية سليمة", vis("TSH — 330 جنيه"), "هينج TSH — 330")
+check("سطر بيبدأ بإنجليزي → اتجاهه شمال→يمين", vis("TSH — 330 جنيه"), "TSH — 330 هينج")
+check("سطر بيبدأ بعربي → يمين→شمال", vis("جنيه 330"), "330 هينج")
+check("تليفون دولي: + في مكانها", vis("+96590888806"), "+96590888806")
 check("سعر بفاصلة آلاف", vis("53,630 ج"), "ج 53,630")
 check("تاريخ ISO سليم", vis("2026-10-04"), "2026-10-04")
 check("رقم تليفون سليم", vis("01156644842"), "01156644842")
 check("الأقواس بتتعكس في العربي", vis("(الزوج)"), "(جوزلا)")
 check("رقم جوّه كلام عربي", vis("عمارة 74"), "74 ةرامع")
+
+
+def wrapped(text, width):
+    from reportlab.pdfbase.pdfmetrics import stringWidth  # noqa: F401
+    fr, _fb, cmap = pe._fonts()
+    ls = pe._wrap(pe._prep(text, cmap), fr, 7, width)
+    return [unicodedata.normalize("NFKC", pe._visual_span(*x)) for x in ls]
+
+
+print("\n②ب السطور الملفوفة")
+labs = " • ".join(pe._keep(x) for x in ["CBC", "Urine Examination", "Urea", "Creatinine (Serum)",
+                                        "Uric Acid", "Vitamin D3(25 Hydroxy Cholecal.)"])
+L = wrapped(labs, 120)
+check("التحاليل اتلفّت على أكتر من سطر", len(L) > 1, True)
+check("القوس في آخر السطر مابيتعكسش ولا بيتنقل", all(x.count("(") == x.count(")") for x in L), True)
+check("كل سطر بيبدأ بتحليل مش بفاصل", all(not x.strip().startswith("•") for x in L), True)
+check("مفيش تحليل اتقسم على سطرين", any("Creatinine (Serum)" in x for x in L), True)
+L2 = wrapped("مريم احمد — 20 سنة (الابنة): " + labs, 140)
+check("حالة إضافية: اسمها العربي يمين أول سطر", L2[0].rstrip().endswith(
+      unicodedata.normalize("NFKC", pe._visual(pe.shape_ar("مريم")))), True)
+
+print("\n②ج أسعار التحاليل جوّه المربعات")
+check("سعر التحليل بيتشال", pe._item("Vitamin D3(25 Hydroxy Cholecal.) — 1000 جنيه"),
+      "Vitamin D3(25 Hydroxy Cholecal.)")
+check("اسم فيه شرطة مابيتأثرش", pe._item("HOMA1-IR — 550 جنيه"), "HOMA1-IR")
+check("روشتة بشرطة عادية", pe._item("روشتة - 6000"), "روشتة")
+check("من غير سعر = زي ما هو", pe._item("Lipid profile"), "Lipid profile")
+check("الحالات الإضافية: السن بيفضل والأسعار تتشال",
+      pe._cell_text({"extra_persons_text": "هدى — 35 سنة: HbA1C — 400 جنيه • CBC — 400 جنيه"},
+                    "extra_persons_text").replace(pe._NBSP, " "), "هدى — 35 سنة:\nHbA1C • CBC")
 
 # ══════════════════════════════════════════════════════════════════════════════
 import pdfplumber
@@ -97,6 +129,10 @@ P = pages_of(b)
 check("بيبدأ بـ %PDF", b[:4], b"%PDF")
 check("صفحة واحدة لشهر عادي (22 زيارة)", len(P), 1)
 check("A4 بالعرض", (P[0]["w"], P[0]["h"]), (841.9, 595.3))
+check("19 زيارة تقيلة في صفحة واحدة", len(pages_of(pe.build_visits_pdf(
+    [visit(i, selected_labs_text="\n".join(f"Test number {k} — {100 + k} جنيه" for k in range(9)),
+           extra_persons_text=("حالة — 30 سنة: " + " • ".join(f"Lab {k} — 200 جنيه" for k in range(8)))
+           if i % 6 == 0 else "") for i in range(19)], "x", "y", "z"))), 1)
 check("ملء كامل: البلوكات لازقة في الحواف الأربعة",
       P[0]["edges"], (0.0, P[0]["W"], 0.0, P[0]["H"]))
 txt = P[0]["text"]
@@ -120,6 +156,19 @@ check("إيموجي في البيانات مابيكسرش الملف",
       pages_of(pe.build_visits_pdf([visit(1, name="أحمد 🟠😀")], "x", "y", "z"))[0]["w"], 841.9)
 check("قيم فاضية / None", len(pages_of(pe.build_visits_pdf(
     [visit(1, address=None, selected_labs_text=None, total_price=None, status=None)], "x", "y", "z"))), 1)
+
+print("\n③ب ملخص الأطباء مابيتمطّش")
+few = [visit(i) for i in range(3)]
+pe.build_visits_pdf(few, "x", "y", "z")
+with pdfplumber.open(io.BytesIO(pe.build_visits_pdf(few, "x", "y", "z"))) as pdf:
+    pg = pdf.pages[0]
+    words = pg.extract_words()
+    # صفوف ملخص الأطباء = المستطيلات البيضا/الرمادي بعرض الصفحة تحت عنوان الملخص
+    rects = sorted({(round(r["top"], 1), round(r["bottom"], 1)) for r in pg.rects
+                    if r.get("non_stroking_color") in ((1, 1, 1), [1, 1, 1], (0.96, 0.96, 0.96))
+                    and r["width"] > pg.width * 0.9})
+    hs = [b_ - a_ for a_, b_ in rects]
+check("صفوف الأطباء بارتفاع طبيعي (مش متمطّة)", bool(hs) and max(hs) < 30, True)
 
 print("\n④ الصفحات")
 big = [visit(i) for i in range(160)]

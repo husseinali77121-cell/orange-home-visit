@@ -116,7 +116,7 @@ def shape_ar(text):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# ② ترتيب العرض (فقرة اتجاهها يمين→شمال، من غير تضمينات صريحة)
+# ② ترتيب العرض (اتجاه الفقرة من أول حرف قوي، من غير تضمينات صريحة)
 # ══════════════════════════════════════════════════════════════════════════════
 _MIRROR = {"(": ")", ")": "(", "[": "]", "]": "[", "{": "}", "}": "{",
            "<": ">", ">": "<", "«": "»", "»": "«"}
@@ -124,19 +124,35 @@ _NEUTRAL_IN = {"B", "S", "WS", "ON", "BN", "LRE", "RLE", "PDF", "LRO", "RLO",
                "LRI", "RLI", "FSI", "PDI"}
 
 
-def _visual(line):
-    """سطر منطقي → ترتيب الرسم من الشمال لليمين (قواعد W1–W7 و N1–N2 و L2 و L4)."""
-    n = len(line)
-    if not n:
-        return line
-    t = [(_ud.bidirectional(c) or "ON") for c in line]
+_LEVEL_CACHE = {}
+
+
+def _levels(text):
+    """
+    مستويات الاتجاه لفقرة كاملة (خوارزمية Unicode Bidi مختصرة: P2–P3, W1–W7, N1–N2, I1–I2).
+    اتجاه الفقرة من أول حرف قوي فيها (زي «تلقائي» في Word/Excel): سطر تحاليل بيبدأ
+    بإنجليزي = شمال→يمين، عنوان بيبدأ بعربي = يمين→شمال. من غير حروف خالص
+    (تليفون/تاريخ) = شمال→يمين. Returns (base_level, [level per char]).
+    """
+    hit = _LEVEL_CACHE.get(text)
+    if hit is not None:
+        return hit
+    n = len(text)
+    t = [(_ud.bidirectional(c) or "ON") for c in text]
     t = ["ON" if x in _NEUTRAL_IN else x for x in t]
-    prev = "R"                                               # W1
+    base = 0
+    for x in t:                                              # P2 / P3
+        if x == "L":
+            base = 0; break
+        if x in ("R", "AL"):
+            base = 1; break
+    e = "L" if base == 0 else "R"
+    prev = e                                                 # W1
     for i in range(n):
         if t[i] == "NSM":
             t[i] = prev
         prev = t[i]
-    last = "R"                                               # W2
+    last = e                                                 # W2
     for i in range(n):
         if t[i] in ("L", "R", "AL"):
             last = t[i]
@@ -161,7 +177,7 @@ def _visual(line):
         else:
             i += 1
     t = ["ON" if x in ("ES", "ET", "CS") else x for x in t]  # W6
-    last = "R"                                               # W7
+    last = e                                                 # W7
     for i in range(n):
         if t[i] in ("L", "R"):
             last = t[i]
@@ -177,30 +193,62 @@ def _visual(line):
             j = i
             while j < n and _strong(t[j]) is None:
                 j += 1
-            before = _strong(t[i - 1]) if i > 0 else "R"
-            after = _strong(t[j]) if j < n else "R"
-            d = before if before == after else "R"
+            before = _strong(t[i - 1]) if i > 0 else e
+            after = _strong(t[j]) if j < n else e
+            d = before if before == after else e
             for k in range(i, j):
                 t[k] = d
             i = j
         else:
             i += 1
-    lv = [1 if x == "R" else 2 for x in t]                   # L, EN, AN → 2
-    out = list(line)
-    i = 0                                                    # L2: level 2 runs
-    while i < n:
-        if lv[i] >= 2:
-            j = i
-            while j < n and lv[j] >= 2:
-                j += 1
-            out[i:j] = out[i:j][::-1]
-            i = j
-        else:
-            i += 1
-    for i in range(n):                                       # L4: mirroring
-        if lv[i] == 1 and out[i] in _MIRROR:
-            out[i] = _MIRROR[out[i]]
-    return "".join(out[::-1])                                # L2: level 1
+    if base == 0:                                            # I1
+        lv = [0 if x == "L" else (1 if x == "R" else 2) for x in t]
+    else:                                                    # I2
+        lv = [1 if x == "R" else 2 for x in t]
+    out = (base, lv)
+    if len(_LEVEL_CACHE) < 50000:
+        _LEVEL_CACHE[text] = out
+    return out
+
+
+def _reorder(chars, lv, base):
+    """L1 (مسافات آخر السطر = مستوى الفقرة) + L2 (عكس الكتل) + L4 (عكس الأقواس)."""
+    chars, lv = list(chars), list(lv)
+    k = len(chars) - 1
+    while k >= 0 and chars[k] in (" ", _NBSP):
+        lv[k] = base; k -= 1
+    if not chars:
+        return ""
+    for i, c in enumerate(chars):
+        if lv[i] % 2 == 1 and c in _MIRROR:
+            chars[i] = _MIRROR[c]
+    top = max(lv)
+    low = min([x for x in lv if x % 2 == 1] or [top + 1])
+    for level in range(top, low - 1, -1):
+        i, n = 0, len(chars)
+        while i < n:
+            if lv[i] >= level:
+                j = i
+                while j < n and lv[j] >= level:
+                    j += 1
+                chars[i:j] = chars[i:j][::-1]
+                lv[i:j] = lv[i:j][::-1]
+                i = j
+            else:
+                i += 1
+    return "".join(chars)
+
+
+def _visual_span(para, start, end):
+    """سطر = جزء من فقرة: المستويات محسوبة على الفقرة كلها (عشان قوس أو فاصل في آخر
+    السطر ياخد اتجاه الكلام اللي بعده مش اتجاه نهاية السطر)."""
+    base, lv = _levels(para)
+    return _reorder(para[start:end].replace(_NBSP, " "), lv[start:end], base)
+
+
+def _visual(line):
+    """سطر لوحده → ترتيب الرسم من الشمال لليمين."""
+    return _visual_span(line, 0, len(line))
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -277,40 +325,47 @@ def _prep(text, cmap):
 
 
 def _wrap(paragraphs, font, size, max_w):
-    """لفّ كلمات (بالترتيب المنطقي) — كلمة أطول من الخلية بتتكسر حروف."""
-    lines = []
+    """
+    لفّ كلمات بالترتيب المنطقي. Returns [(فقرة, بداية, نهاية)] — كل سطر حتة من
+    فقرته (عشان الاتجاه يتحسب على الفقرة كلها). وحدة non-breaking أعرض من الخلية
+    بتتفك كلمات، وكلمة أعرض من الخلية بتتكسر حروف.
+    """
+    out = []
     sp = _sw(" ", font, size)
     for para in paragraphs:
         if not para:
             continue
-        cur, cur_w = [], 0.0
-        words = []
-        for word in para.split(" "):             # وحدة non-breaking أعرض من الخلية → تتفك
-            if _NBSP in word and _sw(word, font, size) > max_w:
-                words.extend(w_ for w_ in word.split(_NBSP) if w_)
+        toks = []                                # (start, end)
+        for m in re.finditer(r"[^ ]+", para):
+            a, b = m.start(), m.end()
+            if _NBSP in para[a:b] and _sw(para[a:b], font, size) > max_w:
+                for m2 in re.finditer("[^" + _NBSP + "]+", para[a:b]):
+                    toks.append((a + m2.start(), a + m2.end()))
             else:
-                words.append(word)
-        for word in words:
-            ww = _sw(word, font, size)
+                toks.append((a, b))
+        cur_s = cur_e = None
+        cur_w = 0.0
+        for a, b in toks:
+            ww = _sw(para[a:b], font, size)
             if ww > max_w:                       # كلمة مستحيل تدخل → كسر حروف
-                if cur:
-                    lines.append(" ".join(cur)); cur, cur_w = [], 0.0
-                piece = ""
-                for ch in word:
-                    if _sw(piece + ch, font, size) > max_w and piece:
-                        lines.append(piece); piece = ch
-                    else:
-                        piece += ch
-                cur, cur_w = [piece], _sw(piece, font, size)
+                if cur_s is not None:
+                    out.append((para, cur_s, cur_e)); cur_s = None
+                ps = a
+                for k in range(a + 1, b + 1):
+                    if _sw(para[ps:k], font, size) > max_w and k - 1 > ps:
+                        out.append((para, ps, k - 1)); ps = k - 1
+                cur_s, cur_e, cur_w = ps, b, _sw(para[ps:b], font, size)
                 continue
-            add = ww if not cur else cur_w + sp + ww
-            if cur and add > max_w:
-                lines.append(" ".join(cur)); cur, cur_w = [word], ww
+            if cur_s is None:
+                cur_s, cur_e, cur_w = a, b, ww
+            elif cur_w + sp + ww > max_w:
+                out.append((para, cur_s, cur_e))
+                cur_s, cur_e, cur_w = a, b, ww
             else:
-                cur.append(word); cur_w = add
-        if cur:
-            lines.append(" ".join(cur))
-    return lines
+                cur_e, cur_w = b, cur_w + sp + ww
+        if cur_s is not None:
+            out.append((para, cur_s, cur_e))
+    return out
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -392,17 +447,40 @@ def _style(size, bold=False, color="#222222", align="c", fill=None):
     return {"size": size, "bold": bold, "color": color, "align": align, "fill": fill}
 
 
+# سعر كل تحليل جوّه مربع التحاليل والحالات الإضافية: False = أسماء التحاليل بس
+# (زي رسايل الواتساب) — الأسعار موجودة في أعمدة الحسابات. True يرجّع «CBC — 400 جنيه».
+SHOW_ITEM_PRICES = False
+_ITEM_PRICE = re.compile(r"\s*[—–-]\s*\d[\d,٬\.]{1,}\s*(?:جنيه|ج\.?م?|EGP|LE)?\s*$")
+
+
+def _item(x):
+    x = x.strip()
+    return x if SHOW_ITEM_PRICES else (_ITEM_PRICE.sub("", x).strip() or x)
+
+
 def _cell_text(v, k):
-    """قيمة الخلية زي إكسيل — بس التحاليل في سطور متتابعة بفاصل « • » بدل سطر لكل
-    تحليل (نفس المحتوى، الصف بيبقى أقصر بكتير فالشهر كله يدخل في صفحة)."""
+    """قيمة الخلية زي إكسيل — بس التحاليل ورا بعض بفاصل « • » بدل سطر لكل تحليل،
+    ومن غير سعر كل تحليل (SHOW_ITEM_PRICES) عشان الفترة تدخل في أقل صفحات."""
     if k in PRICE_KEYS:
         return money(v.get(k))
     s = _txt(v.get(k))
     if k == "selected_labs_text":
-        s = " • ".join(_keep(x) for x in s.splitlines() if x.strip())
+        s = " • ".join(_keep(_item(x)) for x in s.splitlines() if x.strip())
     elif k == "extra_persons_text":
-        s = "\n".join(" • ".join(_keep(it) for it in ln.split(" • ") if it.strip())
-                      for ln in s.splitlines() if ln.strip())
+        out = []
+        for ln in s.splitlines():
+            if not ln.strip():
+                continue
+            title, sep, labs = ln.partition(": ")
+            if sep:
+                # الاسم (عربي) في سطر والتحاليل (إنجليزي) في سطر لوحدها — كل فقرة
+                # بتاخد اتجاهها الطبيعي، فالأقواس والفواصل مابتتلخبطش على الأطراف.
+                items = [_keep(_item(it)) for it in labs.split(" • ") if it.strip()]
+                out.append(title.strip() + ":")
+                out.append(" • ".join(items))
+            else:
+                out.append(ln.strip())
+        s = "\n".join(out)
     return s
 
 
@@ -421,8 +499,79 @@ def _main_cols(visits):
     return [c for c in MAIN_COLS if has_xp or c[0] != "extra_persons_text"]
 
 
-def _main_widths(cols, visits, f, W, fonts, cmap):
-    """عرض كل عمود: الثابت = أطول قيمة + هامش، والنصي = نصيبه من الباقي بالوزن."""
+def _flex_demand(cols, visits, fonts, cmap):
+    """لكل عمود نصي: عرض كل فقرة في كل خلية بحجم خط 1 + أعرض كلمة (للحد الأدنى)."""
+    fr, _fb = fonts
+    dem, minw = {}, {}
+    for k, _l, _w in cols:
+        if k in FIXED_KEYS:
+            continue
+        rows, mw = [], 0.0
+        for v in visits:
+            paras = [p for p in _prep(_cell_text(v, k), cmap) if p]
+            rows.append([_sw(p.replace(_NBSP, " "), fr, 1.0) for p in paras])
+            for p in paras:
+                for w_ in re.split("[ " + _NBSP + "]", p):
+                    if w_:
+                        mw = max(mw, _sw(w_, fr, 1.0))
+        dem[k], minw[k] = rows, mw
+    return dem, minw
+
+
+def _opt_flex(keys, dem, minw, R, f):
+    """
+    بيوزّع العرض الباقي R على الأعمدة النصية بحيث مجموع ارتفاع الصفوف يبقى أقل ما
+    يمكن (الصف ارتفاعه = أطول خلية فيه). نزول إحداثي: ينقل حتة عرض من عمود لعمود
+    طول ما المجموع بيقل. Returns: {key: width}
+    """
+    import math
+    pad = 2 * max(1.4, f * _PAD) + 0.5
+    n = len(next(iter(dem.values()))) if dem else 0
+    floor_ = {k: min(max(minw[k] * f + pad, R * 0.045), R * 0.32) for k in keys}
+
+    def total(ws):
+        tot = 0
+        for r in range(n):
+            m = 1
+            for k in keys:
+                cw = ws[k] - pad
+                if cw <= 1:
+                    return 1e18
+                ln = 0
+                for pw in dem[k][r]:
+                    ln += max(1, math.ceil(pw * f * 1.04 / cw))
+                if ln > m:
+                    m = ln
+            tot += m
+        return tot
+
+    area = {k: sum(sum(x) for x in dem[k]) * f + 1.0 for k in keys}
+    a_sum = sum(area.values())
+    ws = {k: max(floor_[k], R * area[k] / a_sum) for k in keys}
+    scale = R / sum(ws.values())
+    ws = {k: w * scale for k, w in ws.items()}
+    best = total(ws)
+    for step_frac in (0.08, 0.04, 0.02, 0.01, 0.005):
+        step = R * step_frac
+        for _it in range(40):
+            improved = False
+            for i in keys:
+                for j in keys:
+                    if i == j or ws[j] - step < floor_[j]:
+                        continue
+                    ws[i] += step; ws[j] -= step
+                    t = total(ws)
+                    if t < best:
+                        best, improved = t, True
+                    else:
+                        ws[i] -= step; ws[j] += step
+            if not improved:
+                break
+    return ws
+
+
+def _main_widths(cols, visits, f, W, fonts, cmap, flex=None):
+    """عرض كل عمود: الثابت = أطول قيمة + هامش، والنصي من flex (نسب من الباقي)."""
     fr, fb = fonts
     pad = max(1.4, f * _PAD) * 2 + 1.0
     fixed = {}
@@ -442,9 +591,17 @@ def _main_widths(cols, visits, f, W, fonts, cmap):
     if fsum > W * 0.62:                       # خط كبير جدًا → الأعمدة الثابتة تتقاسم
         fixed = {k: w * W * 0.62 / fsum for k, w in fixed.items()}
         fsum = W * 0.62
-    flex_w = sum(w for k, _l, w in cols if k not in FIXED_KEYS)
     rest = W - fsum
+    if flex:                                  # نسب محسوبة بـ _opt_flex
+        fs = sum(flex.values())
+        return [fixed[k] if k in FIXED_KEYS else rest * flex[k] / fs for k, _l, _w in cols]
+    flex_w = sum(w for k, _l, w in cols if k not in FIXED_KEYS)
     return [fixed[k] if k in FIXED_KEYS else rest * w / flex_w for k, _l, w in cols]
+
+
+def _fixed_sum(cols, visits, f, W, fonts, cmap):
+    ws = _main_widths(cols, visits, f, W, fonts, cmap)
+    return sum(w for (k, _l, _w), w in zip(cols, ws) if k in FIXED_KEYS)
 
 
 def _build_rows(visits, branch_label, period_label, export_date, f, cols):
@@ -508,7 +665,7 @@ def _build_rows(visits, branch_label, period_label, export_date, f, cols):
                 money(allow, True), money(d["transport"], True), money(allow + d["transport"], True)]
         tail.append(_Row("doc", [(i, i, s, _style(f * 1.05, align=("r" if i == 1 else "c")))
                                  for i, s in enumerate(vals)],
-                         WHITE if n_ % 2 == 0 else "#F5F5F5", "docrow", stretch=True))
+                         WHITE if n_ % 2 == 0 else "#F5F5F5", "docrow"))
     t_after = sum(d["after"] for _n, d in docs_sorted)
     t_trans = sum(d["transport"] for _n, d in docs_sorted)
     t_allow = t_after * 0.05
@@ -590,11 +747,18 @@ def build_visits_pdf(visits, branch_label, period_label, export_date,
     fonts = (fr, fb)
 
     cols = _main_cols(visits)
+    flex_keys = [k for k, _l, _w in cols if k not in FIXED_KEYS]
+    dem, minw = _flex_demand(cols, visits, fonts, cmap)
+
+    def flex_at(f):
+        return _opt_flex(flex_keys, dem, minw, W - _fixed_sum(cols, visits, f, W, fonts, cmap), f)
+
+    FLEX = {"ws": flex_at(6.5)}                 # نسب مرجعية — بتتعاد عند الخط النهائي
 
     def layout(f):
         head, col_hdr, data, total, tail = _build_rows(visits, branch_label, period_label,
                                                        export_date, f, cols)
-        widths = {"main": _main_widths(cols, visits, f, W, fonts, cmap),
+        widths = {"main": _main_widths(cols, visits, f, W, fonts, cmap, FLEX["ws"]),
                   "doc": [w for _l, w in DOC_COLS], "full": [1]}
         for r in head + [col_hdr] + data + [total] + tail:
             _measure(r, W, cmap, fonts, widths)
@@ -619,8 +783,15 @@ def build_visits_pdf(visits, branch_label, period_label, export_date,
             f_best = f
             break
         f = round(f - 0.25, 2)
+    _ref = FLEX["ws"]
+    FLEX["ws"] = flex_at(f_best)                # نسب مظبوطة على الخط النهائي
     _p, L = n_pages(f_best)
-    LAST_INFO.update(font=f_best, pages=p_min)
+    if _p > p_min:                              # لو زوّدت صفحات (نادر) → المرجعية
+        FLEX["ws"] = _ref
+        _p, L = n_pages(f_best)
+    LAST_INFO.update(font=f_best, pages=p_min,
+                     widths={k: round(v) for k, v in zip([c[0] for c in cols], L[1].lines and
+                             [x[1] - x[0] for x in L[1].lines] or [])})
     head, col_hdr, data, total, tail, head_h, cont_h, tail_h = L
     data_hs = [r.h for r in data]
 
@@ -662,7 +833,7 @@ def build_visits_pdf(visits, branch_label, period_label, export_date,
             cv.setFillColor(HexColor(st["color"]))
             cv.setFont(font, size)
             for k, ln in enumerate(lines):
-                vis = _visual(ln.replace(_NBSP, " "))
+                vis = _visual_span(*ln)
                 yy = base - k * lh
                 if st["align"] == "r":
                     cv.drawRightString(x_right - pad, yy, vis)
@@ -684,9 +855,10 @@ def build_visits_pdf(visits, branch_label, period_label, export_date,
             rows += tail
         nat = [r.h for r in rows]
         slack = max(0.0, H - sum(nat))
+        # المطّ لصفوف الزيارات بس — ملخص الأطباء والإجماليات بارتفاعهم الطبيعي.
         stretch_ix = [k for k, r in enumerate(rows) if r.stretch]
-        if not stretch_ix:                      # صفحة من غير صفوف بيانات → وزّع على الكل
-            stretch_ix = list(range(len(rows)))
+        if not stretch_ix:                      # صفحة من غير زيارات → المسافة قبل الملخص
+            stretch_ix = [k for k, r in enumerate(rows) if r.kind == "gap"] or [len(rows) - 1]
         hs = list(nat)
         for k in stretch_ix:
             hs[k] += slack / len(stretch_ix)
