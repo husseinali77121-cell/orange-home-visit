@@ -2573,6 +2573,21 @@ def get_doctor_phone(name):
     r = dsync.find_by_name(_doctor_rows(), name)
     return (r or {}).get("phone", "") or ""
 
+def transport_paid_names():
+    """
+    الدكاترة اللي بيتصرفلهم بدل الانتقال (✔ «يحق له بدل الانتقال» في إدارة الأطباء)،
+    بأسماء مطبّعة. فاضي = محدش متعلّم → مفيش تلوين خالص (أأمن من إن الكل يطلع أحمر).
+    """
+    try:
+        return {dsync.norm_name(r["name"]) for r in _doctor_rows()
+                if int(r.get("transport_eligible") or 0) == 1}
+    except Exception:
+        return set()
+
+def _no_transport(name, paid):
+    """الدكتور ده مابيتصرفلوش بدل انتقال؟ (بس لو فيه حد متعلّم أصلًا)"""
+    return bool(paid) and dsync.norm_name(name) not in paid
+
 # ══════════════════════════════════════════════════════════════════════════════
 # 👨‍⚕️ حفظ الأطباء الدائم على GitHub (doctors.json)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2731,6 +2746,273 @@ def complete_follow_up(fu_id):
     conn = get_connection()
     conn.execute("UPDATE follow_ups SET done=1 WHERE id=?",(fu_id,))
     conn.commit()
+
+
+# ════════════════════════════════════════════════════════
+# ☁️ حفظ المتابعات وسجل النشاط على GitHub (followups.json + audit/YYYY-MM.json)
+# ════════════════════════════════════════════════════════
+# قبل كده: الجدولين في الـ SQLite المحلي بس → بيتمسحوا مع كل sleep / إعادة نشر.
+# دلوقتي — نفس فكرة doctors.json بالظبط:
+#   • ملفات منفصلة، ومعزولة تمامًا عن حفظ الزيارات: مابنلمسش أي دالة حفظ/مزامنة،
+#     و _gh_doctors_isolated بترجّع حالة _GH_STATE زي ما كانت (فشل هنا عمره ما
+#     يطلّع بانر الزيارات الأحمر).
+#   • الرفع دايمًا = اللي على GitHub + اللي عندنا (records_sync) → الملف عمره ما يقل.
+#   • المتابعات: بترتفع فورًا مع كل إضافة/إقفال.
+#   • السجل: بيترفع لوحده مع أول ضغطة بعد أي تغيير (مرة كل AUDIT_PUSH_EVERY ثانية بالكتير).
+#   • الإقلاع: بيسحب المتابعات كلها + سجل الشهر الحالي واللي قبله.
+import records_sync as rsync
+import outreach
+import time as _time_rec
+
+GITHUB_FOLLOWUPS_PATH = str(_sec("github_followups_path", "followups.json") or "followups.json")
+GITHUB_AUDIT_DIR = str(_sec("github_audit_dir", "audit") or "audit").strip("/")
+try:
+    AUDIT_PUSH_EVERY = max(5, int(_sec("audit_push_every", 20) or 20))
+except Exception:
+    AUDIT_PUSH_EVERY = 20
+
+
+@st.cache_resource(show_spinner=False)
+def _records_state():
+    return {"audit_pushed_id": 0, "audit_last_try": 0.0, "fu_dirty": False,
+            "fu_err": "", "audit_err": "", "fu_ok_at": "", "audit_ok_at": ""}
+
+
+def _fu_rows():
+    return [dict(r) for r in get_connection().execute("SELECT * FROM follow_ups").fetchall()]
+
+
+def _audit_path(ym):
+    return f"{GITHUB_AUDIT_DIR}/{ym}.json"
+
+
+def _audit_rows_month(ym):
+    return [dict(r) for r in get_connection().execute(
+        "SELECT * FROM audit_log WHERE substr(timestamp,1,7)=?", (ym,)).fetchall()]
+
+
+def push_followups_to_github(reason="update"):
+    """(ok, رسالة خطأ). دمج مع followups.json اللي على GitHub — مابيقلّش أبدًا."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return False, "github_token/github_repo مش موجودين"
+    def _do():
+        err = ""
+        for _ in range(2):
+            sha = _get_github_file_sha(GITHUB_FOLLOWUPS_PATH)
+            payload, status, gerr = _gh_get_json(GITHUB_FOLLOWUPS_PATH)
+            if payload is None and status != 404:
+                return False, f"تعذّر قراءة {GITHUB_FOLLOWUPS_PATH}: {gerr}"      # مانكتبش على أعمى
+            if payload is not None and not (isinstance(payload, dict)
+                                            and isinstance(payload.get("follow_ups"), list)):
+                return False, f"شكل {GITHUB_FOLLOWUPS_PATH} غير معروف — مارفعتش حاجة"
+            remote = payload["follow_ups"] if payload else []
+            merged = rsync.merge_followups(remote, _fu_rows())
+            if not merged or (payload is not None and not rsync.fu_differs(remote, merged)):
+                return True, ""                                   # مفيش جديد → مفيش commit
+            out = {"saved_at": datetime.now().isoformat(), "count": len(merged), "follow_ups": merged}
+            if _gh_put_json(GITHUB_FOLLOWUPS_PATH, out, f"followups: {reason}", expected_sha=sha or ""):
+                return True, ""
+            err = _GH_STATE.get("last_error") or "فشل الرفع"
+        return False, err
+    return _gh_doctors_isolated(_do)
+
+
+def pull_followups_from_github():
+    """يقرا followups.json ويضيف الناقص محليًا (ويقفل اللي اتقفل على جهاز تاني)."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return {"ok": False, "found": False, "applied": 0, "err": "github_token/github_repo مش موجودين"}
+    def _do():
+        payload, status, err = _gh_get_json(GITHUB_FOLLOWUPS_PATH)
+        if payload is None:
+            if status == 404:
+                return {"ok": True, "found": False, "applied": 0, "err": ""}
+            return {"ok": False, "found": False, "applied": 0, "err": err or f"HTTP {status}"}
+        if not (isinstance(payload, dict) and isinstance(payload.get("follow_ups"), list)):
+            return {"ok": False, "found": False, "applied": 0, "err": f"شكل {GITHUB_FOLLOWUPS_PATH} غير معروف"}
+        inserts, mark_done = rsync.plan_fu_pull(_fu_rows(), payload["follow_ups"])
+        conn = get_connection()
+        for r in inserts:
+            conn.execute("INSERT OR IGNORE INTO follow_ups (id,visit_id,client_name,client_phone,"
+                         "follow_up_date,reason,done,created_at,created_by) VALUES (?,?,?,?,?,?,?,?,?)",
+                         tuple(r[k] for k in rsync.FU_FIELDS))
+        for fid in mark_done:
+            conn.execute("UPDATE follow_ups SET done=1 WHERE id=?", (fid,))
+        conn.commit()
+        return {"ok": True, "found": True, "applied": len(inserts) + len(mark_done), "err": ""}
+    return _gh_doctors_isolated(_do)
+
+
+def push_audit_to_github():
+    """(ok, رسالة خطأ, عدد الملفات اللي اتكتبت). بيرفع الشهور اللي فيها سطور جديدة بس."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return False, "github_token/github_repo مش موجودين", 0
+    stt = _records_state()
+    conn = get_connection()
+    max_id = int(conn.execute("SELECT COALESCE(MAX(id),0) FROM audit_log").fetchone()[0] or 0)
+    since = int(stt.get("audit_pushed_id") or 0)
+    if max_id <= since:
+        return True, "", 0
+    months = sorted({r[0] for r in conn.execute(
+        "SELECT DISTINCT substr(timestamp,1,7) FROM audit_log WHERE id>?", (since,)).fetchall()
+        if r[0] and len(r[0]) == 7})
+    def _do():
+        written = 0
+        for ym in months:
+            path, done = _audit_path(ym), False
+            for _ in range(2):
+                sha = _get_github_file_sha(path)
+                payload, status, gerr = _gh_get_json(path)
+                if payload is None and status != 404:
+                    return False, f"تعذّر قراءة {path}: {gerr}", written
+                if payload is not None and not (isinstance(payload, dict)
+                                                and isinstance(payload.get("entries"), list)):
+                    return False, f"شكل {path} غير معروف — مارفعتش حاجة", written
+                remote = payload["entries"] if payload else []
+                merged = rsync.merge_audit(remote, _audit_rows_month(ym))
+                if len(merged) == len(rsync.merge_audit(remote, [])):
+                    done = True; break                            # مفيش جديد
+                out = {"saved_at": datetime.now().isoformat(), "month": ym,
+                       "count": len(merged), "entries": merged}
+                if _gh_put_json(path, out, f"audit: {ym}", expected_sha=sha or ""):
+                    done = True; written += 1; break
+            if not done:
+                return False, _GH_STATE.get("last_error") or "فشل الرفع", written
+        return True, "", written
+    ok, err, n = _gh_doctors_isolated(_do)
+    if ok:
+        stt["audit_pushed_id"] = max_id
+    return ok, err, n
+
+
+def pull_audit_from_github(months):
+    """يضيف سطور السجل اللي على GitHub ومش موجودة محليًا (للشهور المطلوبة)."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return {"ok": False, "applied": 0, "err": "github_token/github_repo مش موجودين"}
+    def _do():
+        applied = 0
+        for ym in months:
+            payload, status, err = _gh_get_json(_audit_path(ym))
+            if payload is None:
+                if status == 404:
+                    continue
+                return {"ok": False, "applied": applied, "err": err or f"HTTP {status}"}
+            if not (isinstance(payload, dict) and isinstance(payload.get("entries"), list)):
+                return {"ok": False, "applied": applied, "err": f"شكل {_audit_path(ym)} غير معروف"}
+            missing = rsync.audit_missing_locally(_audit_rows_month(ym), payload["entries"])
+            conn = get_connection()
+            for r in missing:
+                conn.execute("INSERT INTO audit_log (user_email,action,table_name,record_id,field_name,"
+                             "old_value,new_value,details,timestamp) VALUES (?,?,?,?,?,?,?,?,?)",
+                             tuple(r[k] for k in rsync.AUDIT_FIELDS))
+            conn.commit()
+            applied += len(missing)
+        return {"ok": True, "applied": applied, "err": ""}
+    return _gh_doctors_isolated(_do)
+
+
+def _followups_after_change(reason):
+    """بعد أي إضافة/إقفال متابعة: ارفع فورًا. الفشل بيتسجّل ويتعاد لوحده — مابيرميش أبدًا."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return False
+    stt = _records_state()
+    try:
+        ok, err = push_followups_to_github(reason)
+    except Exception as e:
+        ok, err = False, f"{type(e).__name__}: {e}"
+    stt["fu_dirty"], stt["fu_err"] = (not ok), err
+    if ok:
+        stt["fu_ok_at"] = datetime.now().isoformat(timespec="seconds")
+    return ok
+
+
+# الدالتين الأصليتين زي ما هما بالحرف — الغلاف بيضيف الرفع بعدهم بس.
+_insert_follow_up_core = insert_follow_up
+_complete_follow_up_core = complete_follow_up
+
+
+def insert_follow_up(*a, **k):
+    fu_id = _insert_follow_up_core(*a, **k)
+    _followups_after_change("insert")
+    return fu_id
+
+
+def complete_follow_up(fu_id):
+    _complete_follow_up_core(fu_id)
+    _followups_after_change("done")
+
+
+def _records_tick():
+    """كل rerun: لو فيه سجل/متابعات لسه مارتفعتش وعدّى AUDIT_PUSH_EVERY ثانية → ارفع."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return
+    stt = _records_state()
+    try:
+        max_id = int(get_connection().execute(
+            "SELECT COALESCE(MAX(id),0) FROM audit_log").fetchone()[0] or 0)
+    except Exception:
+        return
+    if not stt.get("fu_dirty") and max_id <= int(stt.get("audit_pushed_id") or 0):
+        return
+    now = _time_rec.time()
+    if now - float(stt.get("audit_last_try") or 0) < AUDIT_PUSH_EVERY:
+        return
+    stt["audit_last_try"] = now
+    if stt.get("fu_dirty"):
+        _followups_after_change("retry")
+    try:
+        ok, err, _n = push_audit_to_github()
+    except Exception as e:
+        ok, err = False, f"{type(e).__name__}: {e}"
+    stt["audit_err"] = "" if ok else err
+    if ok:
+        stt["audit_ok_at"] = datetime.now().isoformat(timespec="seconds")
+
+
+def _records_status(kind):
+    """(نوع, نص) لسطر الحالة: kind = "fu" | "audit"."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return "warn", "⚠️ GitHub مش متوصّل (Secrets) — محفوظة على السيرفر ده بس"
+    stt = _records_state()
+    if kind == "fu":
+        if stt.get("fu_dirty"):
+            return "err", f"⚠️ آخر تعديل في المتابعات لسه مارتفعش على GitHub ({stt.get('fu_err') or 'خطأ'}) — هيتعاد لوحده"
+        return "ok", f"☁️ المتابعات محفوظة على GitHub ({GITHUB_FOLLOWUPS_PATH})"
+    if stt.get("audit_err"):
+        return "err", f"⚠️ السجل لسه مارتفعش على GitHub ({stt['audit_err']}) — هيتعاد لوحده"
+    return "ok", f"☁️ السجل بيتحفظ على GitHub ({GITHUB_AUDIT_DIR}/YYYY-MM.json) كل {AUDIT_PUSH_EVERY} ثانية بالكتير"
+
+
+def _show_records_status(kind):
+    lvl, txt = _records_status(kind)
+    if lvl == "err":
+        st.warning(txt)
+    else:
+        st.caption(txt)
+
+
+@st.cache_resource(show_spinner=False)
+def _boot_pull_records():
+    """مرة لكل كونتينر: اسحب المتابعات + سجل الشهر الحالي واللي قبله."""
+    if not (GITHUB_TOKEN and GITHUB_REPO):
+        return {"ok": True, "skipped": True, "at": _time_rec.time()}
+    try:
+        r1 = pull_followups_from_github()
+        if r1.get("ok") and not r1.get("found") and _fu_rows():
+            ok, err = push_followups_to_github("seed")      # أول مرة: احفظ اللي موجود
+            r1 = {**r1, "seeded": ok, "err": err}
+        ym = date.today().strftime("%Y-%m")
+        r2 = pull_audit_from_github([rsync.prev_month(ym), ym])
+    except Exception as e:
+        return {"ok": False, "err": f"{type(e).__name__}: {e}", "at": _time_rec.time()}
+    # أول رفع للسجل بعد الإقلاع بشوية — مش في نفس أول تحميل للصفحة
+    _records_state()["audit_last_try"] = _time_rec.time()
+    return {"ok": bool(r1.get("ok") and r2.get("ok")), "fu": r1, "audit": r2,
+            "err": r1.get("err") or r2.get("err") or "", "at": _time_rec.time()}
+
+
+_REC_BOOT = _boot_pull_records()
+if not _REC_BOOT.get("ok") and _time_rec.time() - _REC_BOOT.get("at", 0) > 300:
+    _boot_pull_records.clear()          # فشل → يحاول تاني بعد 5 دقايق
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2983,7 +3265,9 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
     n_doc_cols = len(DOC_COLS); DOC_TITLE = TOTAL_ROW+2; DOC_HDR = TOTAL_ROW+3; DOC_DATA = TOTAL_ROW+4
     ws.row_dimensions[TOTAL_ROW+1].height = 16
     ws.merge_cells(start_row=DOC_TITLE,start_column=1,end_row=DOC_TITLE,end_column=n_doc_cols)
-    c = ws.cell(DOC_TITLE,1,"📊 ملخص الأطباء — بدل الزيارات")
+    _tr_paid = transport_paid_names()
+    c = ws.cell(DOC_TITLE,1,"📊 ملخص الأطباء — بدل الزيارات"
+                + ("   ·   بدل الانتقال بالأحمر = مابيتصرفش للدكتور" if _tr_paid else ""))
     c.font = Font(name="Cairo",bold=True,color=WHITE,size=12)
     c.fill = PatternFill("solid",fgColor=DOC_HDR_BG); c.alignment = CENTER; ws.row_dimensions[DOC_TITLE].height = 26
     for ci, label in enumerate(DOC_COLS, 1):
@@ -3008,6 +3292,9 @@ def export_to_excel(branch_filter=None, month=None, year=None, date_from=None, d
             c.font = Font(name="Cairo",size=11); c.fill = PatternFill("solid",fgColor=fc)
             c.border = BORDER; c.alignment = CENTER if ci != 2 else RIGHT
             if ci >= 4: c.number_format = '#,##0.## "ج"'
+            if ci == 6 and _no_transport(doc_name, _tr_paid):     # بدل انتقال مش بيتصرف → أحمر
+                c.font = Font(name="Cairo", size=11, bold=True, color="C0392B")
+                c.fill = PatternFill("solid", fgColor="FDEDEC")
         ws.row_dimensions[ri].height = 22
     n_docs = len(docs_sorted); DOC_TOTAL_ROW = DOC_DATA + n_docs
     tot_after = sum(d["after"] for _,d in docs_sorted)
@@ -3086,7 +3373,8 @@ def export_to_pdf(branch_filter=None, month=None, year=None, date_from=None, dat
         rows.append(v)
     try:
         import pdf_export
-        data = pdf_export.build_visits_pdf(rows, branch_label, month_label, date.today().isoformat())
+        data = pdf_export.build_visits_pdf(rows, branch_label, month_label, date.today().isoformat(),
+                                           transport_paid=transport_paid_names() or None)
     except ImportError as e:
         return len(rows), None, fname, (f"مكتبة reportlab مش متثبّتة ({e}) — "
                                         "لازم تكون موجودة في requirements.txt")
@@ -3981,6 +4269,12 @@ else:
     if _may_autodone:
         _AUTO_DONE = auto_complete_due_visits()
 
+# ☁️ المتابعات + سجل النشاط: رفع اللي لسه مارتفعش (معزول عن حفظ الزيارات)
+try:
+    _records_tick()
+except Exception:
+    pass
+
 # ── Header ──
 st.markdown(f"""<div class="ohv-header">
   <div class="ohv-header-left">
@@ -4813,6 +5107,66 @@ elif st.session_state.page == "today":
                     st.markdown(visit_card_html(v), unsafe_allow_html=True)
                     if st.button(f"📂 فتح {v['name']}", key=f"tdg_{v['id']}", use_container_width=True):
                         go("detail", visit_id=v["id"])
+
+
+    # ── 🔔 تذكير عملاء بكرة ──
+    #    رسالة قصيرة لكل عميل (ميعاد + دكتور + منطقة) — من غير تحاليل ولا أسعار.
+    st.markdown("---")
+    _tm_day = date.today() + timedelta(days=1)
+    _tm_f = {k_: v_ for k_, v_ in f.items() if k_ != "date_exact"}
+    _tm_f["date_exact"] = _tm_day.isoformat()
+    _tm_all, _ = fetch_visits(_tm_f, page=None, page_size=None)
+    _tm_list = outreach.reminder_candidates(_tm_all, _tm_day)
+    with st.expander(f"🔔 تذكير عملاء بكرة — {outreach.day_label(_tm_day)} ({len(_tm_list)})",
+                     expanded=bool(_tm_list)):
+        if not _tm_list:
+            st.info("مفيش زيارات مجدولة بكرة لسه.")
+        for v in _tm_list:
+            rm1, rm2 = st.columns([5, 2])
+            with rm1:
+                _area_s = " / ".join(x_ for x_ in [v.get("city") or "", v.get("district") or ""] if x_)
+                st.markdown(
+                    f'<div class="fu-card">🕐 <b>{_esc(v.get("visit_time") or "بدون وقت")}</b> · '
+                    f'👤 <b>{_esc(v.get("name",""))}</b> · 👨‍⚕️ {_esc(v.get("doctor_name") or "—")}'
+                    f'{" · 📍 " + _esc(_area_s) if _area_s else ""}</div>', unsafe_allow_html=True)
+            with rm2:
+                if v.get("phone"):
+                    st.markdown(f'<a href="{_esc(whatsapp_link(outreach.reminder_message(v), v.get("phone")))}" '
+                                f'target="_blank" rel="noopener" class="wa-btn wa-client" '
+                                f'style="padding:6px 10px;font-size:12px;">📲 تذكير</a>', unsafe_allow_html=True)
+
+    # ── 🩺 كشف اليوم للدكتور ──
+    #    زياراته مرتّبة بالوقت ثم المنطقة + النقدية المطلوب تسليمها آخر اليوم، في رسالة واحدة.
+    with st.expander("🩺 كشف اليوم للدكتور — الزيارات + النقدية", expanded=False):
+        dsc1, dsc2 = st.columns(2)
+        with dsc1:
+            _ds_day = st.date_input("اليوم", value=date.today(), key="ds_day")
+        _ds_day = _ds_day if isinstance(_ds_day, date) else date.today()
+        _ds_f = {k_: v_ for k_, v_ in f.items() if k_ != "date_exact"}
+        _ds_f["date_exact"] = _ds_day.isoformat()
+        _ds_vis, _ = fetch_visits(_ds_f, page=None, page_size=None)
+        _ds_docs = outreach.doctors_on_day(_ds_vis, _ds_day)
+        if not _ds_docs:
+            st.info("مفيش زيارات في اليوم ده.")
+        else:
+            _ds_cnt = dict(_ds_docs)
+            with dsc2:
+                _ds_doc = st.selectbox("الدكتور", [d_ for d_, _n in _ds_docs],
+                                       format_func=lambda d_: f"{d_} ({_ds_cnt.get(d_, 0)} زيارة)",
+                                       key="ds_doc")
+            _ds_text, _ds_sum = outreach.doctor_day_sheet(_ds_vis, _ds_doc, _ds_day, _wa_lab_name)
+            st.markdown(f"""<div class="stat-grid">
+              <div class="stat-box"><div class="stat-num">{_ds_sum['visits']}</div><div class="stat-label">زيارات</div></div>
+              <div class="stat-box"><div class="stat-num">{_ds_sum['cases']}</div><div class="stat-label">حالات</div></div>
+              <div class="stat-box"><div class="stat-num" style="font-size:15px">{_ds_sum['remaining']:,.0f}</div><div class="stat-label">متبقي تحصيله</div></div>
+              <div class="stat-box"><div class="stat-num" style="font-size:15px;color:#27AE60">{_ds_sum['to_hand_over']:,.0f}</div><div class="stat-label">يتسلّم آخر اليوم</div></div>
+            </div>""", unsafe_allow_html=True)
+            _ds_phone = get_doctor_phone(_ds_doc)
+            st.markdown(f'<a href="{_esc(whatsapp_link(_ds_text, _ds_phone or None))}" target="_blank" '
+                        f'rel="noopener" class="wa-btn" style="padding:7px 14px;font-size:13px;">'
+                        f'📲 ابعت الكشف لـ د. {_esc(_ds_doc)}{"" if _ds_phone else " (مفيش رقم مسجّل — اختار الشات)"}</a>',
+                        unsafe_allow_html=True)
+            st.code(_ds_text, language=None)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # صفحة زيارة جديدة / تعديل
@@ -5855,13 +6209,23 @@ elif st.session_state.page == "reports":
                 df_sum = df_sum.sort_values("الزيارات",ascending=False)
                 tc=df_sum["الزيارات"].sum(); tt=df_sum["الإجمالي"].sum()
                 st.markdown(f"**إجمالي:** {tc} زيارة &nbsp;|&nbsp; **الإيراد الكلي:** {format_money(tt)}")
-                st.dataframe(df_sum.style.format({"قبل الخصم":"{:,.0f} ج","بعد الخصم":"{:,.0f} ج","الانتقال":"{:,.0f} ج","الإجمالي":"{:,.0f} ج"}), use_container_width=True)
+                _tr_paid_r = transport_paid_names()
+                def _red_transport(row):
+                    return ["color:#C0392B;font-weight:700;background-color:#FDEDEC"
+                            if (col == "الانتقال" and _no_transport(row["الدكتور"], _tr_paid_r)) else ""
+                            for col in row.index]
+                st.dataframe(df_sum.style.format({"قبل الخصم":"{:,.0f} ج","بعد الخصم":"{:,.0f} ج","الانتقال":"{:,.0f} ج","الإجمالي":"{:,.0f} ج"})
+                             .apply(_red_transport, axis=1), use_container_width=True)
+                if _tr_paid_r:
+                    st.caption("🔴 الانتقال بالأحمر = الدكتور مابيتصرفلوش بدل انتقال (من «إدارة الأطباء» ← يحق له بدل الانتقال).")
                 # تقرير HTML للطباعة
                 period_label_r = f"{MONTHS_AR[rep_month-1]} {rep_year}" if rep_month > 0 else str(rep_year)
                 branch_title_r = f" - فرع {rep_branch}" if rep_branch else ""
                 rows_html = ""
                 for _,row in df_sum.iterrows():
-                    rows_html += f"<tr><td>{row['الدكتور']}</td><td>{row['الزيارات']}</td><td style='color:#27AE60;font-weight:700'>{row['تمت']}</td><td style='color:#E74C3C'>{row['ملغية']}</td><td>{row['قبل الخصم']:,.0f} ج</td><td>{row['بعد الخصم']:,.0f} ج</td><td>{row['الانتقال']:,.0f} ج</td><td><b>{row['الإجمالي']:,.0f} ج</b></td></tr>"
+                    _tr_css = ("color:#C0392B;font-weight:700;background:#FDEDEC"
+                               if _no_transport(row["الدكتور"], _tr_paid_r) else "")
+                    rows_html += f"<tr><td>{row['الدكتور']}</td><td>{row['الزيارات']}</td><td style='color:#27AE60;font-weight:700'>{row['تمت']}</td><td style='color:#E74C3C'>{row['ملغية']}</td><td>{row['قبل الخصم']:,.0f} ج</td><td>{row['بعد الخصم']:,.0f} ج</td><td style='{_tr_css}'>{row['الانتقال']:,.0f} ج</td><td><b>{row['الإجمالي']:,.0f} ج</b></td></tr>"
                 printable_html = f"""<div id="printable-report" style="direction:rtl;font-family:'Cairo',sans-serif;padding:20px;background:white;color:black;">
                     <h1 style="color:#FF6B00;text-align:center;">Orange Lab Home Visit Management System</h1>
                     <h2 style="text-align:center;">تقرير زيارات {period_label_r}{branch_title_r}</h2>
@@ -6443,6 +6807,7 @@ elif st.session_state.page == "follow_ups":
     if st.session_state.user_type not in ["admin","diamond","lacite"]:
         st.error("غير مصرح."); st.stop()
     st.markdown("### ⏰ المتابعات")
+    _show_records_status("fu")
     today_str = date.today().isoformat()
     fu_c1, fu_c2, fu_c3 = st.columns(3)
     with fu_c1:
@@ -6508,6 +6873,51 @@ elif st.session_state.page == "follow_ups":
     if not all_fu_list:
         st.info("لا توجد متابعات في هذه الفترة.")
     st.markdown("---")
+
+    # ── 💤 عملاء مرجعوش ──
+    #    آخر زيارة (غير ملغية) من أكتر من N يوم ومالهمش زيارة جاية. الفرع = فرع آخر زيارة.
+    _lap_branch = {"diamond": "Diamond", "lacite": "La Cite"}.get(st.session_state.user_type)
+    with st.expander("💤 عملاء مرجعوش — رسالة «وحشتنا» على الواتساب", expanded=False):
+        lpc1, lpc2 = st.columns(2)
+        with lpc1:
+            _lap_days = st.selectbox("آخر زيارة من أكتر من", [60, 90, 120, 180, 365], index=1,
+                                     format_func=lambda d_: f"{d_} يوم", key="lap_days")
+        with lpc2:
+            _lap_show = st.selectbox("اعرض أول", [20, 50, 100, 500], index=0, key="lap_show")
+        try:
+            _lap_rows = [dict(r) for r in get_connection().execute(
+                "SELECT id,name,phone,visit_date,branch,doctor_name,status,deleted_at FROM visits"
+            ).fetchall()]
+        except Exception:
+            _lap_rows = []
+        _lapsed = outreach.lapsed_clients(_lap_rows, date.today(), int(_lap_days), _lap_branch)
+        _open_fu = {str(f_.get("client_phone") or "") for f_ in fetch_follow_ups({"done": False})}
+        st.caption(f"{len(_lapsed)} عميل — مرتّبين من الأقرب للأبعد. "
+                   "اللي عنده زيارة جاية مش ظاهر هنا." + (f" (فرع {_lap_branch})" if _lap_branch else ""))
+        for c_ in _lapsed[:int(_lap_show)]:
+            lc_a, lc_b, lc_c = st.columns([5, 2, 2])
+            _has_fu = c_["phone"] in _open_fu
+            with lc_a:
+                st.markdown(
+                    f'<div class="fu-card"><b>👤 {_esc(c_["name"])}</b> — 📞 {_esc(c_["phone"])}<br>'
+                    f'📅 آخر زيارة: {_esc(format_date_ar(c_["last_date"]))} (من {c_["days"]} يوم) · '
+                    f'🔁 {c_["visits"]} زيارة · 👨‍⚕️ {_esc(c_["doctor"] or "—")}'
+                    f'{" · 🏥 " + _esc(c_["branch"]) if not _lap_branch and c_["branch"] else ""}'
+                    f'{" · ⏰ عليه متابعة" if _has_fu else ""}</div>', unsafe_allow_html=True)
+            with lc_b:
+                st.markdown(f'<a href="{_esc(whatsapp_link(outreach.lapsed_message(c_), c_["phone"]))}" '
+                            f'target="_blank" rel="noopener" class="wa-btn wa-client" '
+                            f'style="padding:6px 10px;font-size:12px;">📲 وحشتنا</a>', unsafe_allow_html=True)
+            with lc_c:
+                if not _has_fu and st.button("⏰ متابعة", key=f"lap_fu_{c_['phone']}", use_container_width=True):
+                    insert_follow_up(c_["last_id"], c_["name"], c_["phone"], date.today().isoformat(),
+                                     f"عميل مرجعش من {c_['days']} يوم — اتبعتله «وحشتنا»",
+                                     created_by=st.session_state.user_email or "")
+                    st.rerun()
+        if len(_lapsed) > int(_lap_show):
+            st.caption(f"… و{len(_lapsed) - int(_lap_show)} عميل تاني — كبّر «اعرض أول».")
+
+    st.markdown("---")
     if st.button("← رجوع للرئيسية", use_container_width=True): go("home")
 
 
@@ -6523,6 +6933,7 @@ elif st.session_state.page == "audit":
         st.error("⛔ الصفحة دي للأدمن بس.")
     else:
         st.caption("كل تعديل على الزيارات بيتسجّل هنا: مين، وإمتى، وإيه اللي اتغيّر من إيه لإيه.")
+        _show_records_status("audit")
 
         af1, af2, af3 = st.columns(3)
         with af1:

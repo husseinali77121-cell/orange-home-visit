@@ -604,7 +604,19 @@ def _fixed_sum(cols, visits, f, W, fonts, cmap):
     return sum(w for (k, _l, _w), w in zip(cols, ws) if k in FIXED_KEYS)
 
 
-def _build_rows(visits, branch_label, period_label, export_date, f, cols):
+RED_TXT, RED_BG = "#C0392B", "#FDEDEC"
+TRANSPORT_NOTE = "بدل الانتقال بالأحمر = مابيتصرفش للدكتور"
+
+
+def _norm(name):
+    try:
+        from doctors_sync import norm_name
+        return norm_name(name)
+    except Exception:
+        return str(name or "").strip()
+
+
+def _build_rows(visits, branch_label, period_label, export_date, f, cols, transport_paid=None):
     """كل الصفوف بحجم خط أساسي f (من غير قياس)."""
     title_s = _style(f * 1.55, True, WHITE)
     sub_s = _style(f * 1.05, True, ORANGE)
@@ -655,17 +667,25 @@ def _build_rows(visits, branch_label, period_label, export_date, f, cols):
     docs_sorted = sorted(docs.items(), key=lambda x: x[1]["count"], reverse=True)
     tail = [
         _Row("full", [(0, 0, "", _style(f))], WHITE, "gap"),
-        _Row("full", [(0, 0, "ملخص الأطباء — بدل الزيارات", _style(f * 1.15, True, WHITE))],
-             DARK, "doctitle"),
+        _Row("full", [(0, 0, "ملخص الأطباء — بدل الزيارات"
+                       + (f"   ·   {TRANSPORT_NOTE}" if transport_paid else ""),
+                       _style(f * 1.15, True, WHITE))], DARK, "doctitle"),
         _Row("doc", [(i, i, lbl, hdr_s) for i, (lbl, _w) in enumerate(DOC_COLS)], DARK, "dochdr"),
     ]
     for n_, (dname, d) in enumerate(docs_sorted):
         allow = d["after"] * 0.05
         vals = [str(n_ + 1), dname, str(d["count"]), money(d["after"], True),
                 money(allow, True), money(d["transport"], True), money(allow + d["transport"], True)]
-        tail.append(_Row("doc", [(i, i, s, _style(f * 1.05, align=("r" if i == 1 else "c")))
-                                 for i, s in enumerate(vals)],
-                         WHITE if n_ % 2 == 0 else "#F5F5F5", "docrow"))
+        # بدل الانتقال بالأحمر للدكتور اللي مابيتصرفلوش (الرقم نفسه زي ما هو — المدير
+        # المالي محتاج يشوف الانتقالات كلها، وبيصرفها بس للي «يحق له بدل الانتقال»).
+        no_tr = bool(transport_paid) and _norm(dname) not in transport_paid
+        cells = []
+        for i, s_ in enumerate(vals):
+            if i == 5 and no_tr:
+                cells.append((i, i, s_, _style(f * 1.05, True, RED_TXT, "c", RED_BG)))
+            else:
+                cells.append((i, i, s_, _style(f * 1.05, align=("r" if i == 1 else "c"))))
+        tail.append(_Row("doc", cells, WHITE if n_ % 2 == 0 else "#F5F5F5", "docrow"))
     t_after = sum(d["after"] for _n, d in docs_sorted)
     t_trans = sum(d["transport"] for _n, d in docs_sorted)
     t_allow = t_after * 0.05
@@ -733,9 +753,11 @@ def _paginate(head_h, cont_h, hdr_h, data_hs, tail_h, cap):
 
 
 def build_visits_pdf(visits, branch_label, period_label, export_date,
-                     f_min=5.5, f_max=13.0):
+                     f_min=5.5, f_max=13.0, transport_paid=None):
     """
     visits: list of dicts (نفس مفاتيح جدول الزيارات + extra_persons_text مقروء)
+    transport_paid: أسماء الدكاترة (مطبّعة بـ doctors_sync.norm_name) اللي بيتصرفلهم بدل
+        انتقال — الباقيين خانة بدل الانتقال بتاعتهم بالأحمر. None/فاضي = من غير تلوين.
     Returns: bytes (PDF)
     """
     from reportlab.lib.pagesizes import A4, landscape
@@ -757,7 +779,7 @@ def build_visits_pdf(visits, branch_label, period_label, export_date,
 
     def layout(f):
         head, col_hdr, data, total, tail = _build_rows(visits, branch_label, period_label,
-                                                       export_date, f, cols)
+                                                       export_date, f, cols, transport_paid)
         widths = {"main": _main_widths(cols, visits, f, W, fonts, cmap, FLEX["ws"]),
                   "doc": [w for _l, w in DOC_COLS], "full": [1]}
         for r in head + [col_hdr] + data + [total] + tail:
